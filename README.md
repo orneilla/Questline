@@ -33,10 +33,17 @@ npm run dev
 ### Déploiement Vercel
 
 L'application est à la **racine du dépôt** : le *Root Directory* de Vercel reste
-`./` (valeur par défaut, aucun sous-dossier à renseigner). Le framework est
-détecté seul, il n'y a ni `vercel.json` ni commande de build à personnaliser.
+`./` (valeur par défaut, aucun sous-dossier à renseigner).
 
-Trois points à vérifier côté Vercel :
+Le `vercel.json` à la racine force `framework: nextjs`. Il est là pour une
+raison précise : un projet Vercel créé alors que la branche de production ne
+contenait pas encore d'application se voit attribuer le préréglage *Other*, et
+le garde. Le déploiement réussit alors — Vercel publie le dépôt comme un site
+statique — mais aucune route n'existe et **toutes les pages répondent
+`404: NOT_FOUND`**. Les réglages de `vercel.json` priment sur ceux du tableau de
+bord, ce qui corrige le cas sans y toucher.
+
+Points à vérifier côté Vercel :
 
 1. **Production Branch** — Settings › Git. Vercel ne déploie en production que
    cette branche ; si l'application n'y est pas encore, le domaine répond
@@ -45,7 +52,10 @@ Trois points à vérifier côté Vercel :
    `DATABASE_URL` et `APP_PASSWORD`, cochées pour *Production* **et** *Preview*.
    Sans `APP_PASSWORD`, la page de connexion s'affiche et indique ce qui manque ;
    aucune session ne peut être ouverte.
-3. **Migrations** — elles ne sont pas jouées par le déploiement. Il faut lancer
+3. **Output Directory** — Settings › Build and Deployment. Doit rester sur sa
+   valeur par défaut ; un remplacement manuel hérité du préréglage *Other*
+   n'est pas neutralisé par `vercel.json` et suffit à reproduire le 404.
+4. **Migrations** — elles ne sont pas jouées par le déploiement. Il faut lancer
    `npm run db:migrate` (puis `npm run db:seed` la première fois) contre la base
    Neon, depuis un poste ayant la bonne `DATABASE_URL`.
 
