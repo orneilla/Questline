@@ -55,9 +55,28 @@ Points à vérifier côté Vercel :
 3. **Output Directory** — Settings › Build and Deployment. Doit rester sur sa
    valeur par défaut ; un remplacement manuel hérité du préréglage *Other*
    n'est pas neutralisé par `vercel.json` et suffit à reproduire le 404.
-4. **Migrations** — elles ne sont pas jouées par le déploiement. Il faut lancer
-   `npm run db:migrate` (puis `npm run db:seed` la première fois) contre la base
-   Neon, depuis un poste ayant la bonne `DATABASE_URL`.
+
+### Installer la base depuis un navigateur
+
+Le déploiement ne joue pas les migrations. Sans terminal, tout passe par une
+adresse à ouvrir une fois :
+
+```
+https://<domaine>/api/setup?key=<clé>
+```
+
+Elle applique les migrations en attente, puis écrit le catalogue si la base est
+vierge. La rejouer ne casse rien : les migrations déjà passées sont ignorées et
+le catalogue n'est écrit qu'une fois — un second appel répond « Déjà installé »
+sans toucher aux validations ni au momentum.
+
+La clé par défaut est dans `src/app/api/setup/route.ts`. Définir `SETUP_KEY`
+dans Vercel la remplace ; sur un dépôt public, c'est la seule façon de la garder
+secrète. La route reste hors de la garde de session — elle doit répondre alors
+qu'aucune table n'existe encore.
+
+Quand la base n'est pas prête, l'application ne plante pas : les écrans Jour et
+Semaine affichent un message qui dit ce qui manque.
 
 Le build ne dépend d'aucune variable : la connexion à la base n'est ouverte qu'à
 la première requête, jamais à la compilation.

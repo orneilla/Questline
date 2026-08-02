@@ -3,17 +3,26 @@ import Link from "next/link";
 
 import { BarresMomentum } from "@/components/barres-momentum";
 import { BasculeJourBas } from "@/components/bascule-jour-bas";
+import { EcranInstallation } from "@/components/ecran-installation";
 import { ListeQuetes } from "@/components/liste-quetes";
 import { PhraseDuSoir } from "@/components/phrase-du-soir";
 import { libelleCharge } from "@/lib/charge";
 import { formaterDateLongue } from "@/lib/dates";
-import { chargerJour } from "@/lib/jour";
+import { diagnostiquer } from "@/lib/erreurs";
+import { chargerJour, type EtatJour } from "@/lib/jour";
 
 export const metadata: Metadata = { title: "Questline" };
 export const dynamic = "force-dynamic";
 
 export default async function PageJour() {
-  const etat = await chargerJour();
+  let etat: EtatJour;
+  try {
+    etat = await chargerJour();
+  } catch (erreur) {
+    const probleme = diagnostiquer(erreur);
+    if (!probleme) throw erreur;
+    return <EcranInstallation probleme={probleme} />;
+  }
 
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-md flex-col gap-11 px-6 pt-[calc(env(safe-area-inset-top)+2.75rem)] pb-[calc(env(safe-area-inset-bottom)+3.5rem)]">

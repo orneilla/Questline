@@ -5,10 +5,12 @@ import {
   FormulaireEvenement,
   FormulaireRecurrent,
 } from "@/components/formulaires-semaine";
+import { EcranInstallation } from "@/components/ecran-installation";
 import { GrilleSemaine } from "@/components/grille-semaine";
 import { MOIS } from "@/lib/constantes";
 import { aujourdhui, jourDeLaSemaine } from "@/lib/dates";
-import { chargerSemaine } from "@/lib/semaine";
+import { diagnostiquer } from "@/lib/erreurs";
+import { chargerSemaine, type JourSemaine } from "@/lib/semaine";
 
 export const metadata: Metadata = { title: "Questline — Semaine" };
 export const dynamic = "force-dynamic";
@@ -22,7 +24,15 @@ function intervalle(debut: string, fin: string): string {
 }
 
 export default async function PageSemaine() {
-  const jours = await chargerSemaine();
+  let jours: JourSemaine[];
+  try {
+    jours = await chargerSemaine();
+  } catch (erreur) {
+    const probleme = diagnostiquer(erreur);
+    if (!probleme) throw erreur;
+    return <EcranInstallation probleme={probleme} />;
+  }
+
   const cejour = aujourdhui();
 
   return (

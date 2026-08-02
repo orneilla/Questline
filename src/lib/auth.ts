@@ -46,7 +46,7 @@ async function empreinte(valeur: string): Promise<string> {
 }
 
 /** Comparaison à temps constant, sur des empreintes de longueur fixe. */
-async function egalConstant(a: string, b: string): Promise<boolean> {
+export async function egalConstant(a: string, b: string): Promise<boolean> {
   const [ha, hb] = await Promise.all([empreinte(a), empreinte(b)]);
   if (ha.length !== hb.length) return false;
   let diff = 0;

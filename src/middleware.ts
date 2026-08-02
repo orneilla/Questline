@@ -27,5 +27,9 @@ export async function middleware(requete: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|icones|manifest.webmanifest).*)"],
+  matcher: [
+    // /api/setup en est exclue : elle doit rester atteignable alors qu'aucune
+    // table n'existe encore, donc avant toute possibilité de session.
+    "/((?!api/setup|_next/static|_next/image|favicon.ico|icones|manifest.webmanifest).*)",
+  ],
 };
