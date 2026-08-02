@@ -74,7 +74,9 @@ export function ListeQuetes({ quetes, faites }: Props) {
                 {quete.titre}
               </span>
               <span className="mt-1.5 block text-[12.5px] text-tres-doux">
-                {quete.arcNom} · {quete.dureeMin} min
+                {/* Une durée nulle signale une quête d'ambiance, sans créneau. */}
+                {quete.arcNom} ·{" "}
+                {quete.dureeMin > 0 ? `${quete.dureeMin} min` : "au fil du jour"}
                 {quete.minimale ? " · minimale" : ""}
               </span>
             </span>

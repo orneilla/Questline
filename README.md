@@ -15,7 +15,7 @@ via Drizzle ORM. Déploiement Vercel.
 npm install
 cp .env.example .env      # renseigner DATABASE_URL et APP_PASSWORD
 npm run db:migrate        # applique drizzle/0000_init.sql
-npm run db:seed           # jeu de test (efface le contenu existant)
+npm run db:seed           # charge les arcs, quêtes et créneaux réels
 npm run dev
 ```
 
@@ -38,7 +38,7 @@ npm run dev
 | `npm run build`       | Build de production                                  |
 | `npm run db:generate` | Régénère une migration après modification du schéma  |
 | `npm run db:migrate`  | Applique les migrations                              |
-| `npm run db:seed`     | Réécrit un jeu de données de test                    |
+| `npm run db:seed`     | Charge le catalogue réel (refuse d'écraser l'existant) |
 | `npm run icones`      | Regénère les icônes PWA                              |
 
 ---
@@ -47,31 +47,50 @@ npm run dev
 
 - **Connexion** — un seul mot de passe, cookie `httpOnly` signé (HMAC-SHA256)
   valable 90 jours, vérifié par le middleware sur toutes les routes.
-- **Écran du jour** — date et salutation, les quêtes du jour, les cinq barres
+- **Écran du jour** — date et salutation, les quêtes du jour, les six barres
   de momentum, la bascule « jour bas », la phrase du soir en enregistrement
   automatique.
 - **PWA** — manifest, icônes, mode standalone, thème sombre.
+
+## Les piliers
+
+`deen` · `corps` · `table` · `savoir` · `oeuvre` · `seve`
+
+Huit arcs les traversent — `savoir` et `corps` en portent deux chacun.
 
 ## Les deux règles qui comptent
 
 ### Sélection des quêtes
 
-La charge de la journée est **lue dans les créneaux**, jamais saisie à la main :
+La charge de la journée est **lue dans les créneaux et le calendrier**, jamais
+saisie à la main :
 
-| Journée                     | Quêtes proposées                   |
-| --------------------------- | ---------------------------------- |
-| Un créneau `shift`          | 1 quête, courte (≤ 30 min)         |
-| Un créneau `cours`          | 2 quêtes, sur 2 piliers            |
-| Aucun des deux (jour libre) | 3 quêtes, sur 3 piliers différents |
-| Mode « jour bas »           | 1 quête `minimale`                 |
+| Journée                          | Quêtes proposées                   |
+| -------------------------------- | ---------------------------------- |
+| Un créneau `shift`               | 1 quête, courte (≤ 30 min)         |
+| Jour allégé, ou créneau `cours`  | 2 quêtes, sur 2 piliers            |
+| Ni l'un ni l'autre (jour libre)  | 3 quêtes, sur 3 piliers différents |
+| Mode « jour bas »                | 1 quête `minimale`                 |
 
-Les créneaux de `priere` structurent la journée sans la charger. Dans tous les
-cas, **les piliers au momentum le plus bas passent devant**, et ce qui a déjà
-été validé aujourd'hui compte dans le quota : une journée ne s'étire pas.
+Les jours allégés d'office sont le **dimanche et le lundi** — récupération
+après le shift de nuit du samedi (22 h – 4 h). Le dimanche portant en plus son
+propre shift du soir, il retombe de toute façon sur une seule quête. Les
+créneaux de `priere` structurent la journée sans la charger.
 
-Sont écartées : les quêtes déjà faites du jour, celles dont le jour figure dans
-`joursExclus`, les hebdomadaires validées il y a moins de sept jours et les
-ponctuelles déjà accomplies.
+Dans tous les cas, **les piliers au momentum le plus bas passent devant**, et ce
+qui a déjà été validé aujourd'hui compte dans le quota : une journée ne s'étire
+pas. À momentum égal — le premier jour, tout est à zéro — l'ordre déclaré des
+piliers tranche, pour que la sélection ne bouge pas d'un rafraîchissement à
+l'autre.
+
+Chaque quête porte une **fréquence hebdomadaire** (`frequenceSem`, 1 à 7) :
+une quête à 3 fois par semaine ne ressort pas une quatrième fois. Le compte se
+fait sur une fenêtre glissante de sept jours, pas sur la semaine civile — aucun
+lundi ne remet les compteurs à plat.
+
+Sont aussi écartées : les quêtes déjà faites du jour et celles dont le jour
+figure dans `joursExclus`. Une durée de `0` min signale une quête d'ambiance,
+sans créneau dédié (marcher, boire de l'eau, journée sans ultra-transformé).
 
 ### Momentum
 
@@ -115,3 +134,18 @@ scripts/            seed et génération d'icônes
 
 `momentum.ts` et `selection.ts` ne touchent pas la base : toute la règle du jeu
 y est vérifiable sans Postgres.
+
+## Le seed
+
+`npm run db:seed` charge les 8 arcs, 28 quêtes et 3 créneaux réels, et crée les
+lignes de momentum à zéro — aucun historique inventé.
+
+Le script **refuse de tourner si le catalogue existe déjà** : supprimer les
+quêtes effacerait en cascade les validations. Pour le remplacer volontairement :
+
+```bash
+FORCE=1 npm run db:seed
+```
+
+Le momentum n'est jamais écrasé : les lignes manquantes sont créées, les
+existantes laissées telles quelles.

@@ -1,19 +1,21 @@
 import type { Pilier } from "@/db/schema";
 
 export const PILIERS: readonly Pilier[] = [
-  "corps",
   "deen",
-  "academique",
-  "ornacre",
-  "nutrition",
+  "corps",
+  "table",
+  "savoir",
+  "oeuvre",
+  "seve",
 ] as const;
 
 export const LIBELLES_PILIERS: Record<Pilier, string> = {
-  corps: "Corps",
   deen: "Deen",
-  academique: "Académique",
-  ornacre: "Ornacre",
-  nutrition: "Nutrition",
+  corps: "Corps",
+  table: "Table",
+  savoir: "Savoir",
+  oeuvre: "Œuvre",
+  seve: "Sève",
 };
 
 /**
@@ -21,11 +23,12 @@ export const LIBELLES_PILIERS: Record<Pilier, string> = {
  * crier. Aucune couleur d'alerte, aucun rouge.
  */
 export const COULEURS_PILIERS: Record<Pilier, string> = {
-  corps: "#8FA37E",
-  deen: "#6FA396",
-  academique: "#7E92B8",
-  ornacre: "#C0996A",
-  nutrition: "#B58A93",
+  deen: "#6fa396",
+  corps: "#8fa37e",
+  table: "#c0826c",
+  savoir: "#7e92b8",
+  oeuvre: "#c2a567",
+  seve: "#9c8fb4",
 };
 
 /** Plafond d'affichage de l'élan. */
@@ -40,12 +43,22 @@ export const SEUIL_REPRISE_JOURS = 2;
 /** Au-delà, une quête n'est plus « courte ». */
 export const SEUIL_QUETE_COURTE_MIN = 30;
 
+/** Fenêtre glissante sur laquelle se compte la fréquence hebdomadaire. */
+export const FENETRE_FREQUENCE_JOURS = 7;
+
 /** Nombre de quêtes proposées selon la charge de la journée. */
-export const QUOTA_QUETES: Record<"libre" | "cours" | "shift", number> = {
+export const QUOTA_QUETES: Record<"libre" | "reduit" | "shift", number> = {
   libre: 3,
-  cours: 2,
+  reduit: 2,
   shift: 1,
 };
+
+/**
+ * Jours allégés d'office : récupération après le shift de nuit du samedi
+ * (22 h – 4 h). Le dimanche porte en plus son propre shift du soir, ce qui
+ * l'allège davantage encore.
+ */
+export const JOURS_ALLEGES: readonly number[] = [0, 1];
 
 export const JOURS_SEMAINE = [
   "dimanche",

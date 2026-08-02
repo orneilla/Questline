@@ -12,13 +12,14 @@ import {
   uniqueIndex,
 } from "drizzle-orm/pg-core";
 
-/** Les 5 piliers de la progression. */
+/** Les 6 piliers de la progression. */
 export const pilierEnum = pgEnum("pilier", [
-  "corps",
   "deen",
-  "academique",
-  "ornacre",
-  "nutrition",
+  "corps",
+  "table",
+  "savoir",
+  "oeuvre",
+  "seve",
 ]);
 
 /** Nature d'un créneau bloqué dans la semaine. */
@@ -28,15 +29,8 @@ export const typeCreneauEnum = pgEnum("type_creneau", [
   "priere",
 ]);
 
-/** Rythme attendu d'une quête. */
-export const recurrenceEnum = pgEnum("recurrence", [
-  "quotidienne",
-  "hebdomadaire",
-  "ponctuelle",
-]);
-
-/** Charge de la journée, déduite des créneaux. */
-export const typeJourEnum = pgEnum("type_jour", ["libre", "cours", "shift"]);
+/** Charge de la journée, déduite des créneaux et du jour de la semaine. */
+export const typeJourEnum = pgEnum("type_jour", ["libre", "reduit", "shift"]);
 
 /** Un arc = un chantier de vie long, rattaché à un pilier. */
 export const arcs = pgTable("arcs", {
@@ -58,8 +52,10 @@ export const quetes = pgTable(
       .references(() => arcs.id, { onDelete: "cascade" }),
     titre: text("titre").notNull(),
     poids: integer("poids").notNull().default(3),
+    /** Durée en minutes. 0 = quête d'ambiance, sans créneau dédié. */
     dureeMin: integer("duree_min").notNull().default(20),
-    recurrence: recurrenceEnum("recurrence").notNull().default("quotidienne"),
+    /** Nombre de fois par semaine où la quête doit revenir (1 à 7). */
+    frequenceSem: integer("frequence_sem").notNull().default(7),
     /** Jours de la semaine où la quête ne doit jamais sortir (0 = dimanche). */
     joursExclus: integer("jours_exclus").array().notNull().default([]),
     /** Éligible en mode « jour bas » : la version minimale du geste. */
@@ -77,6 +73,7 @@ export const creneaux = pgTable(
     /** 0 = dimanche … 6 = samedi. */
     jourSemaine: integer("jour_semaine").notNull(),
     debut: time("debut").notNull(),
+    /** Une fin antérieure au début signifie que le créneau passe minuit. */
     fin: time("fin").notNull(),
   },
   (table) => [index("creneaux_jour_semaine_idx").on(table.jourSemaine)],

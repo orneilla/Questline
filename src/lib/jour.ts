@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, eq, gt, lte, max } from "drizzle-orm";
+import { and, count, eq, gt, gte, lte, max } from "drizzle-orm";
 
 import { db } from "@/db";
 import {
@@ -14,8 +14,8 @@ import {
   type Journee,
   type Pilier,
 } from "@/db/schema";
-import { PILIERS } from "./constantes";
-import { aujourdhui, ecartJours, heureLocale, salutation } from "./dates";
+import { FENETRE_FREQUENCE_JOURS, PILIERS } from "./constantes";
+import { aujourdhui, decalerJours, ecartJours, heureLocale, salutation } from "./dates";
 import {
   appliquerDecroissance,
   borner,
@@ -42,7 +42,7 @@ function vide<T>(valeur: T | undefined, defaut: T): T {
   return valeur === undefined ? defaut : valeur;
 }
 
-/** Crée les 5 lignes de momentum au premier lancement. */
+/** Crée une ligne de momentum par pilier au premier lancement. */
 async function assurerMomentum(date: string): Promise<void> {
   await db
     .insert(momentum)
@@ -89,8 +89,12 @@ export async function synchroniserMomentum(date: string): Promise<void> {
 }
 
 /** Ouvre (ou rouvre) la journée du jour et met à jour sa charge. */
-async function assurerJournee(date: string, creneauxDuJour: Creneau[]): Promise<Journee> {
-  const typeJour = deduireTypeJour(creneauxDuJour);
+async function assurerJournee(
+  date: string,
+  creneauxDuJour: Creneau[],
+  jourSemaine: number,
+): Promise<Journee> {
+  const typeJour = deduireTypeJour(creneauxDuJour, jourSemaine);
   const [ligne] = await db
     .insert(journees)
     .values({ date, typeJour })
@@ -122,10 +126,10 @@ export async function chargerJour(): Promise<EtatJour> {
     .from(creneaux)
     .where(eq(creneaux.jourSemaine, jourSemaine));
 
-  const journee = await assurerJournee(date, creneauxDuJour);
+  const journee = await assurerJournee(date, creneauxDuJour, jourSemaine);
   await synchroniserMomentum(date);
 
-  const [lignesMomentum, catalogue, validationsDuJour, dernieresParQuete] =
+  const [lignesMomentum, catalogue, validationsDuJour, comptesDeLaSemaine] =
     await Promise.all([
       db.select().from(momentum),
       db
@@ -135,7 +139,7 @@ export async function chargerJour(): Promise<EtatJour> {
           titre: quetes.titre,
           poids: quetes.poids,
           dureeMin: quetes.dureeMin,
-          recurrence: quetes.recurrence,
+          frequenceSem: quetes.frequenceSem,
           joursExclus: quetes.joursExclus,
           minimale: quetes.minimale,
           pilier: arcs.pilier,
@@ -143,7 +147,10 @@ export async function chargerJour(): Promise<EtatJour> {
         })
         .from(quetes)
         .innerJoin(arcs, eq(quetes.arcId, arcs.id))
-        .where(eq(arcs.actif, true)),
+        .where(eq(arcs.actif, true))
+        // Ordre explicite : sans lui, Postgres ne garantit rien et la
+        // sélection pourrait changer d'un rafraîchissement à l'autre.
+        .orderBy(quetes.id),
       db
         .select({
           queteId: validations.queteId,
@@ -155,8 +162,9 @@ export async function chargerJour(): Promise<EtatJour> {
         .innerJoin(arcs, eq(quetes.arcId, arcs.id))
         .where(eq(validations.date, date)),
       db
-        .select({ queteId: validations.queteId, derniere: max(validations.date) })
+        .select({ queteId: validations.queteId, combien: count() })
         .from(validations)
+        .where(gte(validations.date, decalerJours(date, -(FENETRE_FREQUENCE_JOURS - 1))))
         .groupBy(validations.queteId),
     ]);
 
@@ -176,10 +184,8 @@ export async function chargerJour(): Promise<EtatJour> {
     momentumParPilier,
     validesAujourdhui,
     piliersValidesAujourdhui,
-    derniereValidationParQuete: new Map(
-      dernieresParQuete
-        .filter((l) => l.derniere !== null)
-        .map((l) => [l.queteId, l.derniere as string]),
+    validationsDeLaSemaine: new Map(
+      comptesDeLaSemaine.map((l) => [l.queteId, l.combien]),
     ),
   });
 

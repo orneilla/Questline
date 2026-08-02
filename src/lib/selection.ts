@@ -1,5 +1,9 @@
-import { QUOTA_QUETES, SEUIL_QUETE_COURTE_MIN } from "./constantes";
-import { ecartJours } from "./dates";
+import {
+  JOURS_ALLEGES,
+  PILIERS,
+  QUOTA_QUETES,
+  SEUIL_QUETE_COURTE_MIN,
+} from "./constantes";
 import type { Creneau, Pilier, Quete, TypeJour } from "@/db/schema";
 
 export type QueteProposable = Quete & {
@@ -18,52 +22,58 @@ export type ContexteSelection = {
   validesAujourdhui: ReadonlySet<number>;
   /** Piliers déjà servis aujourd'hui : on n'y revient pas non plus. */
   piliersValidesAujourdhui: ReadonlySet<Pilier>;
-  /** Dernière fois que chaque quête a été validée, pour tenir la récurrence. */
-  derniereValidationParQuete: ReadonlyMap<number, string>;
+  /**
+   * Nombre de validations de chaque quête sur les sept derniers jours,
+   * aujourd'hui compris : c'est ce qui tient la fréquence hebdomadaire.
+   */
+  validationsDeLaSemaine: ReadonlyMap<number, number>;
 };
 
 /**
- * La charge de la journée se lit dans les créneaux, pas dans une case à cocher.
- * Un shift écrase tout ; à défaut, des cours allègent la journée ; sinon libre.
- * Les créneaux de prière structurent la journée sans la charger.
+ * La charge de la journée se lit dans les créneaux et dans le calendrier,
+ * jamais dans une case à cocher.
+ *
+ * Un shift écrase tout. À défaut, un jour de récupération ou un créneau de
+ * cours allège la journée. Les créneaux de prière la structurent sans la
+ * charger.
  */
-export function deduireTypeJour(creneauxDuJour: Creneau[]): TypeJour {
+export function deduireTypeJour(
+  creneauxDuJour: Creneau[],
+  jourSemaine: number,
+): TypeJour {
   if (creneauxDuJour.some((c) => c.type === "shift")) return "shift";
-  if (creneauxDuJour.some((c) => c.type === "cours")) return "cours";
+  if (JOURS_ALLEGES.includes(jourSemaine)) return "reduit";
+  if (creneauxDuJour.some((c) => c.type === "cours")) return "reduit";
   return "libre";
 }
 
-function recurrenceRespectee(
-  quete: QueteProposable,
-  date: string,
-  derniere: string | undefined,
-): boolean {
-  switch (quete.recurrence) {
-    case "quotidienne":
-      return true;
-    case "hebdomadaire":
-      return !derniere || ecartJours(derniere, date) >= 7;
-    case "ponctuelle":
-      return !derniere;
-  }
+/**
+ * Une quête à 3 fois par semaine ne ressort pas une quatrième fois. Le compte
+ * se fait sur une fenêtre glissante de sept jours, pas sur la semaine civile :
+ * aucun lundi ne remet les compteurs à plat.
+ */
+function frequenceRespectee(quete: QueteProposable, ctx: ContexteSelection): boolean {
+  return (ctx.validationsDeLaSemaine.get(quete.id) ?? 0) < quete.frequenceSem;
 }
 
 function estEligible(quete: QueteProposable, ctx: ContexteSelection): boolean {
   if (ctx.validesAujourdhui.has(quete.id)) return false;
   if (quete.joursExclus.includes(ctx.jourSemaine)) return false;
-  return recurrenceRespectee(
-    quete,
-    ctx.date,
-    ctx.derniereValidationParQuete.get(quete.id),
-  );
+  return frequenceRespectee(quete, ctx);
 }
 
-/** Du pilier le plus silencieux au plus vivant : c'est lui qu'on sert d'abord. */
+/**
+ * Du pilier le plus silencieux au plus vivant : c'est lui qu'on sert d'abord.
+ * À égalité — le premier jour, tout est à zéro — on suit l'ordre déclaré des
+ * piliers, pour que la journée ne se réorganise pas à chaque rafraîchissement.
+ */
 function piliersParPriorite(ctx: ContexteSelection): Pilier[] {
   const presents = [...new Set(ctx.quetes.map((q) => q.pilier))];
-  return presents.sort(
-    (a, b) => (ctx.momentumParPilier[a] ?? 0) - (ctx.momentumParPilier[b] ?? 0),
-  );
+  return presents.sort((a, b) => {
+    const ecart = (ctx.momentumParPilier[a] ?? 0) - (ctx.momentumParPilier[b] ?? 0);
+    if (ecart !== 0) return ecart;
+    return PILIERS.indexOf(a) - PILIERS.indexOf(b);
+  });
 }
 
 function comparerDansPilier(
@@ -76,16 +86,17 @@ function comparerDansPilier(
   if (a.minimale !== b.minimale) return a.minimale ? 1 : -1;
   if (privilegierCourt && a.dureeMin !== b.dureeMin) return a.dureeMin - b.dureeMin;
   if (a.poids !== b.poids) return b.poids - a.poids;
-  return a.dureeMin - b.dureeMin;
+  if (a.dureeMin !== b.dureeMin) return a.dureeMin - b.dureeMin;
+  return a.id - b.id;
 }
 
 /**
  * Sélection des quêtes du jour.
  *
- * - jour bas   → une seule quête, la version minimale ;
- * - jour shift → une seule quête, et courte ;
- * - jour cours → deux quêtes sur deux piliers ;
- * - jour libre → trois quêtes sur trois piliers.
+ * - jour bas    → une seule quête, la version minimale ;
+ * - jour shift  → une seule quête, et courte ;
+ * - jour réduit → deux quêtes sur deux piliers ;
+ * - jour libre  → trois quêtes sur trois piliers.
  *
  * Dans tous les cas, les piliers au momentum le plus bas passent devant.
  */
@@ -105,7 +116,8 @@ export function selectionnerQuetes(ctx: ContexteSelection): QueteProposable[] {
       const ecart =
         (ctx.momentumParPilier[a.pilier] ?? 0) - (ctx.momentumParPilier[b.pilier] ?? 0);
       if (ecart !== 0) return ecart;
-      return a.dureeMin - b.dureeMin;
+      if (a.dureeMin !== b.dureeMin) return a.dureeMin - b.dureeMin;
+      return a.id - b.id;
     })[0];
     return [choisie];
   }

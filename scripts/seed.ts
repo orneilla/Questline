@@ -1,181 +1,227 @@
 /**
- * Jeu de données de test.
+ * Données réelles : arcs, quêtes et créneaux.
  *
  *   npm run db:seed
  *
- * Efface et réécrit le contenu : à n'utiliser que sur une base de test.
+ * Le script refuse de tourner si le catalogue existe déjà, pour ne pas
+ * effacer un historique de validations (les quêtes sont supprimées en
+ * cascade). Pour le remplacer volontairement :
+ *
+ *   FORCE=1 npm run db:seed
+ *
+ * Le momentum n'est jamais écrasé : les lignes manquantes sont créées à zéro,
+ * les existantes sont laissées telles quelles.
  */
 import { db } from "../src/db";
-import {
-  arcs,
-  creneaux,
-  journees,
-  momentum,
-  quetes,
-  validations,
-} from "../src/db/schema";
-import { decalerJours } from "../src/lib/dates";
+import { arcs, creneaux, momentum, quetes, validations } from "../src/db/schema";
+import type { Pilier } from "../src/db/schema";
+import { PILIERS } from "../src/lib/constantes";
+import { aujourdhui } from "../src/lib/dates";
 
-const aujourdhui = new Date().toISOString().slice(0, 10);
-const ilYA = (jours: number) => decalerJours(aujourdhui, -jours);
+type DefinitionQuete = {
+  titre: string;
+  poids: number;
+  dureeMin: number;
+  /** Nombre de fois par semaine. */
+  frequenceSem: number;
+  minimale?: boolean;
+};
+
+type DefinitionArc = {
+  nom: string;
+  pilier: Pilier;
+  vision: string;
+  quetes: DefinitionQuete[];
+};
+
+const CATALOGUE: DefinitionArc[] = [
+  {
+    nom: "Le Coran",
+    pilier: "deen",
+    vision:
+      "Une relation quotidienne au Livre, et l'arabe assez solide pour ne plus dépendre des traductions.",
+    quetes: [
+      {
+        titre: "Une page de Coran après une prière",
+        poids: 3,
+        dureeMin: 10,
+        frequenceSem: 7,
+        minimale: true,
+      },
+      { titre: "Dhikr du matin", poids: 2, dureeMin: 5, frequenceSem: 7, minimale: true },
+      { titre: "15 min d'arabe", poids: 4, dureeMin: 15, frequenceSem: 5 },
+      { titre: "Un cours Maison des Saléhates", poids: 5, dureeMin: 30, frequenceSem: 2 },
+    ],
+  },
+  {
+    nom: "Top 5 de promo",
+    pilier: "savoir",
+    vision:
+      "Finir le M2 CDMB dans les cinq premiers. Combler l'inorganique avant septembre.",
+    quetes: [
+      { titre: "45 min de chimie inorganique", poids: 6, dureeMin: 45, frequenceSem: 5 },
+      { titre: "Avancer un dossier UE", poids: 6, dureeMin: 60, frequenceSem: 3 },
+      { titre: "Exercices de rétrosynthèse", poids: 4, dureeMin: 20, frequenceSem: 3 },
+      { titre: "Lire un article scientifique", poids: 5, dureeMin: 30, frequenceSem: 2 },
+      { titre: "Révision flash", poids: 2, dureeMin: 10, frequenceSem: 7, minimale: true },
+    ],
+  },
+  {
+    nom: "La thèse",
+    pilier: "savoir",
+    vision:
+      "Décrocher un stage M2 en synthèse organique/catalyse, puis un financement de doctorat. Horizon : diriger un laboratoire.",
+    quetes: [
+      { titre: "Envoyer une candidature de stage", poids: 8, dureeMin: 45, frequenceSem: 2 },
+      { titre: "Relancer un contact", poids: 5, dureeMin: 15, frequenceSem: 1 },
+      { titre: "Repérer un labo et son sujet", poids: 5, dureeMin: 30, frequenceSem: 1 },
+    ],
+  },
+  {
+    nom: "ORNACRĒ existe",
+    pilier: "oeuvre",
+    vision: "Passer de la marque sur papier à la première capsule hijab vendue.",
+    quetes: [
+      { titre: "Publier un contenu", poids: 6, dureeMin: 30, frequenceSem: 2 },
+      { titre: "Avancer la capsule hijab", poids: 6, dureeMin: 30, frequenceSem: 3 },
+      { titre: "Écrire un texte de marque", poids: 5, dureeMin: 30, frequenceSem: 1 },
+    ],
+  },
+  {
+    nom: "Le corps que je veux",
+    pilier: "corps",
+    vision:
+      "Un corps tonique et endurant, construit par la régularité et non par l'intensité.",
+    quetes: [
+      { titre: "Séance de salle", poids: 8, dureeMin: 60, frequenceSem: 3 },
+      {
+        titre: "Mobilité et étirements",
+        poids: 3,
+        dureeMin: 15,
+        frequenceSem: 7,
+        minimale: true,
+      },
+      { titre: "Marcher 8000 pas", poids: 3, dureeMin: 0, frequenceSem: 7 },
+    ],
+  },
+  {
+    nom: "Le tennis",
+    pilier: "corps",
+    vision: "Partir de zéro et jouer un vrai match.",
+    quetes: [
+      { titre: "Séance de tennis", poids: 8, dureeMin: 90, frequenceSem: 1 },
+      { titre: "Travail au mur", poids: 4, dureeMin: 20, frequenceSem: 1 },
+    ],
+  },
+  {
+    nom: "Manger vrai",
+    pilier: "table",
+    vision:
+      "Sortir progressivement des produits ultra-transformés, sans interdits ni comptage.",
+    quetes: [
+      { titre: "Un repas cuisiné maison", poids: 4, dureeMin: 30, frequenceSem: 7 },
+      { titre: "Journée sans ultra-transformé", poids: 5, dureeMin: 0, frequenceSem: 7 },
+      { titre: "Batch cooking", poids: 5, dureeMin: 90, frequenceSem: 1 },
+      {
+        titre: "Boire assez d'eau",
+        poids: 2,
+        dureeMin: 0,
+        frequenceSem: 7,
+        minimale: true,
+      },
+    ],
+  },
+  {
+    nom: "Rester vivante",
+    pilier: "seve",
+    vision:
+      "Lire, écrire, faire pousser, marcher dehors. Ce qui n'a pas de rendement et qui compte quand même.",
+    quetes: [
+      {
+        titre: "20 min de lecture libre",
+        poids: 4,
+        dureeMin: 20,
+        frequenceSem: 7,
+        minimale: true,
+      },
+      { titre: "Écrire", poids: 4, dureeMin: 20, frequenceSem: 3 },
+      { titre: "S'occuper des plantes", poids: 2, dureeMin: 10, frequenceSem: 2 },
+      { titre: "Sortir en nature", poids: 6, dureeMin: 90, frequenceSem: 1 },
+    ],
+  },
+];
+
+/**
+ * Shifts de travail. Celui du samedi passe minuit et se termine le dimanche
+ * à 4 h : de là viennent les jours allégés du dimanche et du lundi (voir
+ * JOURS_ALLEGES dans src/lib/constantes.ts).
+ */
+const CRENEAUX = [
+  { type: "shift" as const, jourSemaine: 2, debut: "18:00", fin: "23:00" },
+  { type: "shift" as const, jourSemaine: 6, debut: "22:00", fin: "04:00" },
+  { type: "shift" as const, jourSemaine: 0, debut: "18:00", fin: "23:00" },
+];
 
 async function seed() {
-  console.log("Nettoyage…");
-  await db.delete(validations);
-  await db.delete(quetes);
-  await db.delete(arcs);
+  const dejaPresent = (await db.select({ id: arcs.id }).from(arcs).limit(1)).length > 0;
+
+  if (dejaPresent && process.env.FORCE !== "1") {
+    console.error(
+      "Le catalogue existe déjà. Relancer avec FORCE=1 pour le remplacer\n" +
+        "(les validations rattachées aux quêtes actuelles seront supprimées).",
+    );
+    process.exit(1);
+  }
+
+  if (dejaPresent) {
+    const historique = await db.select({ id: validations.id }).from(validations).limit(1);
+    if (historique.length > 0) {
+      console.warn("FORCE=1 : l'historique de validations est supprimé.");
+    }
+    await db.delete(validations);
+    await db.delete(quetes);
+    await db.delete(arcs);
+  }
+
   await db.delete(creneaux);
-  await db.delete(journees);
-  await db.delete(momentum);
 
-  console.log("Arcs…");
-  const [corps, deen, academique, ornacre, nutrition] = await db
-    .insert(arcs)
-    .values([
-      {
-        nom: "Reprendre le corps",
-        pilier: "corps",
-        vision: "Un corps solide, entretenu sans à-coups.",
-        progression: 20,
-      },
-      {
-        nom: "Ancrer le deen",
-        pilier: "deen",
-        vision: "Une pratique régulière, tenue sans culpabilité.",
-        progression: 35,
-      },
-      {
-        nom: "Tenir le semestre",
-        pilier: "academique",
-        vision: "Finir chaque module sans rattrapage.",
-        progression: 45,
-      },
-      {
-        nom: "Faire exister Ornacre",
-        pilier: "ornacre",
-        vision: "Un projet qui avance un peu chaque semaine.",
-        progression: 15,
-      },
-      {
-        nom: "Manger juste",
-        pilier: "nutrition",
-        vision: "Des repas simples, préparés, réguliers.",
-        progression: 25,
-      },
-    ])
-    .returning();
+  let nombreQuetes = 0;
 
-  console.log("Quêtes…");
-  const quetesInserees = await db
-    .insert(quetes)
-    .values([
-      // Corps
-      { arcId: corps.id, titre: "Séance complète", poids: 5, dureeMin: 45 },
-      { arcId: corps.id, titre: "Marche au grand air", poids: 2, dureeMin: 20 },
-      { arcId: corps.id, titre: "Dix pompes", poids: 1, dureeMin: 5, minimale: true },
+  for (const definition of CATALOGUE) {
+    const [arc] = await db
+      .insert(arcs)
+      .values({
+        nom: definition.nom,
+        pilier: definition.pilier,
+        vision: definition.vision,
+      })
+      .returning();
 
-      // Deen
-      { arcId: deen.id, titre: "Lecture du Coran", poids: 3, dureeMin: 15 },
-      { arcId: deen.id, titre: "Dhikr après Fajr", poids: 1, dureeMin: 5, minimale: true },
-      {
-        arcId: deen.id,
-        titre: "Cours de fiqh",
-        poids: 4,
-        dureeMin: 40,
-        recurrence: "hebdomadaire" as const,
-      },
+    await db.insert(quetes).values(
+      definition.quetes.map((q) => ({
+        arcId: arc.id,
+        titre: q.titre,
+        poids: q.poids,
+        dureeMin: q.dureeMin,
+        frequenceSem: q.frequenceSem,
+        minimale: q.minimale ?? false,
+      })),
+    );
 
-      // Académique
-      { arcId: academique.id, titre: "Session d'étude", poids: 5, dureeMin: 50 },
-      { arcId: academique.id, titre: "Relire les notes du jour", poids: 2, dureeMin: 20 },
-      {
-        arcId: academique.id,
-        titre: "Cinq fiches de révision",
-        poids: 1,
-        dureeMin: 5,
-        minimale: true,
-      },
+    nombreQuetes += definition.quetes.length;
+  }
 
-      // Ornacre
-      { arcId: ornacre.id, titre: "Avancer la maquette", poids: 4, dureeMin: 40 },
-      { arcId: ornacre.id, titre: "Écrire deux cents mots", poids: 2, dureeMin: 20 },
-      {
-        arcId: ornacre.id,
-        titre: "Noter une idée",
-        poids: 1,
-        dureeMin: 5,
-        minimale: true,
-      },
+  await db.insert(creneaux).values(CRENEAUX);
 
-      // Nutrition
-      { arcId: nutrition.id, titre: "Préparer un vrai repas", poids: 3, dureeMin: 30 },
-      { arcId: nutrition.id, titre: "Deux litres d'eau", poids: 1, dureeMin: 5, minimale: true },
-      {
-        arcId: nutrition.id,
-        titre: "Courses de la semaine",
-        poids: 3,
-        dureeMin: 60,
-        recurrence: "hebdomadaire" as const,
-        joursExclus: [1, 2, 3, 4, 5],
-      },
-    ])
-    .returning();
+  // Départ à zéro sur chaque pilier : aucun historique inventé.
+  await db
+    .insert(momentum)
+    .values(PILIERS.map((pilier) => ({ pilier, valeur: 0, majLe: aujourdhui() })))
+    .onConflictDoNothing();
 
-  console.log("Créneaux…");
-  const prieres = [
-    { debut: "06:15", fin: "06:30" },
-    { debut: "13:30", fin: "13:45" },
-    { debut: "16:45", fin: "17:00" },
-    { debut: "20:50", fin: "21:05" },
-    { debut: "22:30", fin: "22:45" },
-  ];
-
-  await db.insert(creneaux).values([
-    // Shifts : samedi et dimanche après-midi.
-    { type: "shift" as const, jourSemaine: 6, debut: "14:00", fin: "22:00" },
-    { type: "shift" as const, jourSemaine: 0, debut: "14:00", fin: "22:00" },
-    // Cours : lundi, mardi, jeudi matin.
-    { type: "cours" as const, jourSemaine: 1, debut: "09:00", fin: "13:00" },
-    { type: "cours" as const, jourSemaine: 2, debut: "09:00", fin: "13:00" },
-    { type: "cours" as const, jourSemaine: 4, debut: "09:00", fin: "13:00" },
-    // Prières : tous les jours.
-    ...Array.from({ length: 7 }, (_, jour) =>
-      prieres.map((p) => ({ type: "priere" as const, jourSemaine: jour, ...p })),
-    ).flat(),
-  ]);
-
-  console.log("Momentum et historique…");
-  const parTitre = (titre: string) => {
-    const quete = quetesInserees.find((q) => q.titre === titre);
-    if (!quete) throw new Error(`Quête introuvable : ${titre}`);
-    return quete.id;
-  };
-
-  // Historique volontairement irrégulier : de quoi voir la décroissance
-  // douce et le bonus de reprise dès le premier chargement.
-  await db.insert(validations).values([
-    { queteId: parTitre("Session d'étude"), date: ilYA(1) },
-    { queteId: parTitre("Lecture du Coran"), date: ilYA(1) },
-    { queteId: parTitre("Session d'étude"), date: ilYA(2) },
-    { queteId: parTitre("Marche au grand air"), date: ilYA(4) },
-    { queteId: parTitre("Préparer un vrai repas"), date: ilYA(3) },
-    { queteId: parTitre("Noter une idée"), date: ilYA(6) },
-  ]);
-
-  await db.insert(momentum).values([
-    { pilier: "corps", valeur: 18, majLe: ilYA(4) },
-    { pilier: "deen", valeur: 42, majLe: ilYA(1) },
-    { pilier: "academique", valeur: 61, majLe: ilYA(1) },
-    { pilier: "ornacre", valeur: 8, majLe: ilYA(6) },
-    { pilier: "nutrition", valeur: 30, majLe: ilYA(3) },
-  ]);
-
-  await db.insert(journees).values([
-    { date: ilYA(1), typeJour: "cours", modeBas: false, phrase: "Journée dense, tenue." },
-    { date: ilYA(2), typeJour: "libre", modeBas: true, phrase: "" },
-  ]);
-
-  console.log("Terminé.");
+  console.log(
+    `${CATALOGUE.length} arcs, ${nombreQuetes} quêtes, ${CRENEAUX.length} créneaux.`,
+  );
 }
 
 seed()

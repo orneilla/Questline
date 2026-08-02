@@ -1,5 +1,5 @@
 {
-  "id": "37863233-d3b1-427b-b7b3-6e9cc4ebd1de",
+  "id": "2eb0792d-bfc2-424d-a7f6-049e4825882b",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -227,13 +227,12 @@
           "notNull": true,
           "default": 20
         },
-        "recurrence": {
-          "name": "recurrence",
-          "type": "recurrence",
-          "typeSchema": "public",
+        "frequence_sem": {
+          "name": "frequence_sem",
+          "type": "integer",
           "primaryKey": false,
           "notNull": true,
-          "default": "'quotidienne'"
+          "default": 7
         },
         "jours_exclus": {
           "name": "jours_exclus",
@@ -383,20 +382,12 @@
       "name": "pilier",
       "schema": "public",
       "values": [
-        "corps",
         "deen",
-        "academique",
-        "ornacre",
-        "nutrition"
-      ]
-    },
-    "public.recurrence": {
-      "name": "recurrence",
-      "schema": "public",
-      "values": [
-        "quotidienne",
-        "hebdomadaire",
-        "ponctuelle"
+        "corps",
+        "table",
+        "savoir",
+        "oeuvre",
+        "seve"
       ]
     },
     "public.type_creneau": {
@@ -413,7 +404,7 @@
       "schema": "public",
       "values": [
         "libre",
-        "cours",
+        "reduit",
         "shift"
       ]
     }

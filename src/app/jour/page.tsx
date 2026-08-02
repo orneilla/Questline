@@ -14,7 +14,7 @@ export const dynamic = "force-dynamic";
 function intentionDuJour(typeJour: TypeJour, modeBas: boolean): string {
   if (modeBas) return "Jour bas. Un seul geste, et il compte autant.";
   if (typeJour === "shift") return "Journée de shift. Une quête, courte.";
-  if (typeJour === "cours") return "Journée de cours. Deux gestes suffisent.";
+  if (typeJour === "reduit") return "Journée allégée. Deux gestes suffisent.";
   return "Journée libre. Trois gestes, trois piliers.";
 }
 

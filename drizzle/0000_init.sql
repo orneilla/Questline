@@ -1,7 +1,6 @@
-CREATE TYPE "public"."pilier" AS ENUM('corps', 'deen', 'academique', 'ornacre', 'nutrition');--> statement-breakpoint
-CREATE TYPE "public"."recurrence" AS ENUM('quotidienne', 'hebdomadaire', 'ponctuelle');--> statement-breakpoint
+CREATE TYPE "public"."pilier" AS ENUM('deen', 'corps', 'table', 'savoir', 'oeuvre', 'seve');--> statement-breakpoint
 CREATE TYPE "public"."type_creneau" AS ENUM('shift', 'cours', 'priere');--> statement-breakpoint
-CREATE TYPE "public"."type_jour" AS ENUM('libre', 'cours', 'shift');--> statement-breakpoint
+CREATE TYPE "public"."type_jour" AS ENUM('libre', 'reduit', 'shift');--> statement-breakpoint
 CREATE TABLE "arcs" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"nom" text NOT NULL,
@@ -38,7 +37,7 @@ CREATE TABLE "quetes" (
 	"titre" text NOT NULL,
 	"poids" integer DEFAULT 3 NOT NULL,
 	"duree_min" integer DEFAULT 20 NOT NULL,
-	"recurrence" "recurrence" DEFAULT 'quotidienne' NOT NULL,
+	"frequence_sem" integer DEFAULT 7 NOT NULL,
 	"jours_exclus" integer[] DEFAULT '{}' NOT NULL,
 	"minimale" boolean DEFAULT false NOT NULL
 );
