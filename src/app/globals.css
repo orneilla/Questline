@@ -1,0 +1,106 @@
+@import "tailwindcss";
+
+/*
+  Palette sombre et sourde. Aucune couleur d'alerte : rien dans cette
+  application ne doit ressembler à un reproche.
+*/
+@theme {
+  --color-fond: #0a0b0d;
+  --color-voile: #101216;
+  --color-surface: #14171c;
+  --color-surface-haut: #1a1e24;
+  --color-bordure: #23272f;
+  --color-bordure-vive: #333942;
+  --color-texte: #ece9e3;
+  --color-doux: #9299a2;
+  --color-tres-doux: #5d636b;
+
+  --color-corps: #8fa37e;
+  --color-deen: #6fa396;
+  --color-academique: #7e92b8;
+  --color-ornacre: #c0996a;
+  --color-nutrition: #b58a93;
+
+  --font-sans:
+    ui-sans-serif, system-ui, -apple-system, "SF Pro Text", "Segoe UI", Roboto,
+    sans-serif;
+  --font-serif: var(--police-titre), ui-serif, Georgia, "Times New Roman", serif;
+
+  --ease-calme: cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  body {
+    background-color: var(--color-fond);
+    color: var(--color-texte);
+    font-family: var(--font-sans);
+    font-feature-settings: "kern", "liga";
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    overscroll-behavior-y: none;
+  }
+
+  /* Un seul utilisateur, pas de sélection accidentelle pendant le scroll. */
+  button {
+    user-select: none;
+  }
+
+  ::selection {
+    background: #2b3138;
+  }
+}
+
+@utility police-titre {
+  font-family: var(--font-serif);
+  font-weight: 400;
+  letter-spacing: -0.015em;
+}
+
+/* Montée douce des éléments à l'arrivée sur l'écran. */
+@keyframes apparition {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@utility apparait {
+  animation: apparition 0.5s var(--ease-calme) both;
+}
+
+/* Onde discrète au moment où une quête est validée. */
+@keyframes souffle {
+  0% {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  40% {
+    opacity: 0.55;
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.03);
+  }
+}
+
+@utility souffle {
+  animation: souffle 0.7s var(--ease-calme) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

@@ -1,1 +1,209 @@
 # Questline
+
+PWA personnelle mono-utilisateur : une progression de vie par arcs longs,
+pas une liste de tâches. Mobile d'abord, en français, synchronisée entre
+téléphone et tablette par la base.
+
+**Stack** — Next.js 15 (App Router), TypeScript, Tailwind 4, Postgres (Neon)
+via Drizzle ORM. Déploiement Vercel.
+
+---
+
+## Mise en route
+
+```bash
+npm install
+cp .env.example .env      # renseigner DATABASE_URL et APP_PASSWORD
+npm run db:migrate        # applique les migrations drizzle/
+npm run db:seed           # charge les arcs, quêtes et créneaux réels
+npm run dev
+```
+
+### Variables d'environnement
+
+| Variable         | Rôle                                                              |
+| ---------------- | ----------------------------------------------------------------- |
+| `DATABASE_URL`   | Postgres Neon. Sur Vercel, utiliser l'URL « pooled ».             |
+| `APP_PASSWORD`   | Mot de passe unique de l'application.                             |
+| `SESSION_SECRET` | Facultatif. Clé de signature du cookie ; à défaut, `APP_PASSWORD`. |
+| `FUSEAU_HORAIRE` | Facultatif. Fuseau qui découpe les journées (`Europe/Paris`).      |
+
+> Sans `SESSION_SECRET`, changer le mot de passe déconnecte tous les appareils.
+
+### Déploiement Vercel
+
+L'application est à la **racine du dépôt** : le *Root Directory* de Vercel reste
+`./` (valeur par défaut, aucun sous-dossier à renseigner). Le framework est
+détecté seul, il n'y a ni `vercel.json` ni commande de build à personnaliser.
+
+Trois points à vérifier côté Vercel :
+
+1. **Production Branch** — Settings › Git. Vercel ne déploie en production que
+   cette branche ; si l'application n'y est pas encore, le domaine répond
+   `404: NOT_FOUND`.
+2. **Variables d'environnement** — Settings › Environment Variables :
+   `DATABASE_URL` et `APP_PASSWORD`, cochées pour *Production* **et** *Preview*.
+   Sans `APP_PASSWORD`, la page de connexion s'affiche et indique ce qui manque ;
+   aucune session ne peut être ouverte.
+3. **Migrations** — elles ne sont pas jouées par le déploiement. Il faut lancer
+   `npm run db:migrate` (puis `npm run db:seed` la première fois) contre la base
+   Neon, depuis un poste ayant la bonne `DATABASE_URL`.
+
+Le build ne dépend d'aucune variable : la connexion à la base n'est ouverte qu'à
+la première requête, jamais à la compilation.
+
+### Scripts
+
+| Commande              | Effet                                                |
+| --------------------- | ---------------------------------------------------- |
+| `npm run dev`         | Serveur de développement                             |
+| `npm run build`       | Build de production                                  |
+| `npm run db:generate` | Régénère une migration après modification du schéma  |
+| `npm run db:migrate`  | Applique les migrations                              |
+| `npm run db:seed`     | Charge le catalogue réel (refuse d'écraser l'existant) |
+| `npm run icones`      | Regénère les icônes PWA                              |
+
+---
+
+## Les écrans
+
+- **Connexion** — un seul mot de passe, cookie `httpOnly` signé (HMAC-SHA256)
+  valable 90 jours, vérifié par le middleware sur toutes les routes.
+- **Jour** — date, salutation, charge de la journée, les quêtes du jour, les six
+  barres de momentum, la bascule « jour bas », la phrase du soir en
+  enregistrement automatique.
+- **Semaine** — les sept jours en colonnes, les créneaux en blocs, le temps
+  disponible sous chaque jour, et de quoi ajouter un récurrent ou un ponctuel.
+- **PWA** — manifest, icônes, mode standalone, thème sombre.
+
+## Les piliers
+
+`deen` · `corps` · `table` · `savoir` · `oeuvre` · `seve`
+
+Huit arcs les traversent — `savoir` et `corps` en portent deux chacun.
+
+## L'emploi du temps
+
+Deux tables décrivent la semaine :
+
+- `creneauxRecurrents` — la trame hebdomadaire (cours, travail, prière, autre),
+  avec des bornes de validité facultatives (`actifDepuis`, `actifJusqua`) ;
+- `evenements` — le ponctuel, posé sur une date.
+
+**Le ponctuel écrase le récurrent qu'il recouvre.** Un remplacement le remplace ;
+une annulation — un événement réduit à un instant, `début = fin` — le retire sans
+rien occuper. C'est ce que produit le fait de toucher un bloc récurrent dans
+l'écran Semaine ; toucher son filigrane le rétablit.
+
+Un créneau dont la fin précède le début passe minuit. C'est de là que vient la
+**récupération** : un créneau qui a mordu sur la nuit allège le lendemain. Le
+shift du samedi finit à 1 h, donc le dimanche est un jour de récupération ; celui
+du dimanche s'arrête pile à minuit et ne déborde pas sur le lundi.
+
+## Les deux règles qui comptent
+
+### Budget-temps et sélection des quêtes
+
+Le nombre de quêtes ne vient pas d'une étiquette posée sur la journée, mais du
+temps qui reste vraiment :
+
+```
+16 h d'éveil (07:00 – 23:00)
+ − les créneaux du jour, fusionnés et ramenés à la fenêtre d'éveil
+ − 2 h incompressibles (repas, trajets, prières, marge)
+ = tempsDispo
+```
+
+| Temps disponible   | Quêtes proposées   |
+| ------------------ | ------------------ |
+| moins de 2 h       | 1 quête `minimale` |
+| de 2 h à 4 h       | 2 quêtes           |
+| plus de 4 h        | 3 quêtes           |
+| jour récupération  | une quête de moins |
+| mode « jour bas »  | 1 quête `minimale` |
+
+La somme des durées proposées doit en outre tenir dans **40 % du temps
+disponible**. Une quête qui déborde le budget restant laisse la place à une plus
+légère du même pilier. Ce qui a déjà été validé dans la journée consomme le
+quota comme le budget.
+
+Un jour de récupération ne descend jamais sous une quête : une journée sans rien
+à proposer serait une punition, pas un repos.
+
+Dans tous les cas, **les piliers au momentum le plus bas passent devant**. À
+momentum égal — le premier jour, tout est à zéro — l'ordre déclaré des piliers
+tranche, pour que la sélection ne bouge pas d'un rafraîchissement à l'autre.
+
+Chaque quête porte une **fréquence hebdomadaire** (`frequenceSem`, 1 à 7) :
+une quête à 3 fois par semaine ne ressort pas une quatrième fois. Le compte se
+fait sur une fenêtre glissante de sept jours, pas sur la semaine civile — aucun
+lundi ne remet les compteurs à plat.
+
+Sont aussi écartées : les quêtes déjà faites du jour et celles dont le jour
+figure dans `joursExclus`. Une durée de `0` min signale une quête d'ambiance,
+sans créneau dédié (marcher, boire de l'eau, journée sans ultra-transformé).
+
+### Momentum
+
+Une valeur par pilier, entre 0 et 100.
+
+- **Validation** : `+poids` sur le pilier.
+- **Jour sans rien** : `-5 %`, de façon multiplicative. La valeur s'érode, elle
+  ne tombe jamais à zéro et n'est **jamais remise à zéro**.
+- **Reprise** : après deux jours de silence sur un pilier, la première
+  validation compte **double**.
+
+Les jours où un pilier a été nourri sont exclus du décompte de la décroissance.
+Le calcul est rejouable : recharger l'écran dix fois dans la journée ne fait pas
+baisser les barres dix fois.
+
+Aucun rouge, aucun « streak perdu », aucun compteur d'échecs. Un jour manqué est
+gris et neutre — c'est une décision de conception, pas un oubli.
+
+---
+
+## Structure
+
+```
+src/
+  app/
+    connexion/      page de connexion + action serveur
+    jour/           écran du jour + actions serveur
+    semaine/        écran de la semaine + actions serveur
+    manifest.ts     manifest PWA
+  components/       momentum, quêtes, jour bas, phrase du soir, grille et
+                    formulaires de la semaine
+  db/               schéma Drizzle et connexion Neon
+  lib/
+    auth.ts         mot de passe unique, cookie signé (Web Crypto)
+    dates.ts        journée calée sur le fuseau de référence
+    temps.ts        arithmétique des créneaux — logique pure
+    charge.ts       règles de charge et budget — logique pure
+    creneaux.ts     récurrent écrasé par le ponctuel — logique pure
+    momentum.ts     décroissance, bonus de reprise — logique pure
+    selection.ts    choix des quêtes du jour — logique pure
+    jour.ts         accès base et orchestration de l'écran du jour
+    semaine.ts      accès base et orchestration de l'écran de la semaine
+  middleware.ts     garde de session
+drizzle/            migrations SQL
+scripts/            seed et génération d'icônes
+```
+
+`temps.ts`, `charge.ts`, `creneaux.ts`, `momentum.ts` et `selection.ts` ne
+touchent pas la base : toute la règle du jeu y est vérifiable sans Postgres.
+
+## Le seed
+
+`npm run db:seed` charge les 8 arcs, 28 quêtes et les 3 shifts récurrents
+(mardi 18:30–21:30, samedi 19:00–01:00, dimanche 18:00–00:00), et crée les
+lignes de momentum à zéro — aucun historique inventé.
+
+Le script **refuse de tourner si le catalogue existe déjà** : supprimer les
+quêtes effacerait en cascade les validations. Pour le remplacer volontairement :
+
+```bash
+FORCE=1 npm run db:seed
+```
+
+Le momentum n'est jamais écrasé : les lignes manquantes sont créées, les
+existantes laissées telles quelles.
