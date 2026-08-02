@@ -13,14 +13,15 @@ const DUREE_SESSION_MS = DUREE_SESSION_JOURS * 24 * 60 * 60 * 1000;
 
 const encodeur = new TextEncoder();
 
-function secret(): string {
-  const valeur = process.env.SESSION_SECRET ?? process.env.APP_PASSWORD;
-  if (!valeur) {
-    throw new Error(
-      "APP_PASSWORD (ou SESSION_SECRET) manquant : la session ne peut pas être signée.",
-    );
-  }
-  return valeur;
+/**
+ * Absent, il n'y a rien à signer. On renvoie null plutôt que de lever : le
+ * middleware s'exécute sur chaque requête, et une exception y transformerait
+ * une configuration incomplète en 500 opaque sur toute l'application. Sans
+ * secret, aucune session ne peut être validée — la page de connexion prend le
+ * relais et dit ce qui manque.
+ */
+function secret(): string | null {
+  return process.env.SESSION_SECRET ?? process.env.APP_PASSWORD ?? null;
 }
 
 function base64url(octets: ArrayBuffer): string {
@@ -29,10 +30,10 @@ function base64url(octets: ArrayBuffer): string {
   return btoa(binaire).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 }
 
-async function signer(charge: string): Promise<string> {
+async function signer(charge: string, cleSecrete: string): Promise<string> {
   const cle = await crypto.subtle.importKey(
     "raw",
-    encodeur.encode(secret()),
+    encodeur.encode(cleSecrete),
     { name: "HMAC", hash: "SHA-256" },
     false,
     ["sign"],
@@ -61,14 +62,22 @@ export async function motDePasseCorrect(saisi: string): Promise<boolean> {
 
 /** Jeton = date d'expiration + signature HMAC de cette date. */
 export async function creerJeton(maintenant: number = Date.now()): Promise<string> {
+  const cleSecrete = secret();
+  if (!cleSecrete) {
+    throw new Error(
+      "APP_PASSWORD (ou SESSION_SECRET) manquant : la session ne peut pas être signée.",
+    );
+  }
   const expiration = String(maintenant + DUREE_SESSION_MS);
-  return `${expiration}.${await signer(expiration)}`;
+  return `${expiration}.${await signer(expiration, cleSecrete)}`;
 }
 
 export async function jetonValide(
   jeton: string | undefined,
   maintenant: number = Date.now(),
 ): Promise<boolean> {
+  const cleSecrete = secret();
+  if (!cleSecrete) return false;
   if (!jeton) return false;
   const separateur = jeton.lastIndexOf(".");
   if (separateur <= 0) return false;
@@ -78,7 +87,7 @@ export async function jetonValide(
   if (!/^\d+$/.test(expiration)) return false;
   if (Number(expiration) < maintenant) return false;
 
-  return egalConstant(signature, await signer(expiration));
+  return egalConstant(signature, await signer(expiration, cleSecrete));
 }
 
 export const optionsCookie = {

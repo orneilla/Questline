@@ -30,6 +30,28 @@ npm run dev
 
 > Sans `SESSION_SECRET`, changer le mot de passe déconnecte tous les appareils.
 
+### Déploiement Vercel
+
+L'application est à la **racine du dépôt** : le *Root Directory* de Vercel reste
+`./` (valeur par défaut, aucun sous-dossier à renseigner). Le framework est
+détecté seul, il n'y a ni `vercel.json` ni commande de build à personnaliser.
+
+Trois points à vérifier côté Vercel :
+
+1. **Production Branch** — Settings › Git. Vercel ne déploie en production que
+   cette branche ; si l'application n'y est pas encore, le domaine répond
+   `404: NOT_FOUND`.
+2. **Variables d'environnement** — Settings › Environment Variables :
+   `DATABASE_URL` et `APP_PASSWORD`, cochées pour *Production* **et** *Preview*.
+   Sans `APP_PASSWORD`, la page de connexion s'affiche et indique ce qui manque ;
+   aucune session ne peut être ouverte.
+3. **Migrations** — elles ne sont pas jouées par le déploiement. Il faut lancer
+   `npm run db:migrate` (puis `npm run db:seed` la première fois) contre la base
+   Neon, depuis un poste ayant la bonne `DATABASE_URL`.
+
+Le build ne dépend d'aucune variable : la connexion à la base n'est ouverte qu'à
+la première requête, jamais à la compilation.
+
 ### Scripts
 
 | Commande              | Effet                                                |
