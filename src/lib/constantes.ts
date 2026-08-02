@@ -40,25 +40,8 @@ export const TAUX_DECROISSANCE = 0.05;
 /** Jours de silence à partir desquels la reprise vaut double. */
 export const SEUIL_REPRISE_JOURS = 2;
 
-/** Au-delà, une quête n'est plus « courte ». */
-export const SEUIL_QUETE_COURTE_MIN = 30;
-
 /** Fenêtre glissante sur laquelle se compte la fréquence hebdomadaire. */
 export const FENETRE_FREQUENCE_JOURS = 7;
-
-/** Nombre de quêtes proposées selon la charge de la journée. */
-export const QUOTA_QUETES: Record<"libre" | "reduit" | "shift", number> = {
-  libre: 3,
-  reduit: 2,
-  shift: 1,
-};
-
-/**
- * Jours allégés d'office : récupération après le shift de nuit du samedi
- * (22 h – 4 h). Le dimanche porte en plus son propre shift du soir, ce qui
- * l'allège davantage encore.
- */
-export const JOURS_ALLEGES: readonly number[] = [0, 1];
 
 export const JOURS_SEMAINE = [
   "dimanche",
@@ -69,6 +52,21 @@ export const JOURS_SEMAINE = [
   "vendredi",
   "samedi",
 ] as const;
+
+/** Teintes des blocs d'emploi du temps, dans le même registre sourd. */
+export const COULEURS_CRENEAUX: Record<string, string> = {
+  cours: "#7e92b8",
+  travail: "#c2a567",
+  priere: "#6fa396",
+  autre: "#8a8f98",
+};
+
+export const LIBELLES_CRENEAUX: Record<string, string> = {
+  cours: "Cours",
+  travail: "Travail",
+  priere: "Prière",
+  autre: "Autre",
+};
 
 export const MOIS = [
   "janvier",

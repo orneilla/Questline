@@ -22,15 +22,16 @@ export const pilierEnum = pgEnum("pilier", [
   "seve",
 ]);
 
-/** Nature d'un créneau bloqué dans la semaine. */
-export const typeCreneauEnum = pgEnum("type_creneau", [
-  "shift",
+/** Nature d'un bloc d'emploi du temps, récurrent comme ponctuel. */
+export const categorieCreneauEnum = pgEnum("categorie_creneau", [
   "cours",
+  "travail",
   "priere",
+  "autre",
 ]);
 
-/** Charge de la journée, déduite des créneaux et du jour de la semaine. */
-export const typeJourEnum = pgEnum("type_jour", ["libre", "reduit", "shift"]);
+/** Charge de la journée, déduite du temps disponible. */
+export const typeJourEnum = pgEnum("type_jour", ["libre", "chargee", "pleine"]);
 
 /** Un arc = un chantier de vie long, rattaché à un pilier. */
 export const arcs = pgTable("arcs", {
@@ -65,18 +66,41 @@ export const quetes = pgTable(
 );
 
 /** Les blocs récurrents de la semaine (travail, cours, prières). */
-export const creneaux = pgTable(
-  "creneaux",
+export const creneauxRecurrents = pgTable(
+  "creneaux_recurrents",
   {
     id: serial("id").primaryKey(),
-    type: typeCreneauEnum("type").notNull(),
+    titre: text("titre").notNull(),
+    type: categorieCreneauEnum("type").notNull().default("autre"),
     /** 0 = dimanche … 6 = samedi. */
     jourSemaine: integer("jour_semaine").notNull(),
     debut: time("debut").notNull(),
     /** Une fin antérieure au début signifie que le créneau passe minuit. */
     fin: time("fin").notNull(),
+    /** Bornes de validité. Nulles = toujours actif. */
+    actifDepuis: date("actif_depuis"),
+    actifJusqua: date("actif_jusqua"),
   },
-  (table) => [index("creneaux_jour_semaine_idx").on(table.jourSemaine)],
+  (table) => [index("creneaux_recurrents_jour_semaine_idx").on(table.jourSemaine)],
+);
+
+/**
+ * Un bloc ponctuel posé sur une date. Il écrase le récurrent qu'il recouvre :
+ * un remplacement le remplace, une annulation (début = fin) le retire sans
+ * rien occuper.
+ */
+export const evenements = pgTable(
+  "evenements",
+  {
+    id: serial("id").primaryKey(),
+    titre: text("titre").notNull(),
+    type: categorieCreneauEnum("type").notNull().default("autre"),
+    date: date("date").notNull(),
+    debut: time("debut").notNull(),
+    fin: time("fin").notNull(),
+    note: text("note").notNull().default(""),
+  },
+  (table) => [index("evenements_date_idx").on(table.date)],
 );
 
 /** Une ligne par journée vécue. */
@@ -117,7 +141,9 @@ export const momentum = pgTable("momentum", {
 
 export type Arc = typeof arcs.$inferSelect;
 export type Quete = typeof quetes.$inferSelect;
-export type Creneau = typeof creneaux.$inferSelect;
+export type CreneauRecurrent = typeof creneauxRecurrents.$inferSelect;
+export type Evenement = typeof evenements.$inferSelect;
+export type CategorieCreneau = (typeof categorieCreneauEnum.enumValues)[number];
 export type Journee = typeof journees.$inferSelect;
 export type Validation = typeof validations.$inferSelect;
 export type Momentum = typeof momentum.$inferSelect;

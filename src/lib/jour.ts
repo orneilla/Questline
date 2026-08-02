@@ -1,38 +1,45 @@
 import "server-only";
 
-import { and, count, eq, gt, gte, lte, max } from "drizzle-orm";
+import { and, count, eq, gt, gte, inArray, lte, max } from "drizzle-orm";
 
 import { db } from "@/db";
 import {
   arcs,
-  creneaux,
+  creneauxRecurrents,
+  evenements,
   journees,
   momentum,
   quetes,
   validations,
-  type Creneau,
   type Journee,
   type Pilier,
 } from "@/db/schema";
+import { calculerCharge, type Charge } from "./charge";
+import { resoudreJour, type Bloc } from "./creneaux";
+import { debordement, minutesEveillees, tempsDispo } from "./temps";
 import { FENETRE_FREQUENCE_JOURS, PILIERS } from "./constantes";
-import { aujourdhui, decalerJours, ecartJours, heureLocale, salutation } from "./dates";
+import {
+  aujourdhui,
+  decalerJours,
+  ecartJours,
+  heureLocale,
+  jourDeLaSemaine,
+  salutation,
+} from "./dates";
 import {
   appliquerDecroissance,
   borner,
   gainValidation,
   meriteBonusReprise,
 } from "./momentum";
-import {
-  deduireTypeJour,
-  selectionnerQuetes,
-  type QueteProposable,
-} from "./selection";
+import { selectionnerQuetes, type QueteProposable } from "./selection";
 
 export type EtatJour = {
   date: string;
   salutation: string;
   journee: Journee;
-  creneauxDuJour: Creneau[];
+  charge: Charge;
+  blocsDuJour: Bloc[];
   momentums: { pilier: Pilier; valeur: number }[];
   quetesDuJour: QueteProposable[];
   quetesFaites: { id: number; titre: string; pilier: Pilier }[];
@@ -88,19 +95,47 @@ export async function synchroniserMomentum(date: string): Promise<void> {
   }
 }
 
-/** Ouvre (ou rouvre) la journée du jour et met à jour sa charge. */
-async function assurerJournee(
-  date: string,
-  creneauxDuJour: Creneau[],
-  jourSemaine: number,
-): Promise<Journee> {
-  const typeJour = deduireTypeJour(creneauxDuJour, jourSemaine);
+/** Ouvre (ou rouvre) la journée du jour et enregistre son niveau de charge. */
+async function assurerJournee(date: string, typeJour: Journee["typeJour"]): Promise<Journee> {
   const [ligne] = await db
     .insert(journees)
     .values({ date, typeJour })
     .onConflictDoUpdate({ target: journees.date, set: { typeJour } })
     .returning();
   return ligne;
+}
+
+/**
+ * Temps disponible d'une date : 16 h d'éveil, moins ce qu'occupent les
+ * créneaux résolus, moins les deux heures incompressibles. La récupération se
+ * lit sur la veille : un créneau qui a mordu sur la nuit allège le lendemain.
+ */
+export async function calculerJournee(date: string, modeBas: boolean) {
+  const jourSemaine = jourDeLaSemaine(date);
+  const veille = decalerJours(date, -1);
+
+  const [recurrents, ponctuels] = await Promise.all([
+    db.select().from(creneauxRecurrents),
+    db
+      .select()
+      .from(evenements)
+      .where(inArray(evenements.date, [veille, date])),
+  ]);
+
+  const jour = resoudreJour(date, jourSemaine, recurrents, ponctuels);
+  const laVeille = resoudreJour(veille, jourDeLaSemaine(veille), recurrents, ponctuels);
+
+  const occupe = minutesEveillees(jour.blocs.map((b) => b.plage));
+  const recuperation = debordement(laVeille.blocs.map((b) => b.plage)) > 0;
+
+  return {
+    blocs: jour.blocs,
+    charge: calculerCharge({
+      tempsDispoMin: tempsDispo(occupe),
+      recuperation,
+      modeBas,
+    }),
+  };
 }
 
 async function derniereValidationParPilier(): Promise<Map<Pilier, string>> {
@@ -119,14 +154,14 @@ async function derniereValidationParPilier(): Promise<Map<Pilier, string>> {
 /** Tout ce dont l'écran du jour a besoin, en une passe. */
 export async function chargerJour(): Promise<EtatJour> {
   const date = aujourdhui();
-  const jourSemaine = new Date(`${date}T00:00:00Z`).getUTCDay();
+  const jourSemaine = jourDeLaSemaine(date);
 
-  const creneauxDuJour = await db
-    .select()
-    .from(creneaux)
-    .where(eq(creneaux.jourSemaine, jourSemaine));
+  // Le mode bas est une décision de l'utilisatrice : il entre dans le calcul
+  // de la charge, il n'en sort pas.
+  const [deja] = await db.select().from(journees).where(eq(journees.date, date));
+  const { blocs, charge } = await calculerJournee(date, deja?.modeBas ?? false);
 
-  const journee = await assurerJournee(date, creneauxDuJour, jourSemaine);
+  const journee = await assurerJournee(date, charge.niveau);
   await synchroniserMomentum(date);
 
   const [lignesMomentum, catalogue, validationsDuJour, comptesDeLaSemaine] =
@@ -155,6 +190,7 @@ export async function chargerJour(): Promise<EtatJour> {
         .select({
           queteId: validations.queteId,
           titre: quetes.titre,
+          dureeMin: quetes.dureeMin,
           pilier: arcs.pilier,
         })
         .from(validations)
@@ -178,8 +214,7 @@ export async function chargerJour(): Promise<EtatJour> {
   const quetesDuJour = selectionnerQuetes({
     date,
     jourSemaine,
-    typeJour: journee.typeJour,
-    modeBas: journee.modeBas,
+    charge,
     quetes: catalogue,
     momentumParPilier,
     validesAujourdhui,
@@ -187,13 +222,15 @@ export async function chargerJour(): Promise<EtatJour> {
     validationsDeLaSemaine: new Map(
       comptesDeLaSemaine.map((l) => [l.queteId, l.combien]),
     ),
+    minutesEngagees: validationsDuJour.reduce((total, v) => total + v.dureeMin, 0),
   });
 
   return {
     date,
     salutation: salutation(heureLocale()),
     journee,
-    creneauxDuJour,
+    charge,
+    blocsDuJour: blocs,
     momentums: PILIERS.map((pilier) => ({
       pilier,
       valeur: vide(momentumParPilier[pilier], 0),

@@ -14,7 +14,7 @@ via Drizzle ORM. Déploiement Vercel.
 ```bash
 npm install
 cp .env.example .env      # renseigner DATABASE_URL et APP_PASSWORD
-npm run db:migrate        # applique drizzle/0000_init.sql
+npm run db:migrate        # applique les migrations drizzle/
 npm run db:seed           # charge les arcs, quêtes et créneaux réels
 npm run dev
 ```
@@ -43,13 +43,15 @@ npm run dev
 
 ---
 
-## Ce que fait la session 1
+## Les écrans
 
 - **Connexion** — un seul mot de passe, cookie `httpOnly` signé (HMAC-SHA256)
   valable 90 jours, vérifié par le middleware sur toutes les routes.
-- **Écran du jour** — date et salutation, les quêtes du jour, les six barres
-  de momentum, la bascule « jour bas », la phrase du soir en enregistrement
-  automatique.
+- **Jour** — date, salutation, charge de la journée, les quêtes du jour, les six
+  barres de momentum, la bascule « jour bas », la phrase du soir en
+  enregistrement automatique.
+- **Semaine** — les sept jours en colonnes, les créneaux en blocs, le temps
+  disponible sous chaque jour, et de quoi ajouter un récurrent ou un ponctuel.
 - **PWA** — manifest, icônes, mode standalone, thème sombre.
 
 ## Les piliers
@@ -58,30 +60,57 @@ npm run dev
 
 Huit arcs les traversent — `savoir` et `corps` en portent deux chacun.
 
+## L'emploi du temps
+
+Deux tables décrivent la semaine :
+
+- `creneauxRecurrents` — la trame hebdomadaire (cours, travail, prière, autre),
+  avec des bornes de validité facultatives (`actifDepuis`, `actifJusqua`) ;
+- `evenements` — le ponctuel, posé sur une date.
+
+**Le ponctuel écrase le récurrent qu'il recouvre.** Un remplacement le remplace ;
+une annulation — un événement réduit à un instant, `début = fin` — le retire sans
+rien occuper. C'est ce que produit le fait de toucher un bloc récurrent dans
+l'écran Semaine ; toucher son filigrane le rétablit.
+
+Un créneau dont la fin précède le début passe minuit. C'est de là que vient la
+**récupération** : un créneau qui a mordu sur la nuit allège le lendemain. Le
+shift du samedi finit à 1 h, donc le dimanche est un jour de récupération ; celui
+du dimanche s'arrête pile à minuit et ne déborde pas sur le lundi.
+
 ## Les deux règles qui comptent
 
-### Sélection des quêtes
+### Budget-temps et sélection des quêtes
 
-La charge de la journée est **lue dans les créneaux et le calendrier**, jamais
-saisie à la main :
+Le nombre de quêtes ne vient pas d'une étiquette posée sur la journée, mais du
+temps qui reste vraiment :
 
-| Journée                          | Quêtes proposées                   |
-| -------------------------------- | ---------------------------------- |
-| Un créneau `shift`               | 1 quête, courte (≤ 30 min)         |
-| Jour allégé, ou créneau `cours`  | 2 quêtes, sur 2 piliers            |
-| Ni l'un ni l'autre (jour libre)  | 3 quêtes, sur 3 piliers différents |
-| Mode « jour bas »                | 1 quête `minimale`                 |
+```
+16 h d'éveil (07:00 – 23:00)
+ − les créneaux du jour, fusionnés et ramenés à la fenêtre d'éveil
+ − 2 h incompressibles (repas, trajets, prières, marge)
+ = tempsDispo
+```
 
-Les jours allégés d'office sont le **dimanche et le lundi** — récupération
-après le shift de nuit du samedi (22 h – 4 h). Le dimanche portant en plus son
-propre shift du soir, il retombe de toute façon sur une seule quête. Les
-créneaux de `priere` structurent la journée sans la charger.
+| Temps disponible   | Quêtes proposées   |
+| ------------------ | ------------------ |
+| moins de 2 h       | 1 quête `minimale` |
+| de 2 h à 4 h       | 2 quêtes           |
+| plus de 4 h        | 3 quêtes           |
+| jour récupération  | une quête de moins |
+| mode « jour bas »  | 1 quête `minimale` |
 
-Dans tous les cas, **les piliers au momentum le plus bas passent devant**, et ce
-qui a déjà été validé aujourd'hui compte dans le quota : une journée ne s'étire
-pas. À momentum égal — le premier jour, tout est à zéro — l'ordre déclaré des
-piliers tranche, pour que la sélection ne bouge pas d'un rafraîchissement à
-l'autre.
+La somme des durées proposées doit en outre tenir dans **40 % du temps
+disponible**. Une quête qui déborde le budget restant laisse la place à une plus
+légère du même pilier. Ce qui a déjà été validé dans la journée consomme le
+quota comme le budget.
+
+Un jour de récupération ne descend jamais sous une quête : une journée sans rien
+à proposer serait une punition, pas un repos.
+
+Dans tous les cas, **les piliers au momentum le plus bas passent devant**. À
+momentum égal — le premier jour, tout est à zéro — l'ordre déclaré des piliers
+tranche, pour que la sélection ne bouge pas d'un rafraîchissement à l'autre.
 
 Chaque quête porte une **fréquence hebdomadaire** (`frequenceSem`, 1 à 7) :
 une quête à 3 fois par semaine ne ressort pas une quatrième fois. Le compte se
@@ -118,26 +147,33 @@ src/
   app/
     connexion/      page de connexion + action serveur
     jour/           écran du jour + actions serveur
+    semaine/        écran de la semaine + actions serveur
     manifest.ts     manifest PWA
-  components/       barres de momentum, liste de quêtes, jour bas, phrase du soir
+  components/       momentum, quêtes, jour bas, phrase du soir, grille et
+                    formulaires de la semaine
   db/               schéma Drizzle et connexion Neon
   lib/
     auth.ts         mot de passe unique, cookie signé (Web Crypto)
     dates.ts        journée calée sur le fuseau de référence
+    temps.ts        arithmétique des créneaux — logique pure
+    charge.ts       règles de charge et budget — logique pure
+    creneaux.ts     récurrent écrasé par le ponctuel — logique pure
     momentum.ts     décroissance, bonus de reprise — logique pure
     selection.ts    choix des quêtes du jour — logique pure
-    jour.ts         accès base et orchestration de l'écran
+    jour.ts         accès base et orchestration de l'écran du jour
+    semaine.ts      accès base et orchestration de l'écran de la semaine
   middleware.ts     garde de session
 drizzle/            migrations SQL
 scripts/            seed et génération d'icônes
 ```
 
-`momentum.ts` et `selection.ts` ne touchent pas la base : toute la règle du jeu
-y est vérifiable sans Postgres.
+`temps.ts`, `charge.ts`, `creneaux.ts`, `momentum.ts` et `selection.ts` ne
+touchent pas la base : toute la règle du jeu y est vérifiable sans Postgres.
 
 ## Le seed
 
-`npm run db:seed` charge les 8 arcs, 28 quêtes et 3 créneaux réels, et crée les
+`npm run db:seed` charge les 8 arcs, 28 quêtes et les 3 shifts récurrents
+(mardi 18:30–21:30, samedi 19:00–01:00, dimanche 18:00–00:00), et crée les
 lignes de momentum à zéro — aucun historique inventé.
 
 Le script **refuse de tourner si le catalogue existe déjà** : supprimer les

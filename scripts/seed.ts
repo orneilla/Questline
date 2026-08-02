@@ -13,7 +13,13 @@
  * les existantes sont laissées telles quelles.
  */
 import { db } from "../src/db";
-import { arcs, creneaux, momentum, quetes, validations } from "../src/db/schema";
+import {
+  arcs,
+  creneauxRecurrents,
+  momentum,
+  quetes,
+  validations,
+} from "../src/db/schema";
 import type { Pilier } from "../src/db/schema";
 import { PILIERS } from "../src/lib/constantes";
 import { aujourdhui } from "../src/lib/dates";
@@ -152,14 +158,14 @@ const CATALOGUE: DefinitionArc[] = [
 ];
 
 /**
- * Shifts de travail. Celui du samedi passe minuit et se termine le dimanche
- * à 4 h : de là viennent les jours allégés du dimanche et du lundi (voir
- * JOURS_ALLEGES dans src/lib/constantes.ts).
+ * Shifts de travail. Celui du samedi se termine à 1 h du matin : il déborde
+ * sur le dimanche, qui devient de ce fait un jour de récupération. Celui du
+ * dimanche s'arrête pile à minuit et ne déborde donc pas sur le lundi.
  */
 const CRENEAUX = [
-  { type: "shift" as const, jourSemaine: 2, debut: "18:00", fin: "23:00" },
-  { type: "shift" as const, jourSemaine: 6, debut: "22:00", fin: "04:00" },
-  { type: "shift" as const, jourSemaine: 0, debut: "18:00", fin: "23:00" },
+  { titre: "Shift", type: "travail" as const, jourSemaine: 2, debut: "18:30", fin: "21:30" },
+  { titre: "Shift", type: "travail" as const, jourSemaine: 6, debut: "19:00", fin: "01:00" },
+  { titre: "Shift", type: "travail" as const, jourSemaine: 0, debut: "18:00", fin: "00:00" },
 ];
 
 async function seed() {
@@ -183,7 +189,7 @@ async function seed() {
     await db.delete(arcs);
   }
 
-  await db.delete(creneaux);
+  await db.delete(creneauxRecurrents);
 
   let nombreQuetes = 0;
 
@@ -211,7 +217,7 @@ async function seed() {
     nombreQuetes += definition.quetes.length;
   }
 
-  await db.insert(creneaux).values(CRENEAUX);
+  await db.insert(creneauxRecurrents).values(CRENEAUX);
 
   // Départ à zéro sur chaque pilier : aucun historique inventé.
   await db
