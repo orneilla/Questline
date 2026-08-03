@@ -7,8 +7,8 @@ const ONGLETS = [
   { href: "/jour", libelle: "Jour" },
   { href: "/semaine", libelle: "Semaine" },
   { href: "/cartes", libelle: "Cartes" },
+  { href: "/coran", libelle: "Coran" },
   { href: "/arcs", libelle: "Arcs" },
-  { href: "/bilan", libelle: "Bilan" },
 ] as const;
 
 function estActif(chemin: string, href: string): boolean {

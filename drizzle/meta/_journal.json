@@ -57,6 +57,13 @@
       "when": 1785771555001,
       "tag": "0007_editeur_cartes",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1785793355913,
+      "tag": "0008_module_coran",
+      "breakpoints": true
     }
   ]
 }

@@ -30,6 +30,7 @@ npm run dev
 | `TELEGRAM_BOT_TOKEN` | Facultatif. Jeton du bot, donné par @BotFather.                |
 | `TELEGRAM_CHAT_ID` | Facultatif. Identifiant de la conversation.                     |
 | `CRON_SECRET`    | Protège `/api/cron` et sert de jeton partagé avec le webhook.     |
+| `CORAN_API_BASE` | Facultatif. Miroir de l'API du Coran (défaut : alquran.cloud).    |
 
 > Sans `SESSION_SECRET`, changer le mot de passe déconnecte tous les appareils.
 
@@ -102,14 +103,14 @@ la première requête, jamais à la compilation.
 
 ## Les écrans
 
-Barre du bas à cinq onglets — **Jour · Semaine · Cartes · Arcs · Bilan** — et les
+Barre du bas à cinq onglets — **Jour · Semaine · Cartes · Coran · Arcs** — et les
 réglages derrière une roue discrète, en haut de chaque écran. Sur tablette en
 paysage, la barre devient une colonne à gauche : en paysage la hauteur est la
 ressource rare, et une barre horizontale y prendrait la place d'une carte.
 
 Tout écran qui n'est pas un onglet racine porte une flèche de retour en haut à
 gauche, vers son parent — jardin, éditeur, recherche, organisation, réglages,
-détail d'arc, parcours. Elle remonte la hiérarchie et non l'historique : la
+détail d'arc, parcours, lecture et mémorisation du Coran. Elle remonte la hiérarchie et non l'historique : la
 destination est la même quel que soit le chemin emprunté pour arriver là. Le
 geste de retour du navigateur, lui, suit l'historique, et les deux se complètent
 au lieu de se doubler. Une suppression navigue en `replace` : revenir en arrière
@@ -299,6 +300,133 @@ Elle refuse de tourner si des cartes existent déjà ; `&remplacer=1` passe outr
 et efface alors tout l'historique de révision. Elle est séparée de
 `/api/setup` à dessein : ce sont des données de démonstration, elles n'ont rien
 à faire dans une installation qu'on voudrait vierge.
+
+## Module Coran
+
+Trois usages dans un seul module : lire, suivre, mémoriser.
+
+### Les règles qui priment sur le reste
+
+Le texte coranique n'est jamais écrit, corrigé ni reformulé par le code. Il est
+importé depuis une API et écrit **tel quel** : aucun `trim`, aucune
+normalisation Unicode, aucun remplacement de caractère. Les diacritiques et les
+marques de tajwid tiennent à des points de code qu'une normalisation NFC ou NFKC
+déplacerait — sur ce texte, ce n'est pas une coquille, c'est une altération. La
+seule vérification est un refus : une chaîne vide n'est pas écrite. L'identité
+octet pour octet entre ce que l'API rend et ce que la base contient est vérifiée
+à l'import.
+
+L'application n'interprète rien. Elle affiche un texte et une traduction
+attribuée ; elle ne commente pas, ne résume pas, ne produit aucun tafsir. Chaque
+écran nomme ses sources : riwaya du texte arabe, nom du traducteur, nom du
+récitateur.
+
+### Sources et licences
+
+**Texte arabe** — Hafs ‘an ‘Asim, graphie uthmanienne, projet Tanzil, servi par
+alquran.cloud. **Creative Commons Attribution 3.0** : copie et distribution
+verbatim autorisées, modification interdite, source et lien à mentionner. C'est
+la seule édition importée d'office, parce que c'est la seule dont la licence est
+claire.
+
+**Traduction française** — aucune n'est importée par défaut, et c'est un choix
+délibéré. Toutes les traductions françaises disponibles dans les API publiques
+sont celle de Muhammad Hamidullah, redistribuée par Tanzil sous une permission —
+« usage non commercial uniquement ; pour tout autre usage, obtenir
+l'autorisation du traducteur ou de l'éditeur » — qui n'est pas une licence
+accordée par l'ayant droit : Hamidullah est mort en 2002, son texte reste
+protégé, et la révision du Complexe du Roi Fahd l'est séparément. Les seules
+traductions françaises franchement dans le domaine public (Kazimirski 1840,
+Savary 1783) n'existent qu'en prose numérisée, non alignée verset par verset,
+et les aligner reviendrait à en produire une édition — ce que ce projet
+s'interdit.
+
+La conséquence est un choix explicite plutôt qu'un défaut caché : chaque édition
+se présente dans les réglages avec ses conditions recopiées telles que la source
+les énonce, et ne s'importe qu'après une case cochée. La translittération latine
+de Tanzil suit le même chemin.
+
+Tout cela vit dans `src/lib/coran/sources.ts`, qui ne contient aucun texte
+coranique — seulement l'identité des éditions et ce que leurs détenteurs de
+droits en disent.
+
+### Pourquoi alquran.cloud
+
+Trois raisons. L'API de la Quran Foundation demande depuis sa v4 un `client_id`
+et un `client_secret` obtenus après inscription : sur une installation qui se
+fait entièrement depuis un navigateur, chaque secret de plus est une
+manipulation qui peut échouer sans moyen de la déboguer. Ensuite un seul appel
+rend une sourate entière, ce qui découpe l'import en 114 lots naturels. Enfin
+l'audio est servi par le même projet, fichier par verset, sans clé.
+
+### L'import
+
+```
+https://<domaine>/api/setup/coran?key=<clé>
+```
+
+114 sourates, 6236 versets, importés par lots avec un budget de temps sous la
+limite de la fonction. **Aucun état d'avancement n'est stocké** : il se lit dans
+ce qui est déjà en base, si bien que la page se recharge d'elle-même pour
+reprendre exactement où elle s'était arrêtée, qu'une coupure ne perd rien, et
+que relancer une fois terminé ne réécrit rien. Ajouter `&edition=<clé>` importe
+une traduction ou la translittération de la même manière.
+
+Mesuré : environ **1,2 Mo** pour le texte arabe, **3,4 Mo** avec une traduction
+et la translittération — sur les 512 Mo du palier gratuit de Neon. La page de
+réglages affiche la place réellement occupée.
+
+**L'audio n'est jamais stocké.** Il est diffusé depuis
+`cdn.islamic.network/quran/audio/{débit}/{récitateur}/{verset}.mp3`, le
+récitateur étant un réglage (par défaut Alafasy). Une récitation injoignable
+arrête l'enchaînement et le dit ; le texte, lui, reste lisible puisqu'il vient
+de la base.
+
+### Lire
+
+Navigation par sourate et par juz'. Chaque verset porte l'arabe, la
+translittération et la traduction, chacune activable d'un bouton. Typographie
+arabe dédiée : police au choix — les polices sont demandées au système et jamais
+téléchargées, une police coranique pesant plusieurs mégaoctets — taille réglable,
+interligne large, RTL, ni césure ni justification.
+
+L'écoute se fait verset par verset ou en continu, la lecture continue faisant
+défiler et surlignant le verset récité. La position est enregistrée en
+arrière-plan à mesure que les versets passent au centre de l'écran, et l'écran
+d'accueil rouvre là où la lecture s'est arrêtée. Marque-pages nommés, sans
+limite.
+
+### Suivre
+
+Objectif quotidien configurable en versets, en pages ou en minutes. Progression
+du jour, part du moushaf parcourue, et le même calendrier que celui des cartes —
+même composant, mêmes verts, mots adaptés.
+
+Quand l'objectif est atteint, la quête de l'arc « Le Coran » est validée et le
+pilier deen crédité, une fois par jour. Les jours où il ne l'est pas ne laissent
+aucune trace : le suivi compte ce qui a eu lieu, il ne sanctionne pas ce qui n'a
+pas eu lieu.
+
+Les séances partent par `navigator.sendBeacon` et non par une action serveur :
+une action partirait avec l'onglet et la lecture ne compterait pas. Le journal
+est aussi écrit tous les vingt versets, pour qu'une fermeture brutale ne coûte
+rien.
+
+### Mémoriser
+
+Un verset mis en carte devient une note du module cartes, dans un espace
+« Coran » et un paquet portant le nom de la sourate : même FSRS, même file
+d'apprentissage. Le module Coran ne tient aucun état de mémorisation — il lit
+les étiquettes `coran:<sourate>:<verset>` quand il veut compter.
+
+Trois formats : le verset depuis sa traduction, le verset suivant depuis le
+précédent, ou la fin du verset masquée. Sur ce dernier, le découpage se fait sur
+les blancs en conservant chaque séparateur — recoller les morceaux redonne le
+verset à l'octet près — et les marques de trou sont posées *autour* d'une
+portion, jamais à l'intérieur d'un mot. Ce sont les derniers mots qui sont
+masqués, mécaniquement : décider quels mots seraient « clés » demanderait un
+jugement sur le sens, et ce module n'en porte aucun. Le verso montre toujours le
+verset entier.
 
 ## Le bot Telegram
 
@@ -519,6 +647,12 @@ src/
     semaine.ts      accès base et orchestration de l'écran de la semaine
     arcs.ts         progression calculée sur les validations
     bilan.ts        chiffres de la semaine
+    coran/
+      sources.ts    éditions, licences, récitateurs — aucune donnée coranique
+      formats.ts    formats de carte, masquage de fin — logique pure
+      import.ts     import par lots, reprenable
+      donnees.ts    lecture, suivi, progression
+      hifz.ts       versets → cartes du module cartes
     cartes/
       fsrs.ts       ordonnancement — logique pure
       file.ts       file de session à la manière d'Anki — logique pure

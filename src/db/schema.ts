@@ -5,6 +5,7 @@ import {
   integer,
   pgEnum,
   pgTable,
+  primaryKey,
   real,
   serial,
   text,
@@ -407,3 +408,163 @@ export type Saison = typeof saisons.$inferSelect;
 export type MessageEnvoye = typeof messagesEnvoyes.$inferSelect;
 export type Pilier = (typeof pilierEnum.enumValues)[number];
 export type TypeJour = (typeof typeJourEnum.enumValues)[number];
+
+/* ═══════════════════════ Module Coran ═══════════════════════ */
+
+/** Lieu de révélation d'une sourate. */
+export const revelationEnum = pgEnum("revelation", ["mecquoise", "medinoise"]);
+
+/** Ce qu'une édition apporte au texte arabe. */
+export const typeEditionEnum = pgEnum("type_edition_coran", [
+  "traduction",
+  "translitteration",
+]);
+
+/**
+ * Les 114 sourates.
+ *
+ * Métadonnées seulement : rien de ce qui est ici n'est du texte coranique.
+ */
+export const sourates = pgTable("sourates", {
+  numero: integer("numero").primaryKey(),
+  nomArabe: text("nom_arabe").notNull(),
+  nomTranslittere: text("nom_translittere").notNull(),
+  /** Sens du nom tel que la source le donne. Recopié, jamais traduit ici. */
+  sensDuNom: text("sens_du_nom").notNull(),
+  revelation: revelationEnum("revelation").notNull(),
+  versets: integer("versets").notNull(),
+  /** Numéro global du premier verset de la sourate, de 1 à 6236. */
+  premierVerset: integer("premier_verset").notNull(),
+});
+
+/**
+ * Les 6236 versets, dans leur numérotation globale.
+ *
+ * `texte` porte le texte arabe tel qu'il est reçu de la source, octet pour
+ * octet : aucune normalisation Unicode, aucun nettoyage, aucune correction.
+ * Toute transformation ici altérerait les signes diacritiques et les marques
+ * de tajwid — c'est la raison pour laquelle rien dans le code n'y touche.
+ */
+export const versets = pgTable(
+  "versets",
+  {
+    numero: integer("numero").primaryKey(),
+    sourate: integer("sourate")
+      .notNull()
+      .references(() => sourates.numero, { onDelete: "cascade" }),
+    numeroDansSourate: integer("numero_dans_sourate").notNull(),
+    juz: integer("juz").notNull(),
+    page: integer("page").notNull(),
+    hizbQuart: integer("hizb_quart").notNull(),
+    sajda: boolean("sajda").notNull().default(false),
+    texte: text("texte").notNull(),
+  },
+  (table) => [
+    index("versets_sourate_idx").on(table.sourate),
+    index("versets_juz_idx").on(table.juz),
+    index("versets_page_idx").on(table.page),
+  ],
+);
+
+/**
+ * Une édition importée : traduction ou translittération.
+ *
+ * `licence` et `source` ne sont pas décoratifs : chaque écran qui affiche cette
+ * édition les cite. Une édition dont on ne sait pas dire la licence n'entre pas.
+ */
+export const editionsCoran = pgTable("editions_coran", {
+  cle: text("cle").primaryKey(),
+  langue: text("langue").notNull(),
+  nom: text("nom").notNull(),
+  auteur: text("auteur").notNull(),
+  type: typeEditionEnum("type").notNull(),
+  source: text("source").notNull(),
+  licence: text("licence").notNull(),
+  /** Versets réellement importés : sert à reprendre un import interrompu. */
+  versets: integer("versets").notNull().default(0),
+  importeeLe: date("importee_le"),
+});
+
+/** Le texte d'un verset dans une édition donnée, verbatim lui aussi. */
+export const textesVersets = pgTable(
+  "textes_versets",
+  {
+    editionCle: text("edition_cle")
+      .notNull()
+      .references(() => editionsCoran.cle, { onDelete: "cascade" }),
+    versetNumero: integer("verset_numero").notNull(),
+    texte: text("texte").notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.editionCle, table.versetNumero] }),
+    index("textes_versets_verset_idx").on(table.versetNumero),
+  ],
+);
+
+/** Où la lecture s'est arrêtée. Une seule ligne. */
+export const positionLecture = pgTable("position_lecture", {
+  id: integer("id").primaryKey().default(1),
+  versetNumero: integer("verset_numero").notNull().default(1),
+  modifieLe: text("modifie_le").notNull(),
+});
+
+/** Journal de lecture : une ligne par séance, de quoi nourrir le calendrier. */
+export const seancesLecture = pgTable(
+  "seances_lecture",
+  {
+    id: serial("id").primaryKey(),
+    date: date("date").notNull(),
+    versets: integer("versets").notNull().default(0),
+    secondes: integer("secondes").notNull().default(0),
+    /** Premier et dernier verset lus, pour pouvoir y revenir. */
+    debut: integer("debut").notNull(),
+    fin: integer("fin").notNull(),
+  },
+  (table) => [index("seances_lecture_date_idx").on(table.date)],
+);
+
+/** Marque-pages nommés, sans limite de nombre. */
+export const marquePages = pgTable(
+  "marque_pages",
+  {
+    id: serial("id").primaryKey(),
+    versetNumero: integer("verset_numero").notNull(),
+    nom: text("nom").notNull().default(""),
+    creeLe: text("cree_le").notNull(),
+  },
+  (table) => [index("marque_pages_verset_idx").on(table.versetNumero)],
+);
+
+/** Ce que l'objectif quotidien compte. */
+export const uniteObjectifEnum = pgEnum("unite_objectif", [
+  "versets",
+  "pages",
+  "minutes",
+]);
+
+/** Réglages du module, une seule ligne. */
+export const reglagesCoran = pgTable("reglages_coran", {
+  id: integer("id").primaryKey().default(1),
+  /** Clés d'édition ; nulles tant que rien n'est importé. */
+  traduction: text("traduction"),
+  translitteration: text("translitteration"),
+  /** Édition audio d'alquran.cloud ; l'audio n'est jamais stocké. */
+  reciteur: text("reciteur").notNull().default("ar.alafasy"),
+  tailleArabe: integer("taille_arabe").notNull().default(30),
+  policeArabe: text("police_arabe").notNull().default("amiri"),
+  afficherTranslitteration: boolean("afficher_translitteration").notNull().default(true),
+  afficherTraduction: boolean("afficher_traduction").notNull().default(true),
+  afficherArabe: boolean("afficher_arabe").notNull().default(true),
+  uniteObjectif: uniteObjectifEnum("unite_objectif").notNull().default("versets"),
+  objectifQuotidien: integer("objectif_quotidien").notNull().default(20),
+});
+
+export type Sourate = typeof sourates.$inferSelect;
+export type Verset = typeof versets.$inferSelect;
+export type EditionCoran = typeof editionsCoran.$inferSelect;
+export type MarquePage = typeof marquePages.$inferSelect;
+export type SeanceLecture = typeof seancesLecture.$inferSelect;
+export type ReglagesCoran = typeof reglagesCoran.$inferSelect;
+export type Revelation = (typeof revelationEnum.enumValues)[number];
+export type UniteObjectif = (typeof uniteObjectifEnum.enumValues)[number];
+export type TypeEdition = (typeof typeEditionEnum.enumValues)[number];

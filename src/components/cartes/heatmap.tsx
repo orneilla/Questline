@@ -47,12 +47,33 @@ function Statistique({ valeur, libelle }: { valeur: string; libelle: string }) {
   );
 }
 
+/**
+ * Les mots changent selon ce qui est compté ; la grille, les paliers et les
+ * calculs ne changent pas. C'est le même composant sur l'écran Cartes et sur
+ * l'écran Coran, et c'est voulu : la même forme se relit sans réapprendre.
+ */
+export type LibellesCalendrier = {
+  /** Singulier et pluriel écrits en entier : « verset lu » / « versets lus ». */
+  unite: string;
+  unites: string;
+  /** « cartes par jour » / « versets par jour ». */
+  parJour: string;
+};
+
+const LIBELLES_DEFAUT: LibellesCalendrier = {
+  unite: "révision",
+  unites: "révisions",
+  parJour: "cartes par jour",
+};
+
 export function Heatmap({
   jours,
   aujourdhui,
+  libelles = LIBELLES_DEFAUT,
 }: {
   jours: JourRevision[];
   aujourdhui: string;
+  libelles?: LibellesCalendrier;
 }) {
   const [recul, setRecul] = useState(0);
   const [choisie, setChoisie] = useState<Case | null>(null);
@@ -138,8 +159,8 @@ export function Heatmap({
       </div>
 
       <p className="text-[13px] text-doux tabular-nums">
-        {resume.total.toLocaleString("fr-FR")} révision
-        {resume.total > 1 ? "s" : ""} sur douze mois
+        {resume.total.toLocaleString("fr-FR")}{" "}
+        {resume.total > 1 ? libelles.unites : libelles.unite} sur douze mois
       </p>
 
       <div className="flex gap-1.5">
@@ -189,7 +210,7 @@ export function Heatmap({
                       type="button"
                       disabled={!jour.passe}
                       onClick={() => setChoisie(jour)}
-                      aria-label={`${formaterJour(jour.date)} — ${jour.combien} révisions`}
+                      aria-label={`${formaterJour(jour.date)} — ${jour.combien} ${libelles.unites}`}
                       className="rounded-[2.5px] transition-transform duration-150"
                       style={{
                         width: CASE,
@@ -218,8 +239,8 @@ export function Heatmap({
         <p aria-live="polite" className="min-h-5 text-[12.5px] text-doux">
           {choisie
             ? choisie.combien === 0
-              ? `${formaterJour(choisie.date)} — aucune révision`
-              : `${formaterJour(choisie.date)} — ${choisie.combien} carte${choisie.combien > 1 ? "s" : ""}`
+              ? `${formaterJour(choisie.date)} — rien ce jour-là`
+              : `${formaterJour(choisie.date)} — ${choisie.combien} ${choisie.combien > 1 ? libelles.unites : libelles.unite}`
             : ""}
         </p>
 
@@ -245,7 +266,7 @@ export function Heatmap({
       <div className="grid grid-cols-2 gap-x-4 gap-y-3 border-t border-bordure pt-3 sm:grid-cols-4">
         <Statistique
           valeur={resume.moyenne.toFixed(1).replace(".", ",")}
-          libelle="cartes par jour"
+          libelle={libelles.parJour}
         />
         <Statistique
           valeur={`${partEtudiee} %`}

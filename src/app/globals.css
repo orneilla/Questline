@@ -201,3 +201,23 @@
   overflow-x: auto;
   overflow-y: hidden;
 }
+
+/* ── Texte coranique ────────────────────────────────────────────────────── */
+
+/*
+  Les polices arabes sont demandées au système, jamais téléchargées : une police
+  coranique pèse plusieurs mégaoctets, et une police manquante ne doit pas
+  empêcher de lire. La pile déclarée dans `sources.ts` retombe de proche en
+  proche jusqu'à la police arabe du système.
+
+  Le texte lui-même n'est jamais transformé — ni ici, ni ailleurs. Ces règles ne
+  touchent que sa mise en page : chasse, interlignage, direction.
+*/
+[lang="ar"] {
+  font-feature-settings: "kern", "liga", "calt";
+  text-rendering: optimizeLegibility;
+  /* L'arabe coranique ne se coupe pas et ne se justifie pas : les signes
+     diacritiques rendraient toute césure fausse. */
+  hyphens: none;
+  word-break: keep-all;
+}
