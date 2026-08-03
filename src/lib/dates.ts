@@ -35,6 +35,27 @@ export function heureLocale(instant: Date = new Date()): number {
   return partsLocales(instant).heure;
 }
 
+/**
+ * Minutes écoulées depuis minuit, dans le fuseau de référence.
+ *
+ * C'est ce qui permet aux tâches planifiées de raisonner en heure de Paris
+ * alors que Vercel les déclenche en UTC : l'heure d'été n'a plus à être
+ * devinée, elle est lue.
+ */
+export function minutesLocales(instant: Date = new Date()): number {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: FUSEAU,
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(instant);
+
+  const lu = (type: Intl.DateTimeFormatPartTypes) =>
+    Number(parts.find((p) => p.type === type)?.value ?? 0);
+
+  return lu("hour") * 60 + lu("minute");
+}
+
 function enUtc(iso: string): number {
   const [a, m, j] = iso.split("-").map(Number);
   return Date.UTC(a, m - 1, j);

@@ -153,6 +153,24 @@ export const saisons = pgTable("saisons", {
   clotureeLe: date("cloturee_le"),
 });
 
+/**
+ * Trace d'un message Telegram déjà envoyé. La clé (date, type) rend l'envoi
+ * idempotent : un cron qui se déclenche deux fois n'écrit qu'une fois.
+ */
+export const messagesEnvoyes = pgTable(
+  "messages_envoyes",
+  {
+    date: date("date").notNull(),
+    type: text("type").notNull(),
+    envoyeLe: text("envoye_le").notNull(),
+    /** Identifiant Telegram, pour pouvoir retirer les boutons ensuite. */
+    messageId: integer("message_id"),
+  },
+  (table) => [
+    uniqueIndex("messages_envoyes_date_type_uniq").on(table.date, table.type),
+  ],
+);
+
 /** Trace d'une quête accomplie. */
 export const validations = pgTable(
   "validations",
@@ -192,5 +210,6 @@ export type Momentum = typeof momentum.$inferSelect;
 export type QueteRareFaite = typeof quetesRaresFaites.$inferSelect;
 export type SeuilArc = typeof seuilsArcs.$inferSelect;
 export type Saison = typeof saisons.$inferSelect;
+export type MessageEnvoye = typeof messagesEnvoyes.$inferSelect;
 export type Pilier = (typeof pilierEnum.enumValues)[number];
 export type TypeJour = (typeof typeJourEnum.enumValues)[number];

@@ -28,8 +28,9 @@ export async function middleware(requete: NextRequest) {
 
 export const config = {
   matcher: [
-    // /api/setup en est exclue : elle doit rester atteignable alors qu'aucune
-    // table n'existe encore, donc avant toute possibilité de session.
-    "/((?!api/setup|_next/static|_next/image|favicon.ico|icones|manifest.webmanifest).*)",
+    // Les routes techniques portent leurs propres secrets et doivent rester
+    // atteignables sans session : /api/setup avant même que les tables
+    // existent, /api/cron pour Vercel, /api/telegram pour le webhook.
+    "/((?!api/setup|api/cron|api/telegram|_next/static|_next/image|favicon.ico|icones|manifest.webmanifest).*)",
   ],
 };

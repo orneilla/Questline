@@ -27,6 +27,9 @@ npm run dev
 | `APP_PASSWORD`   | Mot de passe unique de l'application.                             |
 | `SESSION_SECRET` | Facultatif. Clé de signature du cookie ; à défaut, `APP_PASSWORD`. |
 | `FUSEAU_HORAIRE` | Facultatif. Fuseau qui découpe les journées (`Europe/Paris`).      |
+| `TELEGRAM_BOT_TOKEN` | Facultatif. Jeton du bot, donné par @BotFather.                |
+| `TELEGRAM_CHAT_ID` | Facultatif. Identifiant de la conversation.                     |
+| `CRON_SECRET`    | Protège `/api/cron` et sert de jeton partagé avec le webhook.     |
 
 > Sans `SESSION_SECRET`, changer le mot de passe déconnecte tous les appareils.
 
@@ -119,6 +122,50 @@ réglages derrière une roue discrète, en haut de chaque écran.
 - **Parcours** — les seuils d'arc franchis et les saisons closes, dans l'ordre.
   La seule page qui regarde loin en arrière.
 - **PWA** — manifest, icônes, mode standalone, thème sombre.
+
+## Le bot Telegram
+
+L'application ne compte pas sur le fait qu'on pense à l'ouvrir : elle vient.
+Trois messages, tous facultatifs — sans les variables Telegram, le reste
+fonctionne exactement pareil.
+
+| Message  | Heure de Paris | Contenu                                              |
+| -------- | -------------- | ---------------------------------------------------- |
+| Matin    | 7 h 30         | Titre du jour, charge, quêtes numérotées, quête rare  |
+| Soir     | 21 h 30        | Ce qui a été fait, puis la question de la phrase      |
+| Dimanche | 10 h           | Bilan de la semaine, version courte                   |
+
+Le message du matin porte un bouton par quête : y toucher valide sans ouvrir
+l'app, et les boutons se rafraîchissent aussitôt. Un bouton « Jour bas » est là
+aussi. **Tout message texte envoyé au bot devient la phrase du soir** du jour en
+cours — le bot le confirme, et un nouveau message corrige le précédent. Les
+commandes (`/…`) sont ignorées.
+
+Un lendemain de nuit — le shift du samedi finit à 1 h — ouvre autrement : la
+journée est annoncée comme allégée d'office, sans rien à rattraper. Une journée
+sans rien de coché reçoit le même égard qu'une autre : on constate, on pose la
+question, on ne relance pas.
+
+### Heure d'été
+
+Vercel planifie en UTC ; Paris avance d'une heure en hiver, de deux en été. Un
+horaire fixe dériverait donc d'une heure la moitié de l'année. `vercel.json`
+déclare **les deux horaires UTC possibles** pour chaque message, et
+`/api/cron` tranche : il lit l'heure réelle de Paris et n'envoie que si le
+créneau y correspond. Le déclenchement en trop tombe hors créneau et ne fait
+rien ; l'envoi est de toute façon consigné par date et par type, donc jamais
+dupliqué.
+
+> **Six tâches planifiées.** Les comptes Vercel Hobby sont limités à deux
+> tâches quotidiennes. Si le déploiement s'en plaint, garder les deux du matin
+> (`30 5` et `30 6`) : les messages du soir et du dimanche cessent, le reste
+> tient. Le plan Pro lève la limite.
+
+### Si Telegram tombe
+
+Rien ne casse. Jeton absent, réseau coupé, API en panne : l'appel se solde par
+une trace en journal, l'envoi n'est pas consigné, et le prochain déclenchement
+retentera. L'application ne dépend jamais du bot.
 
 ## Texture narrative
 
