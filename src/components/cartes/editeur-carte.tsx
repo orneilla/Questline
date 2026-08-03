@@ -358,7 +358,9 @@ export function EditeurCarte({
                     onClick={() =>
                       demarrer(async () => {
                         await effacerCarte(note.carteId, false);
-                        routeur.push("/cartes/recherche");
+                        // « Remplacer » et non « empiler » : revenir en arrière ne doit pas
+                        // rouvrir l'éditeur d'une carte qui n'existe plus.
+                        routeur.replace("/cartes/recherche");
                       })
                     }
                     className="min-h-12 flex-1 rounded-xl border border-bordure-vive bg-surface-haut text-[14px] text-texte"
@@ -372,7 +374,9 @@ export function EditeurCarte({
                       onClick={() =>
                         demarrer(async () => {
                           await effacerCarte(note.carteId, true);
-                          routeur.push("/cartes/recherche");
+                          // « Remplacer » et non « empiler » : revenir en arrière ne doit pas
+                        // rouvrir l'éditeur d'une carte qui n'existe plus.
+                        routeur.replace("/cartes/recherche");
                         })
                       }
                       className="min-h-12 flex-1 rounded-xl border border-bordure-vive bg-surface-haut text-[14px] text-texte"

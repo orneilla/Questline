@@ -485,6 +485,29 @@ export async function previsions(
   });
 }
 
+/**
+ * Tous les jours où quelque chose a été révisé, du plus ancien au plus récent.
+ *
+ * Une ligne par jour travaillé, pas par révision : même après des années, cela
+ * tient en quelques milliers de lignes, et le calendrier peut donc se calculer
+ * entièrement côté client — changer d'année ne coûte alors aucune requête.
+ */
+export async function joursDeRevision(
+  anneesMax = 6,
+  date = aujourdhui(),
+): Promise<{ date: string; combien: number }[]> {
+  const debut = decalerJours(date, -365 * anneesMax);
+
+  const lignes = await db
+    .select({ jour: revisions.date, combien: count() })
+    .from(revisions)
+    .where(gte(revisions.date, debut))
+    .groupBy(revisions.date)
+    .orderBy(asc(revisions.date));
+
+  return lignes.map((l) => ({ date: l.jour, combien: l.combien }));
+}
+
 /** Taux de bonnes réponses par jour, sur la fenêtre demandée. */
 export async function retention(
   jours = 30,

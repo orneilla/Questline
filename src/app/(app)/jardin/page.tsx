@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 
 import { LienReglages } from "@/components/barre-navigation";
+import { Retour } from "@/components/retour";
 import { EcranInstallation } from "@/components/ecran-installation";
 import {
   especePour,
@@ -42,6 +43,7 @@ export default async function PageJardin() {
     <main className="mx-auto flex min-h-dvh w-full max-w-md flex-col gap-9 px-6 pt-[calc(env(safe-area-inset-top)+2.75rem)] pb-10 lg:max-w-3xl">
       <header className="apparait flex items-start justify-between gap-4">
         <div className="flex flex-col gap-2.5">
+          <Retour vers="/cartes" libelle="Cartes" />
           <p className="text-[12px] tracking-[0.22em] text-tres-doux uppercase">
             {paquets.length + PILIERS.length} plantes
           </p>

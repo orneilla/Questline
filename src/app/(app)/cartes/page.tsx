@@ -4,9 +4,16 @@ import Link from "next/link";
 import { LienReglages } from "@/components/barre-navigation";
 import { BarrePaquet, LegendeEtats } from "@/components/cartes/barre-paquet";
 import { EcranInstallation } from "@/components/ecran-installation";
+import { Heatmap } from "@/components/cartes/heatmap";
 import { especePour, Plante, stadePour } from "@/components/jardin/plante";
-import { chargerPaquets, previsions, type ResumePaquet } from "@/lib/cartes/donnees";
+import {
+  chargerPaquets,
+  joursDeRevision,
+  previsions,
+  type ResumePaquet,
+} from "@/lib/cartes/donnees";
 import { JOURS_SEMAINE } from "@/lib/constantes";
+import { aujourdhui } from "@/lib/dates";
 import { diagnostiquer } from "@/lib/erreurs";
 
 export const metadata: Metadata = { title: "Questline — Cartes" };
@@ -73,9 +80,14 @@ function Raccourci({ href, libelle }: { href: string; libelle: string }) {
 export default async function PageCartes() {
   let liste: ResumePaquet[];
   let prevision: { date: string; combien: number }[];
+  let calendrier: { date: string; combien: number }[];
 
   try {
-    [liste, prevision] = await Promise.all([chargerPaquets(), previsions(7)]);
+    [liste, prevision, calendrier] = await Promise.all([
+      chargerPaquets(),
+      previsions(7),
+      joursDeRevision(),
+    ]);
   } catch (erreur) {
     const probleme = diagnostiquer(erreur);
     if (!probleme) throw erreur;
@@ -113,6 +125,8 @@ export default async function PageCartes() {
           <LienReglages />
         </div>
       </header>
+
+      <Heatmap jours={calendrier} aujourdhui={aujourdhui()} />
 
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
         <Raccourci href="/cartes/nouveau" libelle="Nouvelle carte" />

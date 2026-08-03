@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import Link from "next/link";
+import { Retour } from "@/components/retour";
 import { notFound } from "next/navigation";
 
 import { EcranInstallation } from "@/components/ecran-installation";
@@ -41,12 +41,7 @@ export default async function PageArc({
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-md flex-col gap-9 px-6 pt-[calc(env(safe-area-inset-top)+2.75rem)] pb-10">
       <header className="apparait flex flex-col gap-3">
-        <Link
-          href="/arcs"
-          className="text-[12px] tracking-[0.14em] text-tres-doux uppercase transition-colors duration-300 active:text-doux"
-        >
-          ← Arcs
-        </Link>
+        <Retour vers="/arcs" libelle="Arcs" />
 
         <p
           className="flex items-center gap-2 text-[12px] tracking-[0.14em] uppercase"

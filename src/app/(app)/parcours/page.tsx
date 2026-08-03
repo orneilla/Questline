@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 
+import { Retour } from "@/components/retour";
 import { EcranInstallation } from "@/components/ecran-installation";
 import { COULEURS_PILIERS, LIBELLES_PILIERS, MOIS } from "@/lib/constantes";
 import { formaterDateLongue } from "@/lib/dates";
@@ -37,12 +37,7 @@ export default async function PageParcours() {
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-md flex-col gap-9 px-6 pt-[calc(env(safe-area-inset-top)+2.75rem)] pb-10">
       <header className="apparait flex flex-col gap-2.5">
-        <Link
-          href="/bilan"
-          className="text-[12px] tracking-[0.14em] text-tres-doux uppercase transition-colors duration-300 active:text-doux"
-        >
-          ← Bilan
-        </Link>
+        <Retour vers="/bilan" libelle="Bilan" />
         <h1 className="police-titre text-[34px] leading-none">Parcours</h1>
         <p className="text-[13.5px] leading-relaxed text-doux">
           La seule page qui regarde loin en arrière. Les seuils franchis et les

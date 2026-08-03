@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import Link from "next/link";
+import { Retour } from "@/components/retour";
 import { asc } from "drizzle-orm";
 
 import { EcranInstallation } from "@/components/ecran-installation";
@@ -74,12 +74,7 @@ export default async function PageReglages() {
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-md flex-col gap-9 px-6 pt-[calc(env(safe-area-inset-top)+2.75rem)] pb-10">
       <header className="apparait flex flex-col gap-2.5">
-        <Link
-          href="/jour"
-          className="text-[12px] tracking-[0.14em] text-tres-doux uppercase transition-colors duration-300 active:text-doux"
-        >
-          ← Jour
-        </Link>
+        <Retour vers="/jour" libelle="Jour" />
         <h1 className="police-titre text-[34px] leading-none">Réglages</h1>
         <p className="text-[13.5px] leading-relaxed text-doux">
           Tout ce qui est ici se modifie et se supprime. Chaque suppression demande une

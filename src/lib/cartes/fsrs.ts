@@ -146,11 +146,23 @@ export function planifier(
   return apercuIntervalles(memoire, reglages, maintenant)[note];
 }
 
-/** « 10 min », « 2 j », « 1,5 mois », « 2,1 ans ». */
+/**
+ * « 1 min », « 6 min », « 90 min », « 4 h », « 2 j », « 1,5 mois », « 2,1 ans ».
+ *
+ * Ce qui se compte en minutes s'affiche en minutes, jusqu'à une heure et demie :
+ * arrondir « 90 min » en « 2 h » mentirait sur un délai que l'on attend
+ * réellement, assise devant l'écran.
+ */
 export function formaterIntervalle(jours: number): string {
-  if (jours < 1 / 24) return `${Math.max(1, Math.round(jours * 1440))} min`;
+  const minutes = jours * 1440;
+  if (minutes < 90) return `${Math.max(1, Math.round(minutes))} min`;
   if (jours < 1) return `${Math.round(jours * 24)} h`;
   if (jours < 30) return `${Math.round(jours)} j`;
   if (jours < 365) return `${(jours / 30).toFixed(1).replace(".", ",")} mois`;
   return `${(jours / 365).toFixed(1).replace(".", ",")} ans`;
+}
+
+/** Le même affichage, pour un délai déjà exprimé en minutes. */
+export function formaterMinutes(minutes: number): string {
+  return formaterIntervalle(minutes / 1440);
 }

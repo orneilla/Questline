@@ -107,6 +107,19 @@ réglages derrière une roue discrète, en haut de chaque écran. Sur tablette e
 paysage, la barre devient une colonne à gauche : en paysage la hauteur est la
 ressource rare, et une barre horizontale y prendrait la place d'une carte.
 
+Tout écran qui n'est pas un onglet racine porte une flèche de retour en haut à
+gauche, vers son parent — jardin, éditeur, recherche, organisation, réglages,
+détail d'arc, parcours. Elle remonte la hiérarchie et non l'historique : la
+destination est la même quel que soit le chemin emprunté pour arriver là. Le
+geste de retour du navigateur, lui, suit l'historique, et les deux se complètent
+au lieu de se doubler. Une suppression navigue en `replace` : revenir en arrière
+ne doit pas rouvrir l'éditeur d'une carte qui n'existe plus.
+
+La révision, elle, se quitte par une croix : la session en cours est close comme
+si elle s'était achevée — les cartes déjà notées comptent, leurs échéances sont
+écrites — et ce qui reste revient un autre jour. La confirmation dit combien de
+cartes restent et ce qui est conservé.
+
 - **Connexion** — un seul mot de passe, cookie `httpOnly` signé (HMAC-SHA256)
   valable 90 jours, vérifié par le middleware sur toutes les routes.
 - **Jour** — titre du jour, date, charge de la journée, les quêtes du jour, les six
@@ -140,6 +153,13 @@ milieu des autres et non à la fin. « Correct » et « Facile » la confient à
 FSRS. La session ne s'achève que file vide. Tout est en mémoire et sans effet
 de bord : une session chargée continue sans réseau.
 
+**Ce que les boutons annoncent** — le délai réel, et non un arrondi. « Encore »
+et « Difficile » ne font pas sortir la carte de la session : ils affichent donc
+le délai de la file — « 1 min », « 6 min » — et non l'échéance en jours que FSRS
+calculerait pour une carte qui partirait. « Correct » et « Facile » affichent
+l'intervalle FSRS. Ce qui se compte en minutes s'écrit en minutes jusqu'à une
+heure et demie.
+
 **Écriture** — les notations partent dans une file d'attente avec reprise
 exponentielle et rejeu au retour de la connexion. L'écran n'attend jamais le
 réseau.
@@ -152,6 +172,32 @@ au budget.
 **Lecture de la progression** — le pourcentage annoncé est celui des cartes
 mûres, nommé comme tel (« 76 % maîtrisé »). La barre à quatre segments a sa
 légende ; un appui dessus en donne les nombres exacts, sans quitter l'écran.
+
+### Le calendrier
+
+En haut de l'écran Cartes : une case par jour, les semaines en colonnes, douze
+mois glissants, avec navigation d'une année à l'autre. Un appui sur une case
+donne la date et le nombre de cartes révisées ; sous la grille, la moyenne
+quotidienne, la part de jours étudiés, la plus longue série et la série en
+cours.
+
+Cinq paliers de vert, du presque éteint au franchement lumineux, calculés sur
+les **quantiles** des jours réellement travaillés et non sur des seuils fixes :
+l'échelle doit rester lisible qu'on révise vingt ou deux cents cartes par jour.
+Quand l'historique est trop uniforme pour que les quantiles se distinguent, la
+répartition redevient linéaire — sans quoi toute une année s'écraserait sur un
+seul palier. Un jour sans révision reste neutre, présent mais à peine.
+
+Deux précautions de calcul. La moyenne et le pourcentage de jours étudiés ne
+comptent pas les journées antérieures à la première révision : diviser par un
+passé qui n'a pas eu lieu donnerait un chiffre faux. Et la série en cours ne se
+brise pas parce qu'il est dix heures du matin — un jour travaillé hier la
+maintient tant qu'aujourd'hui n'est pas fini. Quand elle retombe à zéro, elle
+affiche zéro, sans un mot de plus.
+
+Tout se calcule dans le navigateur à partir de la seule liste des jours
+travaillés — une ligne par jour, quelques milliers après des années — si bien
+que changer d'année ne demande rien au serveur.
 
 ### L'éditeur
 
@@ -449,8 +495,8 @@ src/
       arcs/         liste et détail des arcs
       bilan/        bilan hebdomadaire
       reglages/     création, modification, suppression + actions serveur
-      cartes/       paquets, révision, éditeur, recherche, organisation,
-                    réglages du module + actions serveur
+      cartes/       paquets, calendrier, révision, éditeur, recherche,
+                    organisation, réglages du module + actions serveur
       jardin/       les plantes de tous les paquets et des six piliers
     api/setup/      installation de la base depuis un navigateur
     api/export/     téléchargement de la sauvegarde
@@ -458,7 +504,8 @@ src/
     manifest.ts     manifest PWA
   components/       momentum, quêtes, jour bas, phrase du soir, grille et
                     formulaires de la semaine, navigation, réglages,
-                    cartes (révision, éditeur, barre, recherche), jardin
+                    cartes (révision, éditeur, barre, calendrier, recherche),
+                    jardin, flèche de retour
   db/               schéma Drizzle et connexion Neon
   lib/
     auth.ts         mot de passe unique, cookie signé (Web Crypto)
@@ -476,6 +523,7 @@ src/
       fsrs.ts       ordonnancement — logique pure
       file.ts       file de session à la manière d'Anki — logique pure
       generation.ts note → cartes, trous, inversées, arabe — logique pure
+      calendrier.ts grille, paliers de couleur, séries — logique pure
       image.ts      compression navigateur — logique pure
       csv.ts        aller-retour CSV avec Anki — logique pure
       donnees.ts    lecture : sessions, notations, progression
@@ -486,7 +534,7 @@ scripts/            seed et génération d'icônes
 ```
 
 `temps.ts`, `charge.ts`, `creneaux.ts`, `momentum.ts`, `selection.ts` et les
-cinq modules purs de `cartes/` ne touchent pas la base : toute la règle du jeu y
+six modules purs de `cartes/` ne touchent pas la base : toute la règle du jeu y
 est vérifiable sans Postgres. `components/jardin/botanique.ts` non plus — les
 plantes sont de la géométrie, pas des images.
 

@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { Retour } from "@/components/retour";
 import { EcranInstallation } from "@/components/ecran-installation";
 import { EditeurCarte, type PaquetChoix } from "@/components/cartes/editeur-carte";
 import { chargerArborescence, chargerNote } from "@/lib/cartes/edition";
@@ -47,12 +47,7 @@ export default async function PageCarte({
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-md flex-col gap-7 px-6 pt-[calc(env(safe-area-inset-top)+2.75rem)] pb-10 lg:max-w-5xl">
       <header className="apparait flex flex-col gap-2.5">
-        <Link
-          href="/cartes/recherche"
-          className="text-[12px] tracking-[0.14em] text-tres-doux uppercase transition-colors duration-300 active:text-doux"
-        >
-          ← Chercher
-        </Link>
+        <Retour vers="/cartes/recherche" libelle="Chercher" />
         <h1 className="police-titre text-[34px] leading-none">Modifier</h1>
         <p className="text-[13px] text-doux">
           {note.espaceNom} · {note.paquetNom}

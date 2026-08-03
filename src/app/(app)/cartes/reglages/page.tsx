@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 
+import { Retour } from "@/components/retour";
 import { CourbeRetention } from "@/components/cartes/courbe-retention";
 import { EcranInstallation } from "@/components/ecran-installation";
 import type { PaquetChoix } from "@/components/cartes/editeur-carte";
@@ -76,12 +76,7 @@ export default async function PageReglagesCartes() {
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-md flex-col gap-9 px-6 pt-[calc(env(safe-area-inset-top)+2.75rem)] pb-10 lg:max-w-2xl">
       <header className="apparait flex flex-col gap-2.5">
-        <Link
-          href="/cartes"
-          className="text-[12px] tracking-[0.14em] text-tres-doux uppercase transition-colors duration-300 active:text-doux"
-        >
-          ← Cartes
-        </Link>
+        <Retour vers="/cartes" libelle="Cartes" />
         <h1 className="police-titre text-[34px] leading-none">Réglages des cartes</h1>
       </header>
 
