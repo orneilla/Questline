@@ -419,6 +419,32 @@ export async function chargerPaquets(date = aujourdhui()): Promise<ResumePaquet[
   });
 }
 
+/**
+ * Maîtrise d'un paquet, ou de tout le module. Relue après une session pour
+ * savoir si la plante a changé de stade.
+ */
+export async function maitrisePaquet(
+  paquetId: number | null,
+): Promise<{ maitrise: number; total: number; mures: number }> {
+  const ids = paquetId === null ? null : await sousArbre(paquetId);
+
+  const lignes = await db
+    .select({ etat: cartes.etat, combien: count() })
+    .from(cartes)
+    .where(
+      and(
+        eq(cartes.suspendue, false),
+        ids ? inArray(cartes.paquetId, ids) : undefined,
+      ),
+    )
+    .groupBy(cartes.etat);
+
+  const total = lignes.reduce((somme, ligne) => somme + ligne.combien, 0);
+  const mures = lignes.find((l) => l.etat === "mure")?.combien ?? 0;
+
+  return { total, mures, maitrise: total === 0 ? 0 : Math.round((100 * mures) / total) };
+}
+
 /** Nombre de cartes dues aujourd'hui, tous paquets confondus. */
 export async function cartesDues(date = aujourdhui()): Promise<number> {
   const [ligne] = await db

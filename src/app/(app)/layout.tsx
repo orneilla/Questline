@@ -1,8 +1,9 @@
 import { BarreNavigation } from "@/components/barre-navigation";
 
 /**
- * Coque des écrans applicatifs. La marge basse laisse la place à la barre
- * fixe, y compris sous l'encoche des appareils récents.
+ * Coque des écrans applicatifs. La marge suit la forme de la navigation :
+ * en bas quand elle est une barre — jusque sous l'encoche — et à gauche
+ * quand elle devient une colonne, sur tablette en paysage.
  */
 export default function LayoutApplication({
   children,
@@ -11,7 +12,9 @@ export default function LayoutApplication({
 }) {
   return (
     <>
-      <div className="pb-[calc(3.5rem+env(safe-area-inset-bottom))]">{children}</div>
+      <div className="pb-[calc(3.5rem+env(safe-area-inset-bottom))] lg:landscape:pb-0 lg:landscape:pl-[13rem]">
+        {children}
+      </div>
       <BarreNavigation />
     </>
   );

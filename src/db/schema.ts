@@ -277,6 +277,16 @@ export const cartes = pgTable(
     suspendue: boolean("suspendue").notNull().default(false),
     /** Regroupe les cartes engendrées par une même note. */
     sourceCle: text("source_cle"),
+    /**
+     * La note d'origine, telle qu'elle a été saisie. La garder permet de
+     * rouvrir la note dans l'éditeur — et non sa forme rendue — puis de
+     * réengendrer le groupe sans perdre la mémoire FSRS des cartes qui
+     * subsistent. Nulle pour les cartes écrites avant l'éditeur.
+     */
+    sourceRecto: text("source_recto"),
+    sourceVerso: text("source_verso"),
+    /** Repère de la carte dans son groupe : numéro de trou, ou sens d'une inversée. */
+    sourceIndex: integer("source_index").notNull().default(0),
     creeLe: date("cree_le").notNull(),
     modifieLe: date("modifie_le").notNull(),
   },
@@ -289,6 +299,27 @@ export const cartes = pgTable(
     index("cartes_source_cle_idx").on(table.sourceCle),
   ],
 );
+
+/**
+ * Les images collées dans les cartes.
+ *
+ * Elles vivent à part plutôt qu'en data URI dans le texte : une même figure
+ * sert souvent plusieurs cartes d'un même groupe, le texte des cartes reste
+ * léger à charger pour une session, et la place occupée devient mesurable —
+ * ce qui compte quand la base est un Neon gratuit.
+ */
+export const medias = pgTable("medias", {
+  id: serial("id").primaryKey(),
+  nom: text("nom").notNull().default(""),
+  typeMime: text("type_mime").notNull(),
+  /** Poids après compression, en octets. */
+  octets: integer("octets").notNull().default(0),
+  largeur: integer("largeur").notNull().default(0),
+  hauteur: integer("hauteur").notNull().default(0),
+  /** Contenu encodé en base64 : le pilote HTTP ne transporte pas d'octets bruts. */
+  donnees: text("donnees").notNull(),
+  creeLe: date("cree_le").notNull(),
+});
 
 /**
  * Historique des révisions. On ajoute, on n'écrase jamais : c'est la seule
@@ -355,6 +386,7 @@ export const reglagesCartes = pgTable("reglages_cartes", {
 export type Espace = typeof espaces.$inferSelect;
 export type Paquet = typeof paquets.$inferSelect;
 export type Carte = typeof cartes.$inferSelect;
+export type Media = typeof medias.$inferSelect;
 export type Revision = typeof revisions.$inferSelect;
 export type SessionRevision = typeof sessionsRevision.$inferSelect;
 export type ReglagesCartes = typeof reglagesCartes.$inferSelect;

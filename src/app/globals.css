@@ -96,6 +96,27 @@
   animation: souffle 0.7s var(--ease-calme) both;
 }
 
+/*
+  Croissance d'une plante en fin de session : chaque trait apparaît à son tour,
+  du sol vers la pointe. Rien ne rebondit, rien ne scintille.
+*/
+@keyframes pousse-trait {
+  from {
+    opacity: 0;
+    transform: translateY(1.5px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.plante-pousse path {
+  transform-box: fill-box;
+  transform-origin: bottom center;
+  animation: pousse-trait 0.6s var(--ease-calme) both;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
@@ -162,8 +183,13 @@
   Les schémas au trait sont dessinés en noir sur fond transparent. Sur fond
   sombre, ils disparaîtraient : on inverse la luminosité sans toucher aux
   couleurs, ce qui laisse le dessin intact et rend le trait blanc.
+
+  Le PNG sert exactement de marqueur : la compression range les schémas en PNG
+  et les photographies en WebP, jamais l'inverse. Une photographie inversée
+  serait un désastre — d'où la précision du sélecteur.
 */
-.contenu-carte img[src^="data:image/png"] {
+.contenu-carte img[src^="data:image/png"],
+.contenu-carte img[src$=".png"] {
   filter: invert(1) hue-rotate(180deg);
 }
 

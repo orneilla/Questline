@@ -103,7 +103,9 @@ la première requête, jamais à la compilation.
 ## Les écrans
 
 Barre du bas à cinq onglets — **Jour · Semaine · Cartes · Arcs · Bilan** — et les
-réglages derrière une roue discrète, en haut de chaque écran.
+réglages derrière une roue discrète, en haut de chaque écran. Sur tablette en
+paysage, la barre devient une colonne à gauche : en paysage la hauteur est la
+ressource rare, et une barre horizontale y prendrait la place d'une carte.
 
 - **Connexion** — un seul mot de passe, cookie `httpOnly` signé (HMAC-SHA256)
   valable 90 jours, vérifié par le middleware sur toutes les routes.
@@ -147,9 +149,91 @@ l'écran du jour, révision qui crédite le pilier `savoir` une fois par jour, e
 au-delà de cinquante cartes dues la charge de la journée retire trente minutes
 au budget.
 
-**Jardin** — une plante en pixel art par paquet, six stades selon la maîtrise
-réelle (part de cartes mûres). Un paquet laissé plus de deux semaines pâlit,
-sans jamais mourir. Les six piliers ont aussi la leur, liée au momentum.
+**Lecture de la progression** — le pourcentage annoncé est celui des cartes
+mûres, nommé comme tel (« 76 % maîtrisé »). La barre à quatre segments a sa
+légende ; un appui dessus en donne les nombres exacts, sans quitter l'écran.
+
+### L'éditeur
+
+Pensé pour la tablette, utilisable au téléphone. Deux colonnes dès qu'il y a la
+place : la saisie à gauche, à droite l'aperçu des cartes telles qu'elles se
+présenteront, mis à jour à la frappe.
+
+- **Types** — recto-verso, inversée (deux cartes), texte à trous (une carte par
+  trou). Une barre d'insertion pose une formule LaTeX, un bloc, un trou
+  `{{cN::…}}` auto-numéroté, une image.
+- **Modifier sans perdre la mémoire** — la note d'origine est conservée sur
+  chaque carte engendrée, avec le repère du trou qu'elle interroge. Réécrire la
+  note met à jour sur place les cartes dont le repère subsiste : stabilité,
+  échéance et historique intacts. Seul un trou réellement supprimé perd sa
+  carte, et un trou ajouté en crée une neuve.
+- **Création en série** — après validation, le formulaire se vide mais garde le
+  paquet, le type et les étiquettes.
+- **Chercher** — sur le recto, le verso, les notes et les étiquettes, avec
+  filtres par paquet, par état et par suspension. Les résultats se sélectionnent
+  pour être déplacés en bloc vers un autre paquet.
+- **Organiser** — espaces et paquets : créer, renommer, déplacer, imbriquer,
+  supprimer, poser une couverture. Chaque suppression annonce d'abord ce qu'elle
+  emporte.
+- **Suspendre** — une carte suspendue reste en base et sort des sessions.
+
+### Images
+
+La compression a lieu dans le navigateur, avant l'envoi. Côté long ramené à
+1200 px. Un schéma au trait — export ChemDraw, formule, figure — reste en PNG,
+seul format qui garde la transparence ; quand le tracé est gris ou noir, les
+couleurs sont ramenées au noir pur en conservant l'alpha, ce qui laisse le
+dessin identique et allège nettement le fichier. Une photographie passe en
+WebP, dont la qualité descend par paliers jusqu'à tenir sous 150 Ko. Au-delà de
+400 Ko après compression, l'image est refusée avec son poids. Le poids retenu
+est affiché à chaque fois.
+
+Les images vivent dans une table à part, servies par `/api/cartes/media/<id>`,
+et non en data URI dans le texte : une même figure sert souvent plusieurs cartes
+d'un groupe, le texte reste léger à charger pour une session, et la place
+occupée devient mesurable. L'extension de l'adresse porte une information : un
+`.png` est un schéma au trait, inversé par CSS pour rester lisible sur fond
+sombre ; un `.webp` est une photographie, jamais touchée.
+
+Le collage et le glisser-déposer passent par le même chemin que le bouton :
+coller un export ChemDraw dans le champ fonctionne directement.
+
+### Réglages des cartes
+
+`/cartes/reglages` réunit ce qui gouverne le module : la courbe de rétention sur
+trente jours avec la cible en pointillés, les paramètres FSRS (rétention visée,
+nouvelles par jour, plafond, délais de retour), la place occupée dans la base et
+les échanges.
+
+**Place occupée** — taille réelle de la base rapportée au palier gratuit de Neon
+(512 Mo), nombre de cartes, de révisions et d'images. L'archivage efface les
+révisions antérieures à une date **en gardant toujours la dernière de chaque
+carte** : c'est elle qui dit à FSRS combien de temps s'est écoulé, et sans elle
+une carte mûre repasserait pour neuve. Les échéances ne bougent donc pas d'un
+jour ; ce qui se perd est la matière d'une réoptimisation future des poids. Les
+images qu'aucune carte ne cite plus se purgent à part.
+
+**Export** — JSON complet (mémoire FSRS comprise), ou CSV lisible par Anki
+(recto, verso, étiquettes, espace, paquet). L'import CSV reconnaît la virgule,
+le point-virgule et la tabulation, avec ou sans en-tête.
+
+### Le jardin
+
+Une plante par paquet, dessinée au trait dans l'esprit d'une planche d'herbier :
+tout est tracé, rien n'est rempli, et les silhouettes sont calculées plutôt que
+recopiées — une fronde de fougère est une courbe et ses pinnules, une graminée
+un faisceau de limbes. Quatre espèces — fougère, graminée, plante à fleur,
+grimpante — attribuées selon l'espace, pour que le jardin ne soit pas monotone.
+
+Six stades selon la maîtrise réelle (part de cartes mûres) : graine, pousse,
+jeune plant, plante, floraison, maturité. Un paquet laissé plus de deux semaines
+pâlit et se désature, sans jamais faner ni mourir. Les six piliers ont aussi leur
+plante, liée au momentum.
+
+En fin de session, la plante du paquet se dessine trait par trait et l'écran dit
+la maîtrise atteinte ; si un stade vient d'être franchi, il est nommé. Rien
+d'autre : ni score, ni série, ni comparaison. L'écran de révision, lui, reste
+nu.
 
 ### Données de test
 
@@ -365,11 +449,16 @@ src/
       arcs/         liste et détail des arcs
       bilan/        bilan hebdomadaire
       reglages/     création, modification, suppression + actions serveur
+      cartes/       paquets, révision, éditeur, recherche, organisation,
+                    réglages du module + actions serveur
+      jardin/       les plantes de tous les paquets et des six piliers
     api/setup/      installation de la base depuis un navigateur
     api/export/     téléchargement de la sauvegarde
+    api/cartes/     images des cartes, export JSON et CSV
     manifest.ts     manifest PWA
   components/       momentum, quêtes, jour bas, phrase du soir, grille et
-                    formulaires de la semaine, navigation, réglages
+                    formulaires de la semaine, navigation, réglages,
+                    cartes (révision, éditeur, barre, recherche), jardin
   db/               schéma Drizzle et connexion Neon
   lib/
     auth.ts         mot de passe unique, cookie signé (Web Crypto)
@@ -383,13 +472,23 @@ src/
     semaine.ts      accès base et orchestration de l'écran de la semaine
     arcs.ts         progression calculée sur les validations
     bilan.ts        chiffres de la semaine
+    cartes/
+      fsrs.ts       ordonnancement — logique pure
+      file.ts       file de session à la manière d'Anki — logique pure
+      generation.ts note → cartes, trous, inversées, arabe — logique pure
+      image.ts      compression navigateur — logique pure
+      csv.ts        aller-retour CSV avec Anki — logique pure
+      donnees.ts    lecture : sessions, notations, progression
+      edition.ts    écriture : notes, paquets, espaces, images, archivage
   middleware.ts     garde de session
 drizzle/            migrations SQL
 scripts/            seed et génération d'icônes
 ```
 
-`temps.ts`, `charge.ts`, `creneaux.ts`, `momentum.ts` et `selection.ts` ne
-touchent pas la base : toute la règle du jeu y est vérifiable sans Postgres.
+`temps.ts`, `charge.ts`, `creneaux.ts`, `momentum.ts`, `selection.ts` et les
+cinq modules purs de `cartes/` ne touchent pas la base : toute la règle du jeu y
+est vérifiable sans Postgres. `components/jardin/botanique.ts` non plus — les
+plantes sont de la géométrie, pas des images.
 
 ## Le seed
 

@@ -10,6 +10,15 @@ import { diagnostiquer } from "@/lib/erreurs";
 export const metadata: Metadata = { title: "Questline — Révision" };
 export const dynamic = "force-dynamic";
 
+/** Maîtrise tous paquets confondus, pour la révision « tout ». */
+function maitriseGlobale(
+  paquets: { repartition: { mures: number; total: number } }[],
+): number {
+  const total = paquets.reduce((somme, p) => somme + p.repartition.total, 0);
+  const mures = paquets.reduce((somme, p) => somme + p.repartition.mures, 0);
+  return total === 0 ? 0 : Math.round((100 * mures) / total);
+}
+
 export default async function PageRevision({
   params,
 }: {
@@ -31,7 +40,7 @@ export default async function PageRevision({
 
     if (session.cartes.length === 0) {
       return (
-        <main className="flex min-h-dvh flex-col items-center justify-center gap-5 px-7 text-center">
+        <main className="flex min-h-[calc(100dvh-3.5rem-env(safe-area-inset-bottom))] flex-col items-center justify-center gap-5 px-7 text-center lg:landscape:min-h-dvh">
           <p className="text-[12px] tracking-[0.22em] text-tres-doux uppercase">
             {paquet?.nom ?? "Tous les paquets"}
           </p>
@@ -65,6 +74,13 @@ export default async function PageRevision({
         }))}
         paquetId={numero}
         paquetNom={paquet?.nom ?? "Tous les paquets"}
+        espaceId={paquet?.espaceId ?? null}
+        teinte={paquet?.couleur}
+        maitriseAvant={
+          paquet
+            ? paquet.repartition.maitrise
+            : maitriseGlobale(paquets)
+        }
         reglages={{
           delaiEncoreMin: session.reglages.delaiEncoreMin,
           delaiDifficileMin: session.reglages.delaiDifficileMin,

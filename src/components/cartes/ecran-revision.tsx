@@ -18,6 +18,7 @@ import {
   sessionTerminee,
   type File,
 } from "@/lib/cartes/file";
+import { Celebration } from "@/components/jardin/celebration";
 import { ContenuCarte } from "./contenu-carte";
 import { FileEcriture } from "./file-ecriture";
 
@@ -50,6 +51,11 @@ export type Props = {
   cartes: CarteChargee[];
   paquetId: number | null;
   paquetNom: string;
+  /** Décide de l'espèce de la plante montrée en fin de session. */
+  espaceId: number | null;
+  teinte?: string;
+  /** Maîtrise du paquet avant la session, pour repérer un stade franchi. */
+  maitriseAvant: number;
   reglages: {
     delaiEncoreMin: number;
     delaiDifficileMin: number;
@@ -65,7 +71,15 @@ const COULEURS_NOTES: Record<Notation, string> = {
   4: "#6fa396",
 };
 
-export function EcranRevision({ cartes, paquetId, paquetNom, reglages }: Props) {
+export function EcranRevision({
+  cartes,
+  paquetId,
+  paquetNom,
+  espaceId,
+  teinte,
+  maitriseAvant,
+  reglages,
+}: Props) {
   const parId = useMemo(() => new Map(cartes.map((c) => [c.id, c])), [cartes]);
   const etatsInitiaux = useMemo(
     () =>
@@ -155,22 +169,14 @@ export function EcranRevision({ cartes, paquetId, paquetNom, reglages }: Props) 
 
   if (fini) {
     return (
-      <div className="flex min-h-dvh flex-col items-center justify-center gap-5 px-7 text-center">
-        <p className="text-[12px] tracking-[0.22em] text-tres-doux uppercase">
-          {paquetNom}
-        </p>
-        <h1 className="police-titre text-[30px] leading-tight">File vide</h1>
-        <p className="text-[15px] leading-relaxed text-doux">
-          {vues} carte{vues > 1 ? "s" : ""} vue{vues > 1 ? "s" : ""}. Rien ne reste en
-          attente.
-        </p>
-        <a
-          href="/cartes"
-          className="mt-4 flex min-h-14 w-full max-w-xs items-center justify-center rounded-2xl border border-bordure-vive bg-surface-haut text-[16px] text-texte"
-        >
-          Revenir aux paquets
-        </a>
-      </div>
+      <Celebration
+        paquetId={paquetId}
+        paquetNom={paquetNom}
+        espaceId={espaceId}
+        teinte={teinte}
+        maitriseAvant={maitriseAvant}
+        cartesVues={vues}
+      />
     );
   }
 
@@ -182,7 +188,11 @@ export function EcranRevision({ cartes, paquetId, paquetNom, reglages }: Props) 
   return (
     // Portrait : carte au-dessus, boutons en bas sous le pouce.
     // Paysage : carte à gauche, boutons en colonne à droite, pouce immobile.
-    <div className="flex min-h-dvh flex-col landscape:flex-row landscape:items-stretch">
+    //
+    // La hauteur retranche la barre de navigation : sans cela, les quatre
+    // boutons de notation lui passeraient dessous. En paysage sur tablette,
+    // la navigation est une colonne : toute la hauteur redevient disponible.
+    <div className="flex min-h-[calc(100dvh-3.5rem-env(safe-area-inset-bottom))] flex-col landscape:flex-row landscape:items-stretch lg:landscape:min-h-dvh">
       <div className="flex items-center justify-between px-5 pt-[calc(env(safe-area-inset-top)+1rem)] pb-2 text-[11.5px] text-tres-doux tabular-nums landscape:hidden">
         <span className="truncate">{paquetNom}</span>
         <span aria-label="Cartes restantes">

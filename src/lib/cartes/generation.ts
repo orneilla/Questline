@@ -5,8 +5,9 @@ import type { TypeCarte } from "@/db/schema";
  *
  * Une note saisie une fois peut donner plusieurs cartes : un texte à trous en
  * produit autant qu'il porte de repères distincts, une note inversée en produit
- * deux. Toutes partagent une `sourceCle`, ce qui permettra de les régénérer
- * ensemble quand la note sera modifiée — l'éditeur viendra plus tard.
+ * deux. Toutes partagent une `sourceCle` et se distinguent par leur `index` —
+ * c'est ce couple qui permet, quand la note change, de retrouver chaque carte
+ * existante et de lui garder sa mémoire au lieu de la recréer à zéro.
  */
 
 export type NoteSource = {
@@ -20,6 +21,8 @@ export type NoteSource = {
 
 export type CarteEngendree = {
   sourceCle: string;
+  /** Numéro du trou interrogé, ou sens de lecture d'une inversée. */
+  index: number;
   recto: string;
   verso: string;
   type: TypeCarte;
@@ -64,10 +67,13 @@ export function engendrer(note: NoteSource): CarteEngendree[] {
     const numeros = numerosDeTrous(note.recto);
     // Sans repère valide, la note reste une carte simple plutôt que rien.
     if (numeros.length === 0) {
-      return [{ ...commun, recto: note.recto, verso: note.verso, type: "recto_verso" }];
+      return [
+        { ...commun, index: 0, recto: note.recto, verso: note.verso, type: "recto_verso" },
+      ];
     }
     return numeros.map((n) => ({
       ...commun,
+      index: n,
       type: "trous" as const,
       recto: rendreTrous(note.recto, n, "recto"),
       verso: rendreTrous(note.recto, n, "verso") + (note.verso ? `\n\n${note.verso}` : ""),
@@ -76,12 +82,14 @@ export function engendrer(note: NoteSource): CarteEngendree[] {
 
   if (note.type === "inversee") {
     return [
-      { ...commun, type: "inversee" as const, recto: note.recto, verso: note.verso },
-      { ...commun, type: "inversee" as const, recto: note.verso, verso: note.recto },
+      { ...commun, index: 0, type: "inversee" as const, recto: note.recto, verso: note.verso },
+      { ...commun, index: 1, type: "inversee" as const, recto: note.verso, verso: note.recto },
     ];
   }
 
-  return [{ ...commun, type: "recto_verso" as const, recto: note.recto, verso: note.verso }];
+  return [
+    { ...commun, index: 0, type: "recto_verso" as const, recto: note.recto, verso: note.verso },
+  ];
 }
 
 /** Plage arabe de base, plus les formes étendues. */

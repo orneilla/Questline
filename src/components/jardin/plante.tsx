@@ -1,24 +1,25 @@
+import {
+  especePour,
+  tracer,
+  type Espece,
+  type Role,
+  type Stade,
+  ESPECES,
+  STADES,
+} from "./botanique";
+
 /**
- * Plantes en pixel art.
+ * Une plante du jardin, dessinée au trait.
  *
- * Chaque stade est une grille de 12 × 12 décrite caractère par caractère, puis
- * rendue en carrés SVG. Pas de bibliothèque, pas d'image : le dessin reste net
- * à toutes les tailles et pèse quelques centaines d'octets.
+ * Le rendu est purement géométrique : ni image, ni police, ni bibliothèque.
+ * La planche reste nette à toutes les tailles et pèse ce que pèse un SVG.
  *
- * Palette accordée au thème sombre. Une plante délaissée est désaturée, jamais
- * fanée ni morte — l'app ne fait pas de reproche, même en dessin.
+ * Une plante délaissée pâlit et se désature — elle ne fane jamais, ne brunit
+ * jamais, ne meurt jamais. Rien ici ne doit ressembler à un reproche.
  */
 
-export const STADES = [
-  "graine",
-  "pousse",
-  "jeune-plant",
-  "plante",
-  "floraison",
-  "maturite",
-] as const;
-
-export type Stade = (typeof STADES)[number];
+export { ESPECES, STADES, especePour };
+export type { Espece, Stade };
 
 export const LIBELLES_STADES: Record<Stade, string> = {
   graine: "Graine",
@@ -50,157 +51,89 @@ export function prochainSeuil(stade: Stade): number | null {
   return SEUILS.find((s) => s.stade === suivant)?.minimum ?? null;
 }
 
-const COULEURS: Record<string, string> = {
-  t: "#3a3128", // terre
-  s: "#6f8f5e", // tige
-  f: "#8fa37e", // feuille
-  F: "#a8bd94", // feuille claire
-  l: "#c2a567", // pétale
-  c: "#e0cf9a", // cœur
-  g: "#a89070", // graine
+/**
+ * Palette d'herbier : encre végétale sourde, ocres, un accent floral. Aucune
+ * couleur saturée, rien qui jure avec le fond.
+ */
+const TEINTES: Record<Role, string> = {
+  sol: "#4a4235",
+  graine: "#a4885f",
+  tige: "#7d8f6a",
+  feuille: "#94a683",
+  nervure: "#94a683",
+  fleur: "#c2a567",
+  coeur: "#dcc188",
 };
 
-/** '.' laisse le pixel vide. */
-const DESSINS: Record<Stade, string[]> = {
-  graine: [
-    "............",
-    "............",
-    "............",
-    "............",
-    "............",
-    "............",
-    "............",
-    "............",
-    "............",
-    ".....gg.....",
-    "....tggt....",
-    "tttttttttttt",
-  ],
-  pousse: [
-    "............",
-    "............",
-    "............",
-    "............",
-    "............",
-    "............",
-    "............",
-    ".....f......",
-    "....fs......",
-    ".....s......",
-    "....tst.....",
-    "tttttttttttt",
-  ],
-  "jeune-plant": [
-    "............",
-    "............",
-    "............",
-    "............",
-    "......f.....",
-    ".....fs.....",
-    "......s.....",
-    "....fs......",
-    ".....s......",
-    ".....s......",
-    "....tst.....",
-    "tttttttttttt",
-  ],
-  plante: [
-    "............",
-    "............",
-    "......F.....",
-    ".....Fs.....",
-    "......s.....",
-    "...ffs......",
-    "......sff...",
-    "....fs......",
-    ".....s......",
-    ".....s......",
-    "....tst.....",
-    "tttttttttttt",
-  ],
-  floraison: [
-    "............",
-    ".....l......",
-    "....lcl.F...",
-    ".....lFs....",
-    "......s.....",
-    "...ffs...l..",
-    "......sfflcl",
-    "....fs...l..",
-    ".....s......",
-    ".....s......",
-    "....tst.....",
-    "tttttttttttt",
-  ],
-  maturite: [
-    "..l....l....",
-    ".lcl..lcl...",
-    "..l.F..l....",
-    "...Fs.F.....",
-    "....sF......",
-    "..ffs..l....",
-    "....sfflcl..",
-    "..fs....l...",
-    "....s.......",
-    "....s.......",
-    "...tst......",
-    "tttttttttttt",
-  ],
-};
+/** Épaisseur de référence, dans le repère du dessin (48 × 56). */
+const TRAIT = 1.05;
 
 export type Props = {
   stade: Stade;
-  /** Taille du rendu, en pixels CSS. */
+  /** Espèce de la plante ; par défaut, une plante à fleur. */
+  espece?: Espece;
+  /** Hauteur du rendu, en pixels CSS. */
   taille?: number;
   /** Paquet délaissé : couleurs adoucies, jamais mortes. */
   endormie?: boolean;
-  /** Teinte de l'espace, appliquée aux fleurs pour la reconnaissance. */
+  /** Teinte de l'espace, portée par les fleurs pour la reconnaissance. */
   teinte?: string;
   titre?: string;
+  /** Fait pousser le dessin trait par trait. Réservé aux fins de session. */
+  anime?: boolean;
 };
 
 export function Plante({
   stade,
+  espece = "fleurie",
   taille = 72,
   endormie = false,
   teinte,
   titre,
+  anime = false,
 }: Props) {
-  const grille = DESSINS[stade];
-  const cotes = 12;
+  const traits = tracer(espece, stade);
 
-  const carres: React.ReactElement[] = [];
-  grille.forEach((ligne, y) => {
-    [...ligne].forEach((symbole, x) => {
-      if (symbole === ".") return;
-      const couleur =
-        teinte && (symbole === "l" || symbole === "c")
-          ? symbole === "c"
-            ? teinte
-            : `${teinte}cc`
-          : COULEURS[symbole];
-      if (!couleur) return;
-      carres.push(
-        <rect key={`${x}-${y}`} x={x} y={y} width={1} height={1} fill={couleur} />,
-      );
-    });
-  });
+  const couleur = (role: Role): string => {
+    if (!teinte) return TEINTES[role];
+    if (role === "fleur") return teinte;
+    if (role === "coeur") return teinte;
+    return TEINTES[role];
+  };
 
   return (
     <svg
-      viewBox={`0 0 ${cotes} ${cotes}`}
-      width={taille}
+      viewBox="0 0 48 56"
+      width={Math.round((taille * 48) / 56)}
       height={taille}
       role="img"
       aria-label={titre ?? LIBELLES_STADES[stade]}
-      shapeRendering="crispEdges"
+      className={anime ? "plante-pousse" : undefined}
+      fill="none"
+      strokeLinecap="round"
+      strokeLinejoin="round"
       style={{
-        // Une plante délaissée perd en saturation, pas en vie.
-        filter: endormie ? "saturate(0.35) brightness(0.85)" : undefined,
-        transition: "filter 700ms cubic-bezier(0.22,0.61,0.36,1)",
+        // Une plante délaissée perd en éclat, pas en vie.
+        opacity: endormie ? 0.5 : 1,
+        filter: endormie ? "saturate(0.3)" : undefined,
+        transition: "opacity 700ms cubic-bezier(0.22,0.61,0.36,1), filter 700ms cubic-bezier(0.22,0.61,0.36,1)",
+        overflow: "visible",
       }}
     >
-      {carres}
+      {traits.map((trait, index) => (
+        <path
+          key={index}
+          d={trait.d}
+          // La plante se dessine du sol vers la pointe, dans l'ordre des traits.
+          style={anime ? { animationDelay: `${index * 16}ms` } : undefined}
+          stroke={couleur(trait.role)}
+          strokeWidth={TRAIT * (trait.epaisseur ?? 1)}
+          strokeOpacity={trait.opacite ?? 1}
+          // Le cœur des fleurs est le seul aplat de la planche : un point.
+          fill={trait.role === "coeur" ? couleur("coeur") : "none"}
+          fillOpacity={trait.role === "coeur" ? 0.35 : undefined}
+        />
+      ))}
     </svg>
   );
 }

@@ -2,7 +2,12 @@ import type { Metadata } from "next";
 
 import { LienReglages } from "@/components/barre-navigation";
 import { EcranInstallation } from "@/components/ecran-installation";
-import { LIBELLES_STADES, Plante, stadePour } from "@/components/jardin/plante";
+import {
+  especePour,
+  LIBELLES_STADES,
+  Plante,
+  stadePour,
+} from "@/components/jardin/plante";
 import { chargerPaquets, type ResumePaquet } from "@/lib/cartes/donnees";
 import { COULEURS_PILIERS, LIBELLES_PILIERS, PILIERS } from "@/lib/constantes";
 import { db } from "@/db";
@@ -76,6 +81,7 @@ export default async function PageJardin() {
                   <div key={paquet.id} className="flex flex-col items-center gap-1.5">
                     <Plante
                       stade={stade}
+                      espece={especePour(paquet.espaceId)}
                       taille={72}
                       endormie={endormie}
                       teinte={paquet.couleur}
@@ -99,13 +105,14 @@ export default async function PageJardin() {
           Les six piliers
         </h2>
         <div className="grid grid-cols-3 gap-4 sm:grid-cols-6">
-          {PILIERS.map((pilier) => {
+          {PILIERS.map((pilier, rang) => {
             const valeur = parPilier.get(pilier) ?? 0;
             const stade = stadePour(Math.round(intensite(valeur) * 100));
             return (
               <div key={pilier} className="flex flex-col items-center gap-1.5">
                 <Plante
                   stade={stade}
+                  espece={especePour(rang)}
                   taille={72}
                   endormie={valeur < 1}
                   teinte={COULEURS_PILIERS[pilier]}

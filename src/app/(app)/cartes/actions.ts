@@ -1,16 +1,26 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
-
-import { cloreSession, enregistrerNotation, gainSavoir } from "@/lib/cartes/donnees";
+import {
+  cloreSession,
+  enregistrerNotation,
+  gainSavoir,
+  maitrisePaquet,
+} from "@/lib/cartes/donnees";
 import type { Notation } from "@/lib/cartes/fsrs";
 import { crediterPilier } from "@/lib/jour";
 
 /**
  * Actions du module cartes.
  *
- * Volontairement sans revalidation pendant la session : l'écran ne se recharge
- * jamais entre deux cartes. Les pages concernées sont rafraîchies à la clôture.
+ * Aucune de ces actions ne revalide de chemin, et ce n'est pas un oubli.
+ * Revalider depuis une action rafraîchit aussi la route courante : à la
+ * clôture, le serveur rerendrait l'écran de révision, n'y trouverait plus
+ * aucune carte due, et remplacerait la fin de session par « rien à réviser ».
+ * Le travail de la session serait invisible.
+ *
+ * Rien ne devient périmé pour autant : toutes les pages de l'application sont
+ * en `force-dynamic`, et Next 15 ne garde pas les routes dynamiques dans le
+ * cache du routeur — revenir aux paquets les recalcule.
  */
 
 function estNotation(valeur: number): valeur is Notation {
@@ -47,7 +57,14 @@ export async function terminerSession(
 
   // Réviser nourrit « savoir » — une fois par jour, pas à chaque session.
   await crediterPilier("savoir", gainSavoir(vues), "cartes");
-  revalidatePath("/cartes");
-  revalidatePath("/jardin");
-  revalidatePath("/jour");
+}
+
+/** Maîtrise fraîche d'un paquet : ce que l'écran de fin de session montre. */
+export async function mesurerPaquet(
+  paquetId: number | null,
+): Promise<{ maitrise: number; total: number; mures: number }> {
+  if (paquetId !== null && !Number.isInteger(paquetId)) {
+    return { maitrise: 0, total: 0, mures: 0 };
+  }
+  return maitrisePaquet(paquetId);
 }
