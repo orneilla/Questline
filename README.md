@@ -104,7 +104,7 @@ réglages derrière une roue discrète, en haut de chaque écran.
 
 - **Connexion** — un seul mot de passe, cookie `httpOnly` signé (HMAC-SHA256)
   valable 90 jours, vérifié par le middleware sur toutes les routes.
-- **Jour** — date, salutation, charge de la journée, les quêtes du jour, les six
+- **Jour** — titre du jour, date, charge de la journée, les quêtes du jour, les six
   barres de momentum, la bascule « jour bas », la phrase du soir en
   enregistrement automatique.
 - **Semaine** — les sept jours en colonnes, les créneaux en blocs, le temps
@@ -116,7 +116,40 @@ réglages derrière une roue discrète, en haut de chaque écran.
   du soir. Aucun score global, aucune appréciation.
 - **Réglages** — tout se crée, se modifie et se supprime : quêtes, arcs,
   créneaux, événements. Plus l'export et l'import de la sauvegarde complète.
+- **Parcours** — les seuils d'arc franchis et les saisons closes, dans l'ordre.
+  La seule page qui regarde loin en arrière.
 - **PWA** — manifest, icônes, mode standalone, thème sombre.
+
+## Texture narrative
+
+L'application a une voix. Elle ne félicite pas, ne compte pas de points totaux,
+ne décerne rien. Quatre mécaniques, toutes déterministes — la même date dans le
+même contexte donne toujours le même résultat, donc rien ne change en
+rechargeant la page.
+
+**Titre du jour** — 84 titres tenus dans `src/lib/recits/titres.ts`, chacun
+conditionné ou non par la charge, la récupération, le jour bas, l'élan, la
+saison, le jour de la semaine ou l'heure. Une journée vraiment marquée — jour
+bas, lendemain de nuit, ouverture en pleine nuit — est nommée par ce qui la
+marque ; une journée ordinaire puise dans tout le catalogue. Un titre ne revient
+pas avant quinze jours, et il est figé en base dès qu'il est choisi : il ne
+change pas parce que l'heure a tourné.
+
+**Quête rare** — un jour sur cinq environ, une proposition de plus, encadrée et
+titrée en serif. Elle ne vient d'aucun arc, ne compte dans la progression
+d'aucun, et crédite le momentum de son pilier au double de son poids. Le
+catalogue de 40 est parcouru en entier avant qu'une quête ne revienne. Jamais
+obligatoire : elle disparaît à minuit sans rien retirer.
+
+**Seuils d'arc** — franchir 10, 25, 50, 75 ou 100 % ouvre un écran plein, une
+seule fois. Le nom de l'arc, le seuil, la vision rappelée, une phrase sur le
+chemin. Un arc qui redescend ne déperd pas son seuil.
+
+**Saisons** — des cycles de quatre semaines numérotés, ancrés sur la première
+journée observée. À la fin de chacune, un écran constate ce qui a avancé et ce
+qui est resté silencieux, puis pose une question ouverte. La réponse est
+archivée telle quelle dans **Parcours**, sans traitement — et « Passer sans
+répondre » est une sortie légitime.
 
 ## Progression des arcs
 

@@ -111,6 +111,46 @@ export const journees = pgTable("journees", {
   typeJour: typeJourEnum("type_jour").notNull().default("libre"),
   modeBas: boolean("mode_bas").notNull().default(false),
   phrase: text("phrase").notNull().default(""),
+  /** Titre du jour, figé une fois choisi — il ne doit pas changer en cours de journée. */
+  titre: text("titre").notNull().default(""),
+});
+
+/**
+ * Une quête rare accomplie. Elle ne vient d'aucun arc : elle nourrit le
+ * momentum de son pilier et rien d'autre. Une par jour au plus.
+ */
+export const quetesRaresFaites = pgTable("quetes_rares_faites", {
+  date: date("date").primaryKey(),
+  cle: text("cle").notNull(),
+  texte: text("texte").notNull(),
+  pilier: pilierEnum("pilier").notNull(),
+  poids: integer("poids").notNull(),
+});
+
+/** Seuil de progression franchi par un arc. Ne se franchit qu'une fois. */
+export const seuilsArcs = pgTable(
+  "seuils_arcs",
+  {
+    id: serial("id").primaryKey(),
+    arcId: integer("arc_id")
+      .notNull()
+      .references(() => arcs.id, { onDelete: "cascade" }),
+    seuil: integer("seuil").notNull(),
+    atteintLe: date("atteint_le").notNull(),
+    /** L'écran plein ne s'affiche qu'une fois. */
+    vu: boolean("vu").notNull().default(false),
+  },
+  (table) => [uniqueIndex("seuils_arcs_arc_seuil_uniq").on(table.arcId, table.seuil)],
+);
+
+/** Un cycle de quatre semaines, clos par une question ouverte. */
+export const saisons = pgTable("saisons", {
+  numero: integer("numero").primaryKey(),
+  debut: date("debut").notNull(),
+  fin: date("fin").notNull(),
+  question: text("question").notNull().default(""),
+  reponse: text("reponse").notNull().default(""),
+  clotureeLe: date("cloturee_le"),
 });
 
 /** Trace d'une quête accomplie. */
@@ -149,5 +189,8 @@ export type CategorieCreneau = (typeof categorieCreneauEnum.enumValues)[number];
 export type Journee = typeof journees.$inferSelect;
 export type Validation = typeof validations.$inferSelect;
 export type Momentum = typeof momentum.$inferSelect;
+export type QueteRareFaite = typeof quetesRaresFaites.$inferSelect;
+export type SeuilArc = typeof seuilsArcs.$inferSelect;
+export type Saison = typeof saisons.$inferSelect;
 export type Pilier = (typeof pilierEnum.enumValues)[number];
 export type TypeJour = (typeof typeJourEnum.enumValues)[number];

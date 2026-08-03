@@ -10,10 +10,19 @@ import {
   journees,
   momentum,
   quetes,
+  quetesRaresFaites,
   validations,
   type Journee,
   type Pilier,
 } from "@/db/schema";
+import {
+  choisirTitre,
+  niveauElan,
+  queteRareDu,
+  saisonDe,
+  MEMOIRE_TITRES_JOURS,
+  type QueteRare,
+} from "./recit";
 import { calculerCharge, type Charge } from "./charge";
 import { resoudreJour, type Bloc } from "./creneaux";
 import { debordement, minutesEveillees, tempsDispo } from "./temps";
@@ -36,8 +45,12 @@ import { selectionnerQuetes, type QueteProposable } from "./selection";
 
 export type EtatJour = {
   date: string;
+  titre: string;
   salutation: string;
   journee: Journee;
+  /** Proposée un jour sur cinq environ ; jamais obligatoire. */
+  queteRare: QueteRare | null;
+  queteRareFaite: boolean;
   charge: Charge;
   blocsDuJour: Bloc[];
   momentums: { pilier: Pilier; valeur: number }[];
@@ -103,6 +116,42 @@ async function assurerJournee(date: string, typeJour: Journee["typeJour"]): Prom
     .onConflictDoUpdate({ target: journees.date, set: { typeJour } })
     .returning();
   return ligne;
+}
+
+/**
+ * Le titre du jour est choisi une seule fois puis conservé : il ne doit pas
+ * changer parce que la charge a bougé ou que l'heure a tourné.
+ */
+async function assurerTitre(
+  date: string,
+  journee: Journee,
+  contexte: Omit<Parameters<typeof choisirTitre>[1], "saison" | "jourSemaine" | "heure">,
+): Promise<string> {
+  if (journee.titre) return journee.titre;
+
+  const recentes = await db
+    .select({ titre: journees.titre })
+    .from(journees)
+    .where(
+      and(
+        gte(journees.date, decalerJours(date, -MEMOIRE_TITRES_JOURS)),
+        lte(journees.date, date),
+      ),
+    );
+
+  const titre = choisirTitre(
+    date,
+    {
+      ...contexte,
+      saison: saisonDe(date),
+      jourSemaine: jourDeLaSemaine(date),
+      heure: heureLocale(),
+    },
+    recentes.map((r) => r.titre).filter(Boolean),
+  );
+
+  await db.update(journees).set({ titre: titre.cle }).where(eq(journees.date, date));
+  return titre.cle;
 }
 
 /**
@@ -206,6 +255,11 @@ export async function chargerJour(): Promise<EtatJour> {
         .groupBy(validations.queteId),
     ]);
 
+  const rareFaite = await db
+    .select({ cle: quetesRaresFaites.cle })
+    .from(quetesRaresFaites)
+    .where(eq(quetesRaresFaites.date, date));
+
   const momentumParPilier = Object.fromEntries(
     PILIERS.map((p) => [p, lignesMomentum.find((l) => l.pilier === p)?.valeur ?? 0]),
   ) as Record<Pilier, number>;
@@ -227,10 +281,20 @@ export async function chargerJour(): Promise<EtatJour> {
     minutesEngagees: validationsDuJour.reduce((total, v) => total + v.dureeMin, 0),
   });
 
+  const cleTitre = await assurerTitre(date, journee, {
+    charge: charge.niveau,
+    recuperation: charge.recuperation,
+    modeBas: charge.modeBas,
+    elan: niveauElan(PILIERS.map((p) => momentumParPilier[p])),
+  });
+
   return {
     date,
+    titre: cleTitre,
     salutation: salutation(heureLocale()),
     journee,
+    queteRare: queteRareDu(date),
+    queteRareFaite: rareFaite.length > 0,
     charge,
     blocsDuJour: blocs,
     momentums: PILIERS.map((pilier) => ({
@@ -287,6 +351,44 @@ export async function validerQuete(queteId: number): Promise<void> {
       majLe: date,
     })
     .where(eq(momentum.pilier, cible.pilier));
+}
+
+/**
+ * Valide la quête rare du jour : elle crédite le momentum de son pilier au
+ * double de son poids, et n'entre dans la progression d'aucun arc.
+ */
+export async function validerQueteRare(): Promise<void> {
+  const date = aujourdhui();
+  const rare = queteRareDu(date);
+  if (!rare) return;
+
+  await synchroniserMomentum(date);
+
+  const [deja] = await db
+    .select({ date: quetesRaresFaites.date })
+    .from(quetesRaresFaites)
+    .where(eq(quetesRaresFaites.date, date))
+    .limit(1);
+  if (deja) return;
+
+  await db.insert(quetesRaresFaites).values({
+    date,
+    cle: rare.cle,
+    texte: rare.texte,
+    pilier: rare.pilier,
+    poids: rare.poids,
+  });
+
+  const [ligne] = await db
+    .select()
+    .from(momentum)
+    .where(eq(momentum.pilier, rare.pilier))
+    .limit(1);
+
+  await db
+    .update(momentum)
+    .set({ valeur: borner((ligne?.valeur ?? 0) + rare.poids * 2), majLe: date })
+    .where(eq(momentum.pilier, rare.pilier));
 }
 
 /** Bascule la journée en mode bas (ou en sort). */

@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 
+import Link from "next/link";
+
 import { LienReglages } from "@/components/barre-navigation";
 import { EcranInstallation } from "@/components/ecran-installation";
 import { chargerBilan, type Bilan, type LignePilier } from "@/lib/bilan";
@@ -152,6 +154,16 @@ export default async function PageBilan() {
           </ul>
         )}
       </section>
+
+      <Link
+        href="/parcours"
+        className="flex min-h-14 items-center justify-between rounded-2xl border border-bordure px-5 text-[15px] text-texte transition-colors duration-300 active:bg-surface"
+      >
+        Le parcours
+        <span aria-hidden className="text-tres-doux">
+          →
+        </span>
+      </Link>
 
       <p className="text-[12px] leading-relaxed text-tres-doux">
         Ces chiffres sont comptés, pas interprétés. Il n'y a pas de note globale, et
