@@ -73,6 +73,10 @@ export default async function PageCartes() {
   }
 
   const dues = liste.reduce((t, p) => t + p.duesAujourdhui, 0);
+  // Les trois plantes les plus avancées : un aperçu qui donne envie d'entrer.
+  const apercuJardin = [...liste]
+    .sort((a, b) => b.repartition.maitrise - a.repartition.maitrise)
+    .slice(0, 3);
   const espaces = [...new Map(liste.map((p) => [p.espaceId, p])).values()];
   const maximum = Math.max(1, ...prevision.map((p) => p.combien));
 
@@ -89,6 +93,32 @@ export default async function PageCartes() {
           <LienReglages />
         </div>
       </header>
+
+      <Link
+        href="/jardin"
+        className="flex items-center justify-between gap-4 rounded-2xl border border-bordure bg-surface px-5 py-4 transition-colors duration-300 active:bg-surface-haut"
+      >
+        <span className="flex flex-col gap-0.5">
+          <span className="text-[16px] text-texte">Le jardin</span>
+          <span className="text-[12px] text-tres-doux">
+            {liste.length} plante{liste.length > 1 ? "s" : ""}, une par paquet
+          </span>
+        </span>
+        <span aria-hidden className="flex items-end gap-1">
+          {apercuJardin.map((paquet) => (
+            <Plante
+              key={paquet.id}
+              stade={stadePour(paquet.repartition.maitrise)}
+              taille={34}
+              teinte={paquet.couleur}
+              endormie={
+                paquet.joursSansRevision !== null &&
+                paquet.joursSansRevision > SOMMEIL_JOURS
+              }
+            />
+          ))}
+        </span>
+      </Link>
 
       {dues > 0 && (
         <Link

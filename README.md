@@ -153,9 +153,22 @@ sans jamais mourir. Les six piliers ont aussi la leur, liée au momentum.
 
 ### Données de test
 
+Depuis un poste de développement :
+
 ```bash
 npm run db:seed-cartes     # 210 cartes, 4 espaces, 7 paquets
 ```
+
+Sans terminal, la même opération depuis un navigateur :
+
+```
+https://<domaine>/api/setup/cartes?key=<clé>
+```
+
+Elle refuse de tourner si des cartes existent déjà ; `&remplacer=1` passe outre
+et efface alors tout l'historique de révision. Elle est séparée de
+`/api/setup` à dessein : ce sont des données de démonstration, elles n'ont rien
+à faire dans une installation qu'on voudrait vierge.
 
 ## Le bot Telegram
 
