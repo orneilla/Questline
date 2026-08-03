@@ -43,6 +43,13 @@
       "when": 1785718320473,
       "tag": "0005_messages_telegram",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1785742190314,
+      "tag": "0006_module_cartes",
+      "breakpoints": true
     }
   ]
 }

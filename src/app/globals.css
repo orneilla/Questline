@@ -104,3 +104,74 @@
     transition-duration: 0.01ms !important;
   }
 }
+
+/* ── Contenu des cartes ─────────────────────────────────────────────────── */
+
+@import "katex/dist/katex.min.css";
+
+.contenu-carte {
+  font-size: 1.15rem;
+  line-height: 1.6;
+}
+
+/* Sur grand écran, formules et schémas profitent de la place. */
+@media (min-width: 640px) {
+  .contenu-carte {
+    font-size: 1.35rem;
+  }
+}
+
+.contenu-carte p {
+  margin: 0 0 0.75rem;
+}
+.contenu-carte p:last-child {
+  margin-bottom: 0;
+}
+
+.contenu-carte strong {
+  color: var(--color-texte);
+  font-weight: 600;
+}
+
+.contenu-carte code {
+  font-size: 0.9em;
+  color: #c2a567;
+}
+
+/* L'arabe demande plus de corps et plus d'interligne pour rester lisible. */
+.contenu-arabe {
+  font-family: "Noto Naskh Arabic", "Geeza Pro", "Traditional Arabic", serif;
+  font-size: 1.9rem;
+  line-height: 2;
+}
+@media (min-width: 640px) {
+  .contenu-arabe {
+    font-size: 2.4rem;
+  }
+}
+
+.contenu-carte img {
+  max-width: 100%;
+  height: auto;
+  margin: 0.5rem auto;
+  display: block;
+  image-rendering: auto;
+}
+
+/*
+  Les schémas au trait sont dessinés en noir sur fond transparent. Sur fond
+  sombre, ils disparaîtraient : on inverse la luminosité sans toucher aux
+  couleurs, ce qui laisse le dessin intact et rend le trait blanc.
+*/
+.contenu-carte img[src^="data:image/png"] {
+  filter: invert(1) hue-rotate(180deg);
+}
+
+.contenu-carte .katex {
+  color: var(--color-texte);
+}
+.contenu-carte .katex-display {
+  margin: 0.75rem 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+}

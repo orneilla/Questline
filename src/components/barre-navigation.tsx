@@ -6,12 +6,13 @@ import { usePathname } from "next/navigation";
 const ONGLETS = [
   { href: "/jour", libelle: "Jour" },
   { href: "/semaine", libelle: "Semaine" },
+  { href: "/cartes", libelle: "Cartes" },
   { href: "/arcs", libelle: "Arcs" },
   { href: "/bilan", libelle: "Bilan" },
 ] as const;
 
 /**
- * Barre du bas, quatre onglets. Discrète : un trait au-dessus de l'onglet
+ * Barre du bas, cinq onglets. Discrète : un trait au-dessus de l'onglet
  * courant plutôt qu'un pavé coloré.
  */
 export function BarreNavigation() {
@@ -30,7 +31,7 @@ export function BarreNavigation() {
               <Link
                 href={onglet.href}
                 aria-current={actif ? "page" : undefined}
-                className="relative flex min-h-14 flex-col items-center justify-center gap-1 pb-[env(safe-area-inset-bottom)] text-[12px] tracking-[0.08em] transition-colors duration-300"
+                className="relative flex min-h-14 flex-col items-center justify-center gap-1 pb-[env(safe-area-inset-bottom)] text-[11.5px] tracking-[0.06em] transition-colors duration-300"
                 style={{ color: actif ? "var(--color-texte)" : "var(--color-tres-doux)" }}
               >
                 <span

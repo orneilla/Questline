@@ -102,7 +102,7 @@ la première requête, jamais à la compilation.
 
 ## Les écrans
 
-Barre du bas à quatre onglets — **Jour · Semaine · Arcs · Bilan** — et les
+Barre du bas à cinq onglets — **Jour · Semaine · Cartes · Arcs · Bilan** — et les
 réglages derrière une roue discrète, en haut de chaque écran.
 
 - **Connexion** — un seul mot de passe, cookie `httpOnly` signé (HMAC-SHA256)
@@ -122,6 +122,40 @@ réglages derrière une roue discrète, en haut de chaque écran.
 - **Parcours** — les seuils d'arc franchis et les saisons closes, dans l'ordre.
   La seule page qui regarde loin en arrière.
 - **PWA** — manifest, icônes, mode standalone, thème sombre.
+
+## Module cartes
+
+Un système de mémorisation destiné à durer, pas à passer un semestre.
+
+**Algorithme** — FSRS via `ts-fsrs`, quatre notations. Les paliers internes de
+la bibliothèque sont désactivés : c'est la file de session qui joue ce rôle,
+comme dans Anki. Sans cela, « Correct » rendrait un intervalle de quelques
+minutes au lieu de faire sortir la carte avec un intervalle en jours.
+
+**File d'apprentissage** — une carte ne quitte pas la session tant qu'elle
+n'est pas sue. « Encore » la replace à une minute, « Difficile » à six, au
+milieu des autres et non à la fin. « Correct » et « Facile » la confient à
+FSRS. La session ne s'achève que file vide. Tout est en mémoire et sans effet
+de bord : une session chargée continue sans réseau.
+
+**Écriture** — les notations partent dans une file d'attente avec reprise
+exponentielle et rejeu au retour de la connexion. L'écran n'attend jamais le
+réseau.
+
+**Intégration** — onglet *Cartes*, page *Jardin*, cartes dues affichées sur
+l'écran du jour, révision qui crédite le pilier `savoir` une fois par jour, et
+au-delà de cinquante cartes dues la charge de la journée retire trente minutes
+au budget.
+
+**Jardin** — une plante en pixel art par paquet, six stades selon la maîtrise
+réelle (part de cartes mûres). Un paquet laissé plus de deux semaines pâlit,
+sans jamais mourir. Les six piliers ont aussi la leur, liée au momentum.
+
+### Données de test
+
+```bash
+npm run db:seed-cartes     # 210 cartes, 4 espaces, 7 paquets
+```
 
 ## Le bot Telegram
 

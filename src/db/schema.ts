@@ -199,6 +199,168 @@ export const momentum = pgTable("momentum", {
   majLe: date("maj_le").notNull(),
 });
 
+/* ═══════════════════════ Module cartes ═══════════════════════ */
+
+/** Version du schéma des cartes, pour les migrations futures. */
+export const VERSION_SCHEMA_CARTES = 1;
+
+/** Nouvelle, en apprentissage, jeune, mûre. */
+export const etatCarteEnum = pgEnum("etat_carte", [
+  "nouvelle",
+  "apprentissage",
+  "jeune",
+  "mure",
+]);
+
+export const typeCarteEnum = pgEnum("type_carte", [
+  "recto_verso",
+  "inversee",
+  "trous",
+]);
+
+/** Un domaine d'étude : chimie, arabe, sciences religieuses… */
+export const espaces = pgTable("espaces", {
+  id: serial("id").primaryKey(),
+  nom: text("nom").notNull(),
+  couleur: text("couleur").notNull().default("#7e92b8"),
+  ordre: integer("ordre").notNull().default(0),
+});
+
+/** Un paquet, éventuellement imbriqué dans un autre. */
+export const paquets = pgTable(
+  "paquets",
+  {
+    id: serial("id").primaryKey(),
+    espaceId: integer("espace_id")
+      .notNull()
+      .references(() => espaces.id, { onDelete: "cascade" }),
+    parentId: integer("parent_id"),
+    nom: text("nom").notNull(),
+    ordre: integer("ordre").notNull().default(0),
+    objectifCartes: integer("objectif_cartes").notNull().default(0),
+    /** Couverture compressée, en data URI. */
+    couverture: text("couverture"),
+  },
+  (table) => [
+    index("paquets_espace_id_idx").on(table.espaceId),
+    index("paquets_parent_id_idx").on(table.parentId),
+  ],
+);
+
+/**
+ * Une carte présentée à la révision.
+ *
+ * Une carte à trous ou inversée engendre plusieurs lignes — une par face
+ * réellement interrogée — reliées par `sourceCle` : c'est ce qui permet de les
+ * régénérer ensemble quand la note d'origine change.
+ */
+export const cartes = pgTable(
+  "cartes",
+  {
+    id: serial("id").primaryKey(),
+    paquetId: integer("paquet_id")
+      .notNull()
+      .references(() => paquets.id, { onDelete: "cascade" }),
+    recto: text("recto").notNull(),
+    verso: text("verso").notNull(),
+    type: typeCarteEnum("type").notNull().default("recto_verso"),
+    notes: text("notes").notNull().default(""),
+    tags: text("tags").array().notNull().default([]),
+    etat: etatCarteEnum("etat").notNull().default("nouvelle"),
+    /** Prochaine échéance. Nulle pour une carte jamais vue. */
+    prochaineDate: date("prochaine_date"),
+    /** Mémoire FSRS, reportée depuis la dernière révision. */
+    stabilite: real("stabilite").notNull().default(0),
+    difficulte: real("difficulte").notNull().default(0),
+    /** Nombre de fois où la carte est retombée à « Encore ». */
+    rechutes: integer("rechutes").notNull().default(0),
+    suspendue: boolean("suspendue").notNull().default(false),
+    /** Regroupe les cartes engendrées par une même note. */
+    sourceCle: text("source_cle"),
+    creeLe: date("cree_le").notNull(),
+    modifieLe: date("modifie_le").notNull(),
+  },
+  (table) => [
+    index("cartes_paquet_id_idx").on(table.paquetId),
+    index("cartes_etat_idx").on(table.etat),
+    // L'index qui porte la sélection des cartes dues, appelée à chaque session.
+    index("cartes_prochaine_date_idx").on(table.prochaineDate),
+    index("cartes_du_jour_idx").on(table.paquetId, table.suspendue, table.prochaineDate),
+    index("cartes_source_cle_idx").on(table.sourceCle),
+  ],
+);
+
+/**
+ * Historique des révisions. On ajoute, on n'écrase jamais : c'est la seule
+ * trace qui permettra de réoptimiser les paramètres FSRS dans dix ans.
+ */
+export const revisions = pgTable(
+  "revisions",
+  {
+    id: serial("id").primaryKey(),
+    carteId: integer("carte_id")
+      .notNull()
+      .references(() => cartes.id, { onDelete: "cascade" }),
+    date: date("date").notNull(),
+    /** Horodatage précis : FSRS raisonne en durées, pas en jours. */
+    vueLe: text("vue_le").notNull(),
+    note: integer("note").notNull(),
+    stabilite: real("stabilite").notNull(),
+    difficulte: real("difficulte").notNull(),
+    prochaineDate: date("prochaine_date").notNull(),
+    /** Intervalle accordé, en jours. */
+    intervalle: real("intervalle").notNull(),
+    etat: etatCarteEnum("etat").notNull(),
+    /** Millisecondes passées sur la carte. */
+    duree: integer("duree").notNull().default(0),
+  },
+  (table) => [
+    index("revisions_carte_id_idx").on(table.carteId),
+    index("revisions_date_idx").on(table.date),
+    index("revisions_prochaine_date_idx").on(table.prochaineDate),
+  ],
+);
+
+/** Une session de révision achevée. */
+export const sessionsRevision = pgTable(
+  "sessions_revision",
+  {
+    id: serial("id").primaryKey(),
+    date: date("date").notNull(),
+    paquetId: integer("paquet_id").references(() => paquets.id, {
+      onDelete: "set null",
+    }),
+    cartesVues: integer("cartes_vues").notNull().default(0),
+    /** Durée en secondes. */
+    duree: integer("duree").notNull().default(0),
+  },
+  (table) => [index("sessions_revision_date_idx").on(table.date)],
+);
+
+/** Réglages du module, une seule ligne. */
+export const reglagesCartes = pgTable("reglages_cartes", {
+  id: integer("id").primaryKey().default(1),
+  versionSchema: integer("version_schema").notNull().default(VERSION_SCHEMA_CARTES),
+  /** Minutes avant réapparition dans la session, par notation. */
+  delaiEncoreMin: real("delai_encore_min").notNull().default(1),
+  delaiDifficileMin: real("delai_difficile_min").notNull().default(6),
+  /** Rétention visée par FSRS. */
+  retentionCible: real("retention_cible").notNull().default(0.9),
+  /** Poids FSRS ; vide = paramètres par défaut du paquet ts-fsrs. */
+  poidsFsrs: real("poids_fsrs").array().notNull().default([]),
+  nouvellesParJour: integer("nouvelles_par_jour").notNull().default(20),
+  maximumParJour: integer("maximum_par_jour").notNull().default(200),
+});
+
+export type Espace = typeof espaces.$inferSelect;
+export type Paquet = typeof paquets.$inferSelect;
+export type Carte = typeof cartes.$inferSelect;
+export type Revision = typeof revisions.$inferSelect;
+export type SessionRevision = typeof sessionsRevision.$inferSelect;
+export type ReglagesCartes = typeof reglagesCartes.$inferSelect;
+export type EtatCarte = (typeof etatCarteEnum.enumValues)[number];
+export type TypeCarte = (typeof typeCarteEnum.enumValues)[number];
+
 export type Arc = typeof arcs.$inferSelect;
 export type Quete = typeof quetes.$inferSelect;
 export type CreneauRecurrent = typeof creneauxRecurrents.$inferSelect;

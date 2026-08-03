@@ -13,15 +13,19 @@
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
     "db:seed": "node --env-file-if-exists=.env --import tsx scripts/seed.ts",
-    "icones": "node scripts/generer-icones.mjs"
+    "icones": "node scripts/generer-icones.mjs",
+    "db:seed-cartes": "node --env-file-if-exists=.env --import tsx scripts/seed-cartes.ts"
   },
   "dependencies": {
     "@neondatabase/serverless": "^0.10.4",
     "drizzle-orm": "^0.38.3",
+    "katex": "^0.18.1",
+    "marked": "^18.0.7",
     "next": "^15.5.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "server-only": "^0.0.1"
+    "server-only": "^0.0.1",
+    "ts-fsrs": "^5.4.1"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.0.0",

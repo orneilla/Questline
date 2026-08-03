@@ -9,6 +9,7 @@ import {
   evenements,
   journees,
   momentum,
+  messagesEnvoyes,
   quetes,
   quetesRaresFaites,
   validations,
@@ -159,7 +160,11 @@ async function assurerTitre(
  * créneaux résolus, moins les deux heures incompressibles. La récupération se
  * lit sur la veille : un créneau qui a mordu sur la nuit allège le lendemain.
  */
-export async function calculerJournee(date: string, modeBas: boolean) {
+export async function calculerJournee(
+  date: string,
+  modeBas: boolean,
+  cartesDues = 0,
+) {
   const jourSemaine = jourDeLaSemaine(date);
   const veille = decalerJours(date, -1);
 
@@ -183,6 +188,7 @@ export async function calculerJournee(date: string, modeBas: boolean) {
       tempsDispoMin: tempsDispo(occupe),
       recuperation,
       modeBas,
+      cartesDues,
     }),
   };
 }
@@ -389,6 +395,46 @@ export async function validerQueteRare(): Promise<void> {
     .update(momentum)
     .set({ valeur: borner((ligne?.valeur ?? 0) + rare.poids * 2), majLe: date })
     .where(eq(momentum.pilier, rare.pilier));
+}
+
+/**
+ * Crédite un pilier depuis une source extérieure aux quêtes — la révision de
+ * cartes, aujourd'hui. Le motif sert de garde : un même motif ne crédite qu'une
+ * fois par jour, pour qu'ouvrir trois fois le paquet ne vaille pas triple.
+ */
+export async function crediterPilier(
+  pilier: Pilier,
+  gain: number,
+  motif: string,
+): Promise<void> {
+  if (gain <= 0) return;
+  const date = aujourdhui();
+  await synchroniserMomentum(date);
+
+  const [deja] = await db
+    .select({ type: messagesEnvoyes.type })
+    .from(messagesEnvoyes)
+    .where(
+      and(eq(messagesEnvoyes.date, date), eq(messagesEnvoyes.type, `credit:${motif}`)),
+    )
+    .limit(1);
+  if (deja) return;
+
+  await db
+    .insert(messagesEnvoyes)
+    .values({ date, type: `credit:${motif}`, envoyeLe: new Date().toISOString() })
+    .onConflictDoNothing();
+
+  const [ligne] = await db
+    .select()
+    .from(momentum)
+    .where(eq(momentum.pilier, pilier))
+    .limit(1);
+
+  await db
+    .update(momentum)
+    .set({ valeur: borner((ligne?.valeur ?? 0) + gain), majLe: date })
+    .where(eq(momentum.pilier, pilier));
 }
 
 /** Bascule la journée en mode bas (ou en sort). */

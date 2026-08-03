@@ -33,12 +33,28 @@ export function niveauDe(tempsDispoMin: number): TypeJour {
   return "libre";
 }
 
+/** Au-delà de ce nombre de cartes dues, la révision devient un vrai travail. */
+export const SEUIL_CARTES_LOURD = 50;
+
+/** Minutes retenues d'office quand la pile de cartes est lourde. */
+export const MINUTES_REVISION = 30;
+
 export function calculerCharge(entree: {
   tempsDispoMin: number;
   recuperation: boolean;
   modeBas: boolean;
+  /** Cartes dues aujourd'hui ; au-delà du seuil, elles mordent sur la journée. */
+  cartesDues?: number;
 }): Charge {
-  const { tempsDispoMin, recuperation, modeBas } = entree;
+  const { recuperation, modeBas } = entree;
+
+  // Une grosse pile de cartes occupe du temps réel : on le retire du budget
+  // plutôt que de faire comme si réviser ne coûtait rien.
+  const tempsDispoMin =
+    (entree.cartesDues ?? 0) > SEUIL_CARTES_LOURD
+      ? Math.max(0, entree.tempsDispoMin - MINUTES_REVISION)
+      : entree.tempsDispoMin;
+
   const niveau = niveauDe(tempsDispoMin);
 
   const base = niveau === "pleine" ? 1 : niveau === "chargee" ? 2 : 3;
