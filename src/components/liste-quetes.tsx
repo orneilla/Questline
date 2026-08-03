@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 
-import { actionValider } from "@/app/jour/actions";
+import { actionValider } from "@/app/(app)/jour/actions";
 import type { Pilier } from "@/db/schema";
 import { COULEURS_PILIERS, LIBELLES_PILIERS } from "@/lib/constantes";
 import type { QueteProposable } from "@/lib/selection";

@@ -2,7 +2,7 @@
 
 import { useTransition } from "react";
 
-import { annulerCreneau, retablirCreneau } from "@/app/semaine/actions";
+import { annulerCreneau, retablirCreneau } from "@/app/(app)/semaine/actions";
 import { COULEURS_CRENEAUX, JOURS_SEMAINE } from "@/lib/constantes";
 import type { Bloc } from "@/lib/creneaux";
 import type { JourSemaine } from "@/lib/semaine";

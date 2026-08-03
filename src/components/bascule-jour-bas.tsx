@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 
-import { actionModeBas } from "@/app/jour/actions";
+import { actionModeBas } from "@/app/(app)/jour/actions";
 
 type Props = { actif: boolean };
 

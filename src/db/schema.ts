@@ -39,7 +39,7 @@ export const arcs = pgTable("arcs", {
   nom: text("nom").notNull(),
   pilier: pilierEnum("pilier").notNull(),
   vision: text("vision").notNull().default(""),
-  progression: integer("progression").notNull().default(0),
+  /** La progression n'est pas stockée : elle se calcule sur les validations. */
   actif: boolean("actif").notNull().default(true),
 });
 
@@ -61,6 +61,8 @@ export const quetes = pgTable(
     joursExclus: integer("jours_exclus").array().notNull().default([]),
     /** Éligible en mode « jour bas » : la version minimale du geste. */
     minimale: boolean("minimale").notNull().default(false),
+    /** Une quête désactivée reste en base, avec son histoire, mais ne sort plus. */
+    actif: boolean("actif").notNull().default(true),
   },
   (table) => [index("quetes_arc_id_idx").on(table.arcId)],
 );

@@ -7,7 +7,7 @@ import {
   ajouterCreneauRecurrent,
   ajouterEvenement,
   type Retour,
-} from "@/app/semaine/actions";
+} from "@/app/(app)/reglages/actions";
 import { JOURS_SEMAINE, LIBELLES_CRENEAUX } from "@/lib/constantes";
 import type { CategorieCreneau } from "@/db/schema";
 

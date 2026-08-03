@@ -75,8 +75,11 @@ dans Vercel la remplace ; sur un dépôt public, c'est la seule façon de la gar
 secrète. La route reste hors de la garde de session — elle doit répondre alors
 qu'aucune table n'existe encore.
 
-Quand la base n'est pas prête, l'application ne plante pas : les écrans Jour et
-Semaine affichent un message qui dit ce qui manque.
+Elle applique aussi les migrations ajoutées par la suite : après un déploiement
+qui en apporte une, ouvrir cette adresse suffit à mettre la base à jour.
+
+Quand la base n'est pas prête, l'application ne plante pas : les écrans
+affichent un message qui dit ce qui manque.
 
 Le build ne dépend d'aucune variable : la connexion à la base n'est ouverte qu'à
 la première requête, jamais à la compilation.
@@ -96,6 +99,9 @@ la première requête, jamais à la compilation.
 
 ## Les écrans
 
+Barre du bas à quatre onglets — **Jour · Semaine · Arcs · Bilan** — et les
+réglages derrière une roue discrète, en haut de chaque écran.
+
 - **Connexion** — un seul mot de passe, cookie `httpOnly` signé (HMAC-SHA256)
   valable 90 jours, vérifié par le middleware sur toutes les routes.
 - **Jour** — date, salutation, charge de la journée, les quêtes du jour, les six
@@ -103,7 +109,36 @@ la première requête, jamais à la compilation.
   enregistrement automatique.
 - **Semaine** — les sept jours en colonnes, les créneaux en blocs, le temps
   disponible sous chaque jour, et de quoi ajouter un récurrent ou un ponctuel.
+- **Arcs** — les arcs groupés par pilier, avec leur progression et leur vision.
+  Au détail : les quêtes de l'arc, l'historique des validations, la dernière
+  activité.
+- **Bilan** — la semaine en chiffres, comparée à la précédente, et les phrases
+  du soir. Aucun score global, aucune appréciation.
+- **Réglages** — tout se crée, se modifie et se supprime : quêtes, arcs,
+  créneaux, événements. Plus l'export et l'import de la sauvegarde complète.
 - **PWA** — manifest, icônes, mode standalone, thème sombre.
+
+## Progression des arcs
+
+Elle ne se saisit pas, elle se lit dans les validations. Chaque validation
+rapporte le poids de sa quête, doublé quand elle relançait un pilier silencieux
+— exactement ce qui a nourri le momentum.
+
+L'objectif est propre à chaque arc : ce qu'il rapporterait en tenant son rythme
+nominal (`Σ poids × frequenceSem` sur ses quêtes actives) pendant **douze
+semaines**. Un arc exigeant demande donc plus de gestes qu'un arc léger pour
+afficher le même pourcentage. La colonne `arcs.progression` a été supprimée :
+plus rien n'est stocké.
+
+## Bilan hebdomadaire
+
+Entièrement dérivé des chiffres en base, sans modèle de langage. Par pilier :
+validations et points de la semaine, écart avec la semaine précédente, état du
+momentum. Puis le pilier le plus nourri, le plus silencieux, les jours bas, et
+les phrases du soir listées.
+
+Pas de note globale, pas de « tu aurais pu ». Une semaine creuse est constatée,
+pas commentée — et elle ne retire rien à ce qui est déjà construit.
 
 ## Les piliers
 
@@ -197,11 +232,17 @@ gris et neutre — c'est une décision de conception, pas un oubli.
 src/
   app/
     connexion/      page de connexion + action serveur
-    jour/           écran du jour + actions serveur
-    semaine/        écran de la semaine + actions serveur
+    (app)/          écrans applicatifs, sous la barre de navigation
+      jour/         écran du jour + actions serveur
+      semaine/      écran de la semaine + actions serveur
+      arcs/         liste et détail des arcs
+      bilan/        bilan hebdomadaire
+      reglages/     création, modification, suppression + actions serveur
+    api/setup/      installation de la base depuis un navigateur
+    api/export/     téléchargement de la sauvegarde
     manifest.ts     manifest PWA
   components/       momentum, quêtes, jour bas, phrase du soir, grille et
-                    formulaires de la semaine
+                    formulaires de la semaine, navigation, réglages
   db/               schéma Drizzle et connexion Neon
   lib/
     auth.ts         mot de passe unique, cookie signé (Web Crypto)
@@ -213,6 +254,8 @@ src/
     selection.ts    choix des quêtes du jour — logique pure
     jour.ts         accès base et orchestration de l'écran du jour
     semaine.ts      accès base et orchestration de l'écran de la semaine
+    arcs.ts         progression calculée sur les validations
+    bilan.ts        chiffres de la semaine
   middleware.ts     garde de session
 drizzle/            migrations SQL
 scripts/            seed et génération d'icônes

@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 
+import { LienReglages } from "@/components/barre-navigation";
 import { BarresMomentum } from "@/components/barres-momentum";
 import { BasculeJourBas } from "@/components/bascule-jour-bas";
 import { EcranInstallation } from "@/components/ecran-installation";
@@ -25,18 +25,13 @@ export default async function PageJour() {
   }
 
   return (
-    <main className="mx-auto flex min-h-dvh w-full max-w-md flex-col gap-11 px-6 pt-[calc(env(safe-area-inset-top)+2.75rem)] pb-[calc(env(safe-area-inset-bottom)+3.5rem)]">
+    <main className="mx-auto flex min-h-dvh w-full max-w-md flex-col gap-11 px-6 pt-[calc(env(safe-area-inset-top)+2.75rem)] pb-10">
       <header className="apparait flex flex-col gap-2.5">
         <div className="flex items-baseline justify-between gap-4">
           <p className="text-[12px] tracking-[0.22em] text-tres-doux uppercase">
             {formaterDateLongue(etat.date)}
           </p>
-          <Link
-            href="/semaine"
-            className="shrink-0 text-[12px] tracking-[0.14em] text-tres-doux uppercase transition-colors duration-300 active:text-doux"
-          >
-            Semaine
-          </Link>
+          <LienReglages />
         </div>
         <h1 className="police-titre text-[34px] leading-none">{etat.salutation}</h1>
         <p className="text-[13.5px] text-doux">{libelleCharge(etat.charge)}</p>

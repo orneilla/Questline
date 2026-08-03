@@ -22,6 +22,13 @@
       "when": 1785662764721,
       "tag": "0002_retire_anciens_creneaux",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1785714925972,
+      "tag": "0003_arcs_et_reglages",
+      "breakpoints": true
     }
   ]
 }

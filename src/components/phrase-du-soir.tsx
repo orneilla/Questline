@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import { actionPhrase } from "@/app/jour/actions";
+import { actionPhrase } from "@/app/(app)/jour/actions";
 
 type Props = { valeurInitiale: string };
 

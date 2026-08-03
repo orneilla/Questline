@@ -177,12 +177,14 @@ export async function chargerJour(): Promise<EtatJour> {
           frequenceSem: quetes.frequenceSem,
           joursExclus: quetes.joursExclus,
           minimale: quetes.minimale,
+          actif: quetes.actif,
           pilier: arcs.pilier,
           arcNom: arcs.nom,
         })
         .from(quetes)
         .innerJoin(arcs, eq(quetes.arcId, arcs.id))
-        .where(eq(arcs.actif, true))
+        // Un arc en sommeil ou une quête désactivée ne sort plus.
+        .where(and(eq(arcs.actif, true), eq(quetes.actif, true)))
         // Ordre explicite : sans lui, Postgres ne garantit rien et la
         // sélection pourrait changer d'un rafraîchissement à l'autre.
         .orderBy(quetes.id),
