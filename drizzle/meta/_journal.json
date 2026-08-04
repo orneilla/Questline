@@ -78,6 +78,20 @@
       "when": 1785817825813,
       "tag": "0010_versets_reellement_lus",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1785819231321,
+      "tag": "0011_corpus_segments",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1785819240557,
+      "tag": "0012_retire_buckwalter",
+      "breakpoints": true
     }
   ]
 }

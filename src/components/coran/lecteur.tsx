@@ -600,10 +600,12 @@ function PanneauMot({
         </div>
 
         <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-[13.5px]">
-          {mot.buckwalter && (
+          {mot.segments.length > 1 && (
             <>
-              <dt className="text-tres-doux">Translittération</dt>
-              <dd className="text-doux">{mot.buckwalter}</dd>
+              <dt className="text-tres-doux">Découpage</dt>
+              <dd dir="rtl" lang="ar" className="text-doux">
+                {mot.segments.join(" ‑ ")}
+              </dd>
             </>
           )}
           {mot.racine && (
@@ -617,13 +619,22 @@ function PanneauMot({
           {mot.lemme && (
             <>
               <dt className="text-tres-doux">Lemme</dt>
-              <dd className="text-doux">{mot.lemme}</dd>
+              <dd dir="rtl" lang="ar" className="text-doux">
+                {mot.lemme}
+              </dd>
             </>
           )}
-          {mot.categorie && (
+          {mot.grammaire && (
             <>
               <dt className="text-tres-doux">Grammaire</dt>
-              <dd className="text-doux">{mot.categorie}</dd>
+              <dd className="text-doux">
+                {mot.grammaire}
+                {mot.traits && (
+                  <span className="block text-[11.5px] text-tres-doux">
+                    {mot.traits}
+                  </span>
+                )}
+              </dd>
             </>
           )}
           {mot.sens && (

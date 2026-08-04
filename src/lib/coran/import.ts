@@ -12,7 +12,9 @@ import {
   type Revelation,
 } from "@/db/schema";
 import { aujourdhui } from "@/lib/dates";
+import { enregistrerSourceMorphologie } from "./donnees";
 import { API_BASE, EDITION_ARABE, editionProposee, URL_MORPHOLOGIE } from "./sources";
+import { analyserCorpus } from "./morphologie";
 
 /**
  * Import du texte depuis alquran.cloud.
@@ -463,6 +465,10 @@ export async function importerMorphologie(
 
   const brut = await reponse.text();
   const analyse = analyserCorpus(brut);
+
+  // On retient l'adresse réellement servie : les réglages la citent, et une
+  // analyse dont on ne sait pas dire d'où elle vient n'a rien à faire ici.
+  await enregistrerSourceMorphologie(URL_MORPHOLOGIE);
   if (analyse.size === 0) {
     throw new ImportRefuse(
       "Le fichier reçu ne contient aucune ligne exploitable ; rien n'a été écrit.",
@@ -514,10 +520,11 @@ export async function importerMorphologie(
           versetNumero: verset.numero,
           sourate,
           position: mot.position,
-          buckwalter: mot.buckwalter,
+          segments: mot.segments,
           racine: mot.racine,
           lemme: mot.lemme,
           categorie: mot.categorie,
+          traits: mot.traits,
         });
       }
     }
@@ -545,59 +552,6 @@ export async function importerMorphologie(
   };
 }
 
-type MotAnalyse = {
-  position: number;
-  buckwalter: string;
-  racine: string | null;
-  lemme: string | null;
-  categorie: string;
-};
-
-/**
- * Lit le format du corpus : une ligne par segment, la localisation en
- * `(sourate:verset:mot:segment)`, puis la forme, la catégorie et les traits.
- * Les segments d'un même mot sont recollés — c'est le mot entier qui intéresse
- * la lecture, et sa racine se trouve sur l'un de ses segments.
- */
-export function analyserCorpus(contenu: string): Map<string, MotAnalyse[]> {
-  const parVerset = new Map<string, Map<number, MotAnalyse>>();
-
-  for (const ligne of contenu.split("\n")) {
-    if (!ligne.startsWith("(")) continue;
-    const colonnes = ligne.split("\t");
-    if (colonnes.length < 4) continue;
-
-    const reperes = colonnes[0].replace(/[()]/g, "").split(":").map(Number);
-    if (reperes.length < 3 || reperes.some((n) => !Number.isInteger(n))) continue;
-
-    const [sourate, verset, mot] = reperes;
-    const cle = `${sourate}:${verset}`;
-    const mots = parVerset.get(cle) ?? new Map<number, MotAnalyse>();
-
-    const traits = colonnes[3] ?? "";
-    const racine = /ROOT:([^|\s]+)/.exec(traits)?.[1] ?? null;
-    const lemme = /LEM:([^|\s]+)/.exec(traits)?.[1] ?? null;
-
-    const existant = mots.get(mot);
-    mots.set(mot, {
-      position: mot,
-      buckwalter: (existant?.buckwalter ?? "") + (colonnes[1] ?? ""),
-      // La racine d'un mot est portée par son segment nominal ou verbal :
-      // le premier trouvé est le bon, les suivants sont des affixes.
-      racine: existant?.racine ?? racine,
-      lemme: existant?.lemme ?? lemme,
-      categorie: existant?.categorie || (colonnes[2] ?? ""),
-    });
-
-    parVerset.set(cle, mots);
-  }
-
-  const sortie = new Map<string, MotAnalyse[]>();
-  for (const [cle, mots] of parVerset) {
-    sortie.set(cle, [...mots.values()].sort((a, b) => a.position - b.position));
-  }
-  return sortie;
-}
 
 /** Place occupée par l'analyse mot à mot. */
 export async function poidsMorphologie(): Promise<{ mots: number; octets: number | null }> {

@@ -1,0 +1,1 @@
+ALTER TABLE "mots_coran" DROP COLUMN "buckwalter";

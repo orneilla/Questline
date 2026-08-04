@@ -471,6 +471,22 @@ d'indiquer clairement la source avec un lien vers corpus.quran.com. Licence
 claire, donc importable — mais l'import reste à la demande, depuis les réglages,
 avec ses conditions affichées.
 
+Le fichier officiel de corpus.quran.com n'est servi que derrière un formulaire
+de courriel : aucune requête ne l'atteint. L'analyse vient donc du fork
+`mustafa0x/quran-morphology`, même version, même licence. Son format diffère du
+0.4 documenté et c'est **celui-là** qu'analyse `morphologie.ts` : quatre colonnes
+séparées par des tabulations, localisation `sourate:verset:mot:segment` sans
+parenthèses, arabe réel en deuxième colonne au lieu du Buckwalter, catégorie
+grossière (N, P, V) en troisième, et les traits en quatrième — `ROOT`, `LEM`,
+`VF` pour la forme verbale, plus les drapeaux nus et les étiquettes propres à ce
+fork : `NV`, `ATT`, `DIST`, `ADDR`. L'adresse se change par
+`CORAN_MORPHOLOGIE_URL`, et celle qui a réellement servi est retenue en base puis
+affichée dans les réglages.
+
+Mesuré sur le fichier réel : 130 030 lignes de segments, **77 429 mots**,
+6236 versets, analysés en moins d'une seconde ; **1650 racines distinctes** et
+18 Mo en base une fois écrits.
+
 **Ce que le corpus ne donne pas : le sens.** Aucune glose mot à mot n'a de
 licence vérifiable — celles qui circulent, y compris dans des dépôts qui
 s'annoncent en CC BY, dérivent du corpus ou de Quran.com sans chaîne de droits
@@ -487,6 +503,12 @@ analyse plutôt que d'attacher une racine au mauvais mot, et le total des verset
 écartés est rapporté à la fin de l'import. **La forme arabe affichée ne vient
 jamais du corpus** : elle est découpée du verset déjà en base, sur les blancs, à
 la position que le corpus indique.
+
+Vérifié contre le texte réel : **6226 versets sur 6236 s'alignent**, soit
+99,84 %. Les dix écarts sont des divisions de mots connues, où le corpus et
+Tanzil ne coupent pas au même endroit — بَعْدَمَا contre بَعۡدَ مَا, مَا لِىَ contre
+مَالِيَ, لَّوْ مَا contre لَّوۡمَا. Ce sont 2:72, 2:181, 8:6, 13:37, 15:7, 27:20,
+36:22, 37:130, 37:164 et 41:47, et ces dix-là restent sans analyse.
 
 Depuis le panneau, un bouton range le mot dans un espace « Arabe coranique », en
 paquet par racine ou par sourate. La carte porte le mot au recto ; au verso sa

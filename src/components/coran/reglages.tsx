@@ -357,7 +357,7 @@ export function ReglagesCoran({
 
       <RemiseAZero sourates={sourates} />
 
-      <MotAMot mots={mots} cleInstallation={cleInstallation} />
+      <MotAMot mots={mots} source={reglages.sourceMorphologie} cleInstallation={cleInstallation} />
     </div>
   );
 }
@@ -460,9 +460,12 @@ function RemiseAZero({ sourates }: { sourates: { numero: number; nom: string }[]
 /** L'analyse mot à mot : licence claire, import à la demande. */
 function MotAMot({
   mots,
+  source,
   cleInstallation,
 }: {
   mots: number;
+  /** Adresse d'où l'analyse a réellement été tirée. */
+  source: string | null;
   cleInstallation: string;
 }) {
   const adresse = `/api/setup/coran/morphologie?key=${cleInstallation}`;
@@ -493,10 +496,23 @@ function MotAMot({
         </div>
 
         {mots > 0 ? (
-          <p className="text-[12.5px] text-tres-doux tabular-nums">
-            {mots.toLocaleString("fr-FR")} mots analysés. Un appui sur un mot arabe, en
-            lecture, ouvre son analyse.
-          </p>
+          <div className="flex flex-col gap-1">
+            <p className="text-[12.5px] text-tres-doux tabular-nums">
+              {mots.toLocaleString("fr-FR")} mots analysés. Un appui sur un mot arabe,
+              en lecture, ouvre son analyse.
+            </p>
+            {source && (
+              <p className="text-[11.5px] break-all text-tres-doux">
+                Tirée de {source}
+              </p>
+            )}
+            <a
+              href={`${adresse}`}
+              className="mt-1 flex min-h-11 items-center justify-center rounded-xl border border-bordure text-[13px] text-doux"
+            >
+              Reprendre l'import
+            </a>
+          </div>
         ) : (
           <a
             href={adresse}
@@ -505,6 +521,13 @@ function MotAMot({
             Importer l'analyse mot à mot
           </a>
         )}
+
+        <p className="text-[11.5px] leading-relaxed text-tres-doux">
+          Le fichier officiel de corpus.quran.com n'est servi que derrière un
+          formulaire : l'analyse vient d'un fork de la même version, sous la même
+          licence. L'adresse se change par la variable{" "}
+          <code className="text-[11px]">CORAN_MORPHOLOGIE_URL</code>.
+        </p>
 
         <p className="text-[11.5px] leading-relaxed text-tres-doux">
           Le corpus donne la racine, le lemme et la grammaire. Il ne donne pas le sens :

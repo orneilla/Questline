@@ -296,7 +296,8 @@ export async function apprendreMotDuCoran(
   const details = [
     analyse.racine ? `Racine : ${analyse.racine}` : null,
     analyse.lemme ? `Lemme : ${analyse.lemme}` : null,
-    analyse.categorie ? `Grammaire : ${analyse.categorie}` : null,
+    analyse.grammaire ? `Grammaire : ${analyse.grammaire}` : null,
+    analyse.segments.length > 1 ? `Découpage : ${analyse.segments.join(" ‑ ")}` : null,
     analyse.sens ? `Sens : ${analyse.sens}` : null,
     analyse.racine
       ? `${analyse.frequenceRacine} occurrence${analyse.frequenceRacine > 1 ? "s" : ""} de la racine`
@@ -308,9 +309,8 @@ export async function apprendreMotDuCoran(
 
   const { creees } = await creerNote({
     paquetId,
-    recto: analyse.buckwalter
-      ? `${analyse.arabe}\n\n*${analyse.buckwalter}*`
-      : analyse.arabe,
+    // Le recto ne porte que le mot, tel qu'il est dans le verset.
+    recto: analyse.arabe,
     verso: `${details.join("\n\n")}\n\n---\n\n${verset.texte}`,
     type: "recto_verso",
     notes: `Coran ${repere}, mot ${position}`,

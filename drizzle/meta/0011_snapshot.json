@@ -1,0 +1,2291 @@
+{
+  "id": "d2436b71-dd61-4c4e-ad20-fc26dd3fe92e",
+  "prevId": "860bde65-23f6-4abb-8960-a9f5172df7ee",
+  "version": "7",
+  "dialect": "postgresql",
+  "tables": {
+    "public.arcs": {
+      "name": "arcs",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "nom": {
+          "name": "nom",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "pilier": {
+          "name": "pilier",
+          "type": "pilier",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "vision": {
+          "name": "vision",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "''"
+        },
+        "actif": {
+          "name": "actif",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.cartes": {
+      "name": "cartes",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "paquet_id": {
+          "name": "paquet_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "recto": {
+          "name": "recto",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "verso": {
+          "name": "verso",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "type": {
+          "name": "type",
+          "type": "type_carte",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'recto_verso'"
+        },
+        "notes": {
+          "name": "notes",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "''"
+        },
+        "tags": {
+          "name": "tags",
+          "type": "text[]",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'{}'"
+        },
+        "etat": {
+          "name": "etat",
+          "type": "etat_carte",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'nouvelle'"
+        },
+        "prochaine_date": {
+          "name": "prochaine_date",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "stabilite": {
+          "name": "stabilite",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "difficulte": {
+          "name": "difficulte",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "rechutes": {
+          "name": "rechutes",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "suspendue": {
+          "name": "suspendue",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "source_cle": {
+          "name": "source_cle",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "source_recto": {
+          "name": "source_recto",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "source_verso": {
+          "name": "source_verso",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "source_index": {
+          "name": "source_index",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "cree_le": {
+          "name": "cree_le",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "modifie_le": {
+          "name": "modifie_le",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "cartes_paquet_id_idx": {
+          "name": "cartes_paquet_id_idx",
+          "columns": [
+            {
+              "expression": "paquet_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "cartes_etat_idx": {
+          "name": "cartes_etat_idx",
+          "columns": [
+            {
+              "expression": "etat",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "cartes_prochaine_date_idx": {
+          "name": "cartes_prochaine_date_idx",
+          "columns": [
+            {
+              "expression": "prochaine_date",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "cartes_du_jour_idx": {
+          "name": "cartes_du_jour_idx",
+          "columns": [
+            {
+              "expression": "paquet_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "suspendue",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "prochaine_date",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "cartes_source_cle_idx": {
+          "name": "cartes_source_cle_idx",
+          "columns": [
+            {
+              "expression": "source_cle",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "cartes_paquet_id_paquets_id_fk": {
+          "name": "cartes_paquet_id_paquets_id_fk",
+          "tableFrom": "cartes",
+          "tableTo": "paquets",
+          "columnsFrom": [
+            "paquet_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.creneaux_recurrents": {
+      "name": "creneaux_recurrents",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "titre": {
+          "name": "titre",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "type": {
+          "name": "type",
+          "type": "categorie_creneau",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'autre'"
+        },
+        "jour_semaine": {
+          "name": "jour_semaine",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "debut": {
+          "name": "debut",
+          "type": "time",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "fin": {
+          "name": "fin",
+          "type": "time",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "actif_depuis": {
+          "name": "actif_depuis",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "actif_jusqua": {
+          "name": "actif_jusqua",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "creneaux_recurrents_jour_semaine_idx": {
+          "name": "creneaux_recurrents_jour_semaine_idx",
+          "columns": [
+            {
+              "expression": "jour_semaine",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.editions_coran": {
+      "name": "editions_coran",
+      "schema": "",
+      "columns": {
+        "cle": {
+          "name": "cle",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "langue": {
+          "name": "langue",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "nom": {
+          "name": "nom",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "auteur": {
+          "name": "auteur",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "type": {
+          "name": "type",
+          "type": "type_edition_coran",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "source": {
+          "name": "source",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "licence": {
+          "name": "licence",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "versets": {
+          "name": "versets",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "importee_le": {
+          "name": "importee_le",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.espaces": {
+      "name": "espaces",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "nom": {
+          "name": "nom",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "couleur": {
+          "name": "couleur",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'#7e92b8'"
+        },
+        "ordre": {
+          "name": "ordre",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.evenements": {
+      "name": "evenements",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "titre": {
+          "name": "titre",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "type": {
+          "name": "type",
+          "type": "categorie_creneau",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'autre'"
+        },
+        "date": {
+          "name": "date",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "debut": {
+          "name": "debut",
+          "type": "time",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "fin": {
+          "name": "fin",
+          "type": "time",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "note": {
+          "name": "note",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "''"
+        }
+      },
+      "indexes": {
+        "evenements_date_idx": {
+          "name": "evenements_date_idx",
+          "columns": [
+            {
+              "expression": "date",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.journees": {
+      "name": "journees",
+      "schema": "",
+      "columns": {
+        "date": {
+          "name": "date",
+          "type": "date",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "type_jour": {
+          "name": "type_jour",
+          "type": "type_jour",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'libre'"
+        },
+        "mode_bas": {
+          "name": "mode_bas",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "phrase": {
+          "name": "phrase",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "''"
+        },
+        "titre": {
+          "name": "titre",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "''"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.marque_pages": {
+      "name": "marque_pages",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "verset_numero": {
+          "name": "verset_numero",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "nom": {
+          "name": "nom",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "''"
+        },
+        "cree_le": {
+          "name": "cree_le",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "marque_pages_verset_idx": {
+          "name": "marque_pages_verset_idx",
+          "columns": [
+            {
+              "expression": "verset_numero",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.medias": {
+      "name": "medias",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "nom": {
+          "name": "nom",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "''"
+        },
+        "type_mime": {
+          "name": "type_mime",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "octets": {
+          "name": "octets",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "largeur": {
+          "name": "largeur",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "hauteur": {
+          "name": "hauteur",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "donnees": {
+          "name": "donnees",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "cree_le": {
+          "name": "cree_le",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.messages_envoyes": {
+      "name": "messages_envoyes",
+      "schema": "",
+      "columns": {
+        "date": {
+          "name": "date",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "type": {
+          "name": "type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "envoye_le": {
+          "name": "envoye_le",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "message_id": {
+          "name": "message_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "messages_envoyes_date_type_uniq": {
+          "name": "messages_envoyes_date_type_uniq",
+          "columns": [
+            {
+              "expression": "date",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "type",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.momentum": {
+      "name": "momentum",
+      "schema": "",
+      "columns": {
+        "pilier": {
+          "name": "pilier",
+          "type": "pilier",
+          "typeSchema": "public",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "valeur": {
+          "name": "valeur",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "maj_le": {
+          "name": "maj_le",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.mots_coran": {
+      "name": "mots_coran",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "verset_numero": {
+          "name": "verset_numero",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "sourate": {
+          "name": "sourate",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "position": {
+          "name": "position",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "buckwalter": {
+          "name": "buckwalter",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "''"
+        },
+        "segments": {
+          "name": "segments",
+          "type": "text[]",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'{}'"
+        },
+        "racine": {
+          "name": "racine",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "lemme": {
+          "name": "lemme",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "categorie": {
+          "name": "categorie",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "''"
+        },
+        "traits": {
+          "name": "traits",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "''"
+        },
+        "sens": {
+          "name": "sens",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "mots_coran_verset_position_uniq": {
+          "name": "mots_coran_verset_position_uniq",
+          "columns": [
+            {
+              "expression": "verset_numero",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "position",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "mots_coran_racine_idx": {
+          "name": "mots_coran_racine_idx",
+          "columns": [
+            {
+              "expression": "racine",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "mots_coran_sourate_idx": {
+          "name": "mots_coran_sourate_idx",
+          "columns": [
+            {
+              "expression": "sourate",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.paquets": {
+      "name": "paquets",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "espace_id": {
+          "name": "espace_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "parent_id": {
+          "name": "parent_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "nom": {
+          "name": "nom",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "ordre": {
+          "name": "ordre",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "objectif_cartes": {
+          "name": "objectif_cartes",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "couverture": {
+          "name": "couverture",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "paquets_espace_id_idx": {
+          "name": "paquets_espace_id_idx",
+          "columns": [
+            {
+              "expression": "espace_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "paquets_parent_id_idx": {
+          "name": "paquets_parent_id_idx",
+          "columns": [
+            {
+              "expression": "parent_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "paquets_espace_id_espaces_id_fk": {
+          "name": "paquets_espace_id_espaces_id_fk",
+          "tableFrom": "paquets",
+          "tableTo": "espaces",
+          "columnsFrom": [
+            "espace_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.position_lecture": {
+      "name": "position_lecture",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "default": 1
+        },
+        "verset_numero": {
+          "name": "verset_numero",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 1
+        },
+        "modifie_le": {
+          "name": "modifie_le",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.positions_sourate": {
+      "name": "positions_sourate",
+      "schema": "",
+      "columns": {
+        "sourate": {
+          "name": "sourate",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "verset_numero": {
+          "name": "verset_numero",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "modifie_le": {
+          "name": "modifie_le",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.quetes": {
+      "name": "quetes",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "arc_id": {
+          "name": "arc_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "titre": {
+          "name": "titre",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "poids": {
+          "name": "poids",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 3
+        },
+        "duree_min": {
+          "name": "duree_min",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 20
+        },
+        "frequence_sem": {
+          "name": "frequence_sem",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 7
+        },
+        "jours_exclus": {
+          "name": "jours_exclus",
+          "type": "integer[]",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'{}'"
+        },
+        "minimale": {
+          "name": "minimale",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "actif": {
+          "name": "actif",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+        }
+      },
+      "indexes": {
+        "quetes_arc_id_idx": {
+          "name": "quetes_arc_id_idx",
+          "columns": [
+            {
+              "expression": "arc_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "quetes_arc_id_arcs_id_fk": {
+          "name": "quetes_arc_id_arcs_id_fk",
+          "tableFrom": "quetes",
+          "tableTo": "arcs",
+          "columnsFrom": [
+            "arc_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.quetes_rares_faites": {
+      "name": "quetes_rares_faites",
+      "schema": "",
+      "columns": {
+        "date": {
+          "name": "date",
+          "type": "date",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "cle": {
+          "name": "cle",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "texte": {
+          "name": "texte",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "pilier": {
+          "name": "pilier",
+          "type": "pilier",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "poids": {
+          "name": "poids",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.reglages_cartes": {
+      "name": "reglages_cartes",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "default": 1
+        },
+        "version_schema": {
+          "name": "version_schema",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 1
+        },
+        "delai_encore_min": {
+          "name": "delai_encore_min",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 1
+        },
+        "delai_difficile_min": {
+          "name": "delai_difficile_min",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 6
+        },
+        "retention_cible": {
+          "name": "retention_cible",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0.9
+        },
+        "poids_fsrs": {
+          "name": "poids_fsrs",
+          "type": "real[]",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'{}'"
+        },
+        "nouvelles_par_jour": {
+          "name": "nouvelles_par_jour",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 20
+        },
+        "maximum_par_jour": {
+          "name": "maximum_par_jour",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 200
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.reglages_coran": {
+      "name": "reglages_coran",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "default": 1
+        },
+        "traduction": {
+          "name": "traduction",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "translitteration": {
+          "name": "translitteration",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "reciteur": {
+          "name": "reciteur",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'ar.alafasy'"
+        },
+        "taille_arabe": {
+          "name": "taille_arabe",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 30
+        },
+        "taille_translitteration": {
+          "name": "taille_translitteration",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 19
+        },
+        "taille_traduction": {
+          "name": "taille_traduction",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 16
+        },
+        "mode_memorisation": {
+          "name": "mode_memorisation",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "police_arabe": {
+          "name": "police_arabe",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'amiri'"
+        },
+        "source_morphologie": {
+          "name": "source_morphologie",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "afficher_translitteration": {
+          "name": "afficher_translitteration",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+        },
+        "afficher_traduction": {
+          "name": "afficher_traduction",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+        },
+        "afficher_arabe": {
+          "name": "afficher_arabe",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+        },
+        "unite_objectif": {
+          "name": "unite_objectif",
+          "type": "unite_objectif",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'versets'"
+        },
+        "objectif_quotidien": {
+          "name": "objectif_quotidien",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 20
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.revisions": {
+      "name": "revisions",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "carte_id": {
+          "name": "carte_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "date": {
+          "name": "date",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "vue_le": {
+          "name": "vue_le",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "note": {
+          "name": "note",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "stabilite": {
+          "name": "stabilite",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "difficulte": {
+          "name": "difficulte",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "prochaine_date": {
+          "name": "prochaine_date",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "intervalle": {
+          "name": "intervalle",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "etat": {
+          "name": "etat",
+          "type": "etat_carte",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "duree": {
+          "name": "duree",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        }
+      },
+      "indexes": {
+        "revisions_carte_id_idx": {
+          "name": "revisions_carte_id_idx",
+          "columns": [
+            {
+              "expression": "carte_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "revisions_date_idx": {
+          "name": "revisions_date_idx",
+          "columns": [
+            {
+              "expression": "date",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "revisions_prochaine_date_idx": {
+          "name": "revisions_prochaine_date_idx",
+          "columns": [
+            {
+              "expression": "prochaine_date",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "revisions_carte_id_cartes_id_fk": {
+          "name": "revisions_carte_id_cartes_id_fk",
+          "tableFrom": "revisions",
+          "tableTo": "cartes",
+          "columnsFrom": [
+            "carte_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.saisons": {
+      "name": "saisons",
+      "schema": "",
+      "columns": {
+        "numero": {
+          "name": "numero",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "debut": {
+          "name": "debut",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "fin": {
+          "name": "fin",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "question": {
+          "name": "question",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "''"
+        },
+        "reponse": {
+          "name": "reponse",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "''"
+        },
+        "cloturee_le": {
+          "name": "cloturee_le",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.seances_lecture": {
+      "name": "seances_lecture",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "date": {
+          "name": "date",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "versets": {
+          "name": "versets",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "secondes": {
+          "name": "secondes",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "debut": {
+          "name": "debut",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "fin": {
+          "name": "fin",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "numeros": {
+          "name": "numeros",
+          "type": "integer[]",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'{}'"
+        }
+      },
+      "indexes": {
+        "seances_lecture_date_idx": {
+          "name": "seances_lecture_date_idx",
+          "columns": [
+            {
+              "expression": "date",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.sessions_revision": {
+      "name": "sessions_revision",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "date": {
+          "name": "date",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "paquet_id": {
+          "name": "paquet_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "cartes_vues": {
+          "name": "cartes_vues",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "duree": {
+          "name": "duree",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        }
+      },
+      "indexes": {
+        "sessions_revision_date_idx": {
+          "name": "sessions_revision_date_idx",
+          "columns": [
+            {
+              "expression": "date",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "sessions_revision_paquet_id_paquets_id_fk": {
+          "name": "sessions_revision_paquet_id_paquets_id_fk",
+          "tableFrom": "sessions_revision",
+          "tableTo": "paquets",
+          "columnsFrom": [
+            "paquet_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.seuils_arcs": {
+      "name": "seuils_arcs",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "arc_id": {
+          "name": "arc_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "seuil": {
+          "name": "seuil",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "atteint_le": {
+          "name": "atteint_le",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "vu": {
+          "name": "vu",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        }
+      },
+      "indexes": {
+        "seuils_arcs_arc_seuil_uniq": {
+          "name": "seuils_arcs_arc_seuil_uniq",
+          "columns": [
+            {
+              "expression": "arc_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "seuil",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "seuils_arcs_arc_id_arcs_id_fk": {
+          "name": "seuils_arcs_arc_id_arcs_id_fk",
+          "tableFrom": "seuils_arcs",
+          "tableTo": "arcs",
+          "columnsFrom": [
+            "arc_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.sourates": {
+      "name": "sourates",
+      "schema": "",
+      "columns": {
+        "numero": {
+          "name": "numero",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "nom_arabe": {
+          "name": "nom_arabe",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "nom_translittere": {
+          "name": "nom_translittere",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "sens_du_nom": {
+          "name": "sens_du_nom",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "revelation": {
+          "name": "revelation",
+          "type": "revelation",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "versets": {
+          "name": "versets",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "premier_verset": {
+          "name": "premier_verset",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.textes_versets": {
+      "name": "textes_versets",
+      "schema": "",
+      "columns": {
+        "edition_cle": {
+          "name": "edition_cle",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "verset_numero": {
+          "name": "verset_numero",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "texte": {
+          "name": "texte",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "textes_versets_verset_idx": {
+          "name": "textes_versets_verset_idx",
+          "columns": [
+            {
+              "expression": "verset_numero",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "textes_versets_edition_cle_editions_coran_cle_fk": {
+          "name": "textes_versets_edition_cle_editions_coran_cle_fk",
+          "tableFrom": "textes_versets",
+          "tableTo": "editions_coran",
+          "columnsFrom": [
+            "edition_cle"
+          ],
+          "columnsTo": [
+            "cle"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "textes_versets_edition_cle_verset_numero_pk": {
+          "name": "textes_versets_edition_cle_verset_numero_pk",
+          "columns": [
+            "edition_cle",
+            "verset_numero"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.validations": {
+      "name": "validations",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "quete_id": {
+          "name": "quete_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "date": {
+          "name": "date",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "bonus_reprise": {
+          "name": "bonus_reprise",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        }
+      },
+      "indexes": {
+        "validations_date_idx": {
+          "name": "validations_date_idx",
+          "columns": [
+            {
+              "expression": "date",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "validations_quete_date_uniq": {
+          "name": "validations_quete_date_uniq",
+          "columns": [
+            {
+              "expression": "quete_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "date",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "validations_quete_id_quetes_id_fk": {
+          "name": "validations_quete_id_quetes_id_fk",
+          "tableFrom": "validations",
+          "tableTo": "quetes",
+          "columnsFrom": [
+            "quete_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.versets": {
+      "name": "versets",
+      "schema": "",
+      "columns": {
+        "numero": {
+          "name": "numero",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "sourate": {
+          "name": "sourate",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "numero_dans_sourate": {
+          "name": "numero_dans_sourate",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "juz": {
+          "name": "juz",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "page": {
+          "name": "page",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "hizb_quart": {
+          "name": "hizb_quart",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "sajda": {
+          "name": "sajda",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "texte": {
+          "name": "texte",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "versets_sourate_idx": {
+          "name": "versets_sourate_idx",
+          "columns": [
+            {
+              "expression": "sourate",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "versets_juz_idx": {
+          "name": "versets_juz_idx",
+          "columns": [
+            {
+              "expression": "juz",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "versets_page_idx": {
+          "name": "versets_page_idx",
+          "columns": [
+            {
+              "expression": "page",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "versets_sourate_sourates_numero_fk": {
+          "name": "versets_sourate_sourates_numero_fk",
+          "tableFrom": "versets",
+          "tableTo": "sourates",
+          "columnsFrom": [
+            "sourate"
+          ],
+          "columnsTo": [
+            "numero"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    }
+  },
+  "enums": {
+    "public.categorie_creneau": {
+      "name": "categorie_creneau",
+      "schema": "public",
+      "values": [
+        "cours",
+        "travail",
+        "priere",
+        "autre"
+      ]
+    },
+    "public.etat_carte": {
+      "name": "etat_carte",
+      "schema": "public",
+      "values": [
+        "nouvelle",
+        "apprentissage",
+        "jeune",
+        "mure"
+      ]
+    },
+    "public.pilier": {
+      "name": "pilier",
+      "schema": "public",
+      "values": [
+        "deen",
+        "corps",
+        "table",
+        "savoir",
+        "oeuvre",
+        "seve"
+      ]
+    },
+    "public.revelation": {
+      "name": "revelation",
+      "schema": "public",
+      "values": [
+        "mecquoise",
+        "medinoise"
+      ]
+    },
+    "public.type_carte": {
+      "name": "type_carte",
+      "schema": "public",
+      "values": [
+        "recto_verso",
+        "inversee",
+        "trous"
+      ]
+    },
+    "public.type_edition_coran": {
+      "name": "type_edition_coran",
+      "schema": "public",
+      "values": [
+        "traduction",
+        "translitteration"
+      ]
+    },
+    "public.type_jour": {
+      "name": "type_jour",
+      "schema": "public",
+      "values": [
+        "libre",
+        "chargee",
+        "pleine"
+      ]
+    },
+    "public.unite_objectif": {
+      "name": "unite_objectif",
+      "schema": "public",
+      "values": [
+        "versets",
+        "pages",
+        "minutes"
+      ]
+    }
+  },
+  "schemas": {},
+  "sequences": {},
+  "roles": {},
+  "policies": {},
+  "views": {},
+  "_meta": {
+    "columns": {},
+    "schemas": {},
+    "tables": {}
+  }
+}

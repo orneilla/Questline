@@ -21,6 +21,7 @@ import {
 } from "@/db/schema";
 import { aujourdhui } from "@/lib/dates";
 import { crediterPilier, validerQuete } from "@/lib/jour";
+import { libelleGrammatical } from "./morphologie";
 import { TOTAL_VERSETS } from "./import";
 
 /**
@@ -35,6 +36,7 @@ export type ReglagesCoranComplets = {
   traduction: string | null;
   translitteration: string | null;
   reciteur: string;
+  sourceMorphologie: string | null;
   tailleArabe: number;
   tailleTranslitteration: number;
   tailleTraduction: number;
@@ -51,6 +53,7 @@ const DEFAUTS: ReglagesCoranComplets = {
   traduction: null,
   translitteration: null,
   reciteur: "ar.alafasy",
+  sourceMorphologie: null,
   tailleArabe: 30,
   tailleTranslitteration: 19,
   tailleTraduction: 16,
@@ -70,6 +73,7 @@ export async function chargerReglagesCoran(): Promise<ReglagesCoranComplets> {
     traduction: ligne.traduction,
     translitteration: ligne.translitteration,
     reciteur: ligne.reciteur,
+    sourceMorphologie: ligne.sourceMorphologie,
     tailleArabe: ligne.tailleArabe,
     tailleTranslitteration: ligne.tailleTranslitteration,
     tailleTraduction: ligne.tailleTraduction,
@@ -554,11 +558,16 @@ export async function compterVersets(): Promise<number> {
 
 export type MotAffiche = {
   position: number;
+  /** Le mot, découpé du verset verbatim — jamais reconstruit depuis le corpus. */
   arabe: string;
-  buckwalter: string;
+  /** Le découpage du corpus : préfixes, radical, suffixes. */
+  segments: string[];
   racine: string | null;
   lemme: string | null;
+  /** Catégorie brute du corpus, et son libellé en français. */
   categorie: string;
+  traits: string;
+  grammaire: string;
   sens: string | null;
   /** Occurrences de la racine dans tout le Coran. */
   frequenceRacine: number;
@@ -606,10 +615,14 @@ export async function analyserMot(
   return {
     position,
     arabe,
-    buckwalter: analyse?.buckwalter ?? "",
+    segments: analyse?.segments ?? [],
     racine: analyse?.racine ?? null,
     lemme: analyse?.lemme ?? null,
     categorie: analyse?.categorie ?? "",
+    traits: analyse?.traits ?? "",
+    grammaire: analyse
+      ? libelleGrammatical(analyse.categorie, analyse.traits)
+      : "",
     sens: analyse?.sens ?? null,
     frequenceRacine,
   };
@@ -652,4 +665,9 @@ export async function racinesFrequentes(limite = 300): Promise<RacineFrequente[]
 export async function compterMots(): Promise<number> {
   const [ligne] = await db.select({ combien: count() }).from(motsCoran);
   return ligne?.combien ?? 0;
+}
+
+/** Retient d'où l'analyse mot à mot a été tirée, pour que l'écran la cite. */
+export async function enregistrerSourceMorphologie(url: string): Promise<void> {
+  await enregistrerReglagesCoran({ sourceMorphologie: url });
 }

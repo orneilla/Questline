@@ -144,7 +144,9 @@ export const CORPUS_MORPHOLOGIE = {
   cle: "corpus-morphologie-0.4",
   nom: "Quranic Arabic Corpus — morphologie v0.4",
   auteur: "Kais Dukes, université de Leeds",
-  source: "corpus.quran.com",
+  source:
+    "corpus.quran.com, via le fork mustafa0x/quran-morphology — le fichier " +
+    "officiel n'est servi que derrière un formulaire, inatteignable par requête",
   licence:
     "GNU General Public License. Copie et distribution verbatim autorisées ; " +
     "toute modification est interdite. L'annotation peut être utilisée dans " +
@@ -154,14 +156,20 @@ export const CORPUS_MORPHOLOGIE = {
 } as const;
 
 /**
- * Adresse du fichier de morphologie. Surchargeable, comme l'API du texte :
- * corpus.quran.com sert le fichier derrière un formulaire, et les miroirs
- * bougent. Une adresse qui ne répond pas doit pouvoir être remplacée sans
- * redéploiement de code.
+ * Adresse du fichier de morphologie.
+ *
+ * corpus.quran.com ne sert le fichier officiel que derrière un formulaire de
+ * courriel : aucune requête ne l'atteint. Le miroir retenu est le fork de
+ * Mustafa, même lignée v0.4 sous GPL, dont la forme diffère du 0.4 documenté —
+ * c'est cette forme-là qu'analyse `morphologie.ts`.
+ *
+ * Surchargeable par `CORAN_MORPHOLOGIE_URL` : les miroirs bougent, et une
+ * adresse morte ne doit pas demander un redéploiement. L'adresse réellement
+ * servie est retenue en base et affichée dans les réglages.
  */
 export const URL_MORPHOLOGIE =
   process.env.CORAN_MORPHOLOGIE_URL ??
-  "https://raw.githubusercontent.com/kaisdukes/quranic-corpus/main/data/quranic-corpus-morphology-0.4.txt";
+  "https://raw.githubusercontent.com/mustafa0x/quran-morphology/master/quran-morphology.txt";
 
 /**
  * Le sens des mots.

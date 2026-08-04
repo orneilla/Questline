@@ -570,6 +570,8 @@ export const reglagesCoran = pgTable("reglages_coran", {
   /** Arabe et translittération en grand, traduction réduite. */
   modeMemorisation: boolean("mode_memorisation").notNull().default(false),
   policeArabe: text("police_arabe").notNull().default("amiri"),
+  /** Adresse d'où l'analyse mot à mot a été tirée, pour pouvoir la citer. */
+  sourceMorphologie: text("source_morphologie"),
   afficherTranslitteration: boolean("afficher_translitteration").notNull().default(true),
   afficherTraduction: boolean("afficher_traduction").notNull().default(true),
   afficherArabe: boolean("afficher_arabe").notNull().default(true),
@@ -619,12 +621,19 @@ export const motsCoran = pgTable(
     sourate: integer("sourate").notNull(),
     /** Rang du mot dans le verset, à partir de 1. */
     position: integer("position").notNull(),
-    /** Translittération Buckwalter, telle que le corpus la donne. */
-    buckwalter: text("buckwalter").notNull().default(""),
+    /**
+     * Le mot tel que le corpus le découpe : préfixes, radical, suffixes.
+     * Montrer cette décomposition est le premier intérêt du mot à mot pour qui
+     * apprend l'arabe — mais ce n'est jamais elle qui sert à l'affichage du
+     * verset, qui vient du texte verbatim.
+     */
+    segments: text("segments").array().notNull().default([]),
     racine: text("racine"),
     lemme: text("lemme"),
-    /** Catégorie grammaticale, code du corpus (N, V, PN…). */
+    /** Catégorie grossière du radical : N, P ou V. */
     categorie: text("categorie").notNull().default(""),
+    /** Traits du radical, recopiés du corpus sans reformulation. */
+    traits: text("traits").notNull().default(""),
     /** Sens du mot ; nul tant qu'aucune glose n'est installée. */
     sens: text("sens"),
   },
