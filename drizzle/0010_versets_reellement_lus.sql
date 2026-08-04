@@ -1,0 +1,1 @@
+ALTER TABLE "seances_lecture" ADD COLUMN "numeros" integer[] DEFAULT '{}' NOT NULL;

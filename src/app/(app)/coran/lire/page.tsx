@@ -9,8 +9,10 @@ import {
   chargerReglagesCoran,
   chargerSourates,
   chargerVersets,
+  compterMots,
+  positionDansSourate,
 } from "@/lib/coran/donnees";
-import { EDITION_ARABE, editionProposee } from "@/lib/coran/sources";
+import { CORPUS_MORPHOLOGIE, EDITION_ARABE, editionProposee } from "@/lib/coran/sources";
 import { diagnostiquer } from "@/lib/erreurs";
 
 export const metadata: Metadata = { title: "Questline — Lecture" };
@@ -27,9 +29,10 @@ export default async function PageLecture({
   const parametres = await searchParams;
 
   try {
-    const [sourates, reglages] = await Promise.all([
+    const [sourates, reglages, motsAnalyses] = await Promise.all([
       chargerSourates(),
       chargerReglagesCoran(),
+      compterMots(),
     ]);
 
     if (sourates.length === 0) {
@@ -46,6 +49,7 @@ export default async function PageLecture({
     let debut = 1;
     let fin = 1;
     let titre = "";
+    let sourateOuverte: number | null = null;
 
     const numeroSourate = Number(parametres.sourate);
     const numeroJuz = Number(parametres.juz);
@@ -56,6 +60,7 @@ export default async function PageLecture({
       debut = sourate.premierVerset;
       fin = sourate.premierVerset + sourate.versets - 1;
       titre = `${sourate.numero}. ${sourate.nomTranslittere}`;
+      sourateOuverte = sourate.numero;
     } else if (Number.isInteger(numeroJuz) && numeroJuz >= 1 && numeroJuz <= 30) {
       const bornes = await bornesJuz(numeroJuz);
       if (bornes) {
@@ -71,6 +76,7 @@ export default async function PageLecture({
       debut = sourate.premierVerset;
       fin = sourate.premierVerset + sourate.versets - 1;
       titre = `${sourate.numero}. ${sourate.nomTranslittere}`;
+      sourateOuverte = sourate.numero;
     }
 
     // Un juz' peut dépasser la limite : on le sert par tranches.
@@ -102,6 +108,14 @@ export default async function PageLecture({
       riwaya: EDITION_ARABE.riwaya,
       graphie: EDITION_ARABE.graphie,
       sourceArabe: EDITION_ARABE.source,
+      corpus:
+        motsAnalyses > 0
+          ? {
+              nom: CORPUS_MORPHOLOGIE.nom,
+              auteur: CORPUS_MORPHOLOGIE.auteur,
+              lien: CORPUS_MORPHOLOGIE.lien,
+            }
+          : null,
       traduction: traduction
         ? { nom: traduction.nom, auteur: traduction.auteur }
         : null,
@@ -110,10 +124,26 @@ export default async function PageLecture({
         : null,
     };
 
-    const versetInitial =
+    // Une adresse qui désigne un verset l'emporte ; sinon on propose de
+    // reprendre là où cette sourate avait été quittée, sans y sauter d'office.
+    const versetDemande =
       Number.isInteger(numeroVerset) && numeroVerset >= debut && numeroVerset <= tranche
         ? numeroVerset
-        : debut;
+        : null;
+
+    const reprise =
+      versetDemande === null && sourateOuverte !== null
+        ? await positionDansSourate(sourateOuverte)
+        : null;
+
+    const repriseUtile =
+      reprise !== null && reprise > debut && reprise <= tranche ? reprise : null;
+
+    const versetInitial = versetDemande ?? repriseUtile ?? debut;
+
+    const versetRepris = repriseUtile
+      ? versets.find((v) => v.numero === repriseUtile)
+      : undefined;
 
     return (
       <main className="mx-auto flex min-h-dvh w-full max-w-md flex-col gap-5 px-5 pt-[calc(env(safe-area-inset-top)+2.75rem)] pb-10 lg:max-w-2xl">
@@ -127,14 +157,25 @@ export default async function PageLecture({
           reglages={{
             reciteur: reglages.reciteur,
             tailleArabe: reglages.tailleArabe,
+            tailleTranslitteration: reglages.tailleTranslitteration,
+            tailleTraduction: reglages.tailleTraduction,
+            modeMemorisation: reglages.modeMemorisation,
             policeArabe: reglages.policeArabe,
             afficherArabe: reglages.afficherArabe,
             afficherTranslitteration: reglages.afficherTranslitteration,
             afficherTraduction: reglages.afficherTraduction,
           }}
           sources={sources}
-          titre={titre}
           versetInitial={versetInitial}
+          repriseSuggeree={
+            versetRepris
+              ? {
+                  numero: versetRepris.numero,
+                  reference: `${versetRepris.sourate}:${versetRepris.numeroDansSourate}`,
+                }
+              : null
+          }
+          motAMotDisponible={motsAnalyses > 0}
         />
 
         {tranche < fin && (

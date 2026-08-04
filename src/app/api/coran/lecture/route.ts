@@ -22,19 +22,17 @@ export async function POST(requete: Request): Promise<Response> {
     return new Response(null, { status: 400 });
   }
 
-  const { debut, fin, secondes } = (corps ?? {}) as {
-    debut?: unknown;
-    fin?: unknown;
+  const { numeros, secondes } = (corps ?? {}) as {
+    numeros?: unknown;
     secondes?: unknown;
   };
 
-  if (!Number.isInteger(debut) || !Number.isInteger(fin)) {
+  if (!Array.isArray(numeros) || numeros.length === 0) {
     return new Response(null, { status: 400 });
   }
 
   await enregistrerSeance({
-    debut: debut as number,
-    fin: fin as number,
+    numeros: numeros.filter((n): n is number => Number.isInteger(n)),
     secondes: Number.isFinite(secondes) ? Math.max(0, Math.round(secondes as number)) : 0,
   });
 

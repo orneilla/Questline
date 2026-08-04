@@ -31,6 +31,7 @@ npm run dev
 | `TELEGRAM_CHAT_ID` | Facultatif. Identifiant de la conversation.                     |
 | `CRON_SECRET`    | Protège `/api/cron` et sert de jeton partagé avec le webhook.     |
 | `CORAN_API_BASE` | Facultatif. Miroir de l'API du Coran (défaut : alquran.cloud).    |
+| `CORAN_MORPHOLOGIE_URL` | Facultatif. Miroir du corpus morphologique.               |
 
 > Sans `SESSION_SECRET`, changer le mot de passe déconnecte tous les appareils.
 
@@ -385,7 +386,20 @@ de la base.
 ### Lire
 
 Navigation par sourate et par juz'. Chaque verset porte l'arabe, la
-translittération et la traduction, chacune activable d'un bouton. Typographie
+translittération et la traduction, chacune activable d'un bouton.
+
+**La translittération est en deuxième rang, et ce n'est pas un détail.** Elle
+n'est pas une note de bas de page : c'est le texte de travail de quelqu'un qui
+mémorise sans lire l'arabe couramment. Les trois couches ont donc des tailles
+indépendantes, et un « mode mémorisation » agrandit l'arabe et la
+translittération tout en réduisant la traduction — il se bascule depuis la
+lecture comme depuis les réglages.
+
+**La reprise est mémorisée par sourate**, pas seulement globalement. Quitter
+Al-Baqara pour lire Al-Fatiha puis revenir propose de reprendre au verset
+quitté, par un discret « reprendre au verset N » plutôt qu'un saut d'office ; le
+défilement laisse un peu de contexte au-dessus. Les positions vivent en base :
+le téléphone et la tablette retrouvent la même place. Typographie
 arabe dédiée : police au choix — les polices sont demandées au système et jamais
 téléchargées, une police coranique pesant plusieurs mégaoctets — taille réglable,
 interligne large, RTL, ni césure ni justification.
@@ -407,10 +421,23 @@ pilier deen crédité, une fois par jour. Les jours où il ne l'est pas ne laiss
 aucune trace : le suivi compte ce qui a eu lieu, il ne sanctionne pas ce qui n'a
 pas eu lieu.
 
+Un verset n'est compté comme lu que s'il est resté sous les yeux plusieurs
+secondes. Sans ce délai, faire défiler une sourate pour vérifier un import
+enregistrait trois cents versets lus, ce qui est faux : un défilement rapide ne
+traverse chaque verset que quelques dizaines de millisecondes. Et c'est la liste
+des versets réellement lus qui est envoyée, pas l'intervalle qu'ils couvrent —
+traverser une sourate n'est pas la lire.
+
 Les séances partent par `navigator.sendBeacon` et non par une action serveur :
 une action partirait avec l'onglet et la lecture ne compterait pas. Le journal
 est aussi écrit tous les vingt versets, pour qu'une fermeture brutale ne coûte
 rien.
+
+**Remise à zéro** — depuis les réglages, pour tout le moushaf ou sourate par
+sourate, avec un texte qui dit exactement ce qui part et ce qui reste. Les
+cartes de mémorisation et de vocabulaire, leur historique et leurs échéances ne
+sont jamais touchés : recommencer un cycle de lecture n'a aucune raison de
+défaire une mémorisation.
 
 ### Mémoriser
 
@@ -419,14 +446,56 @@ Un verset mis en carte devient une note du module cartes, dans un espace
 d'apprentissage. Le module Coran ne tient aucun état de mémorisation — il lit
 les étiquettes `coran:<sourate>:<verset>` quand il veut compter.
 
-Trois formats : le verset depuis sa traduction, le verset suivant depuis le
-précédent, ou la fin du verset masquée. Sur ce dernier, le découpage se fait sur
+Trois formats, tous en arabe — on ne mémorise pas depuis le français : le verset
+suivant depuis le précédent, la fin du verset masquée, ou le verset entier à
+réciter (référence et verset précédent au recto). Chaque face porte l'arabe et
+sa translittération, celle-ci en italique sur sa propre ligne. Sur ce dernier, le découpage se fait sur
 les blancs en conservant chaque séparateur — recoller les morceaux redonne le
 verset à l'octet près — et les marques de trou sont posées *autour* d'une
 portion, jamais à l'intérieur d'un mot. Ce sont les derniers mots qui sont
 masqués, mécaniquement : décider quels mots seraient « clés » demanderait un
 jugement sur le sens, et ce module n'en porte aucun. Le verso montre toujours le
 verset entier.
+
+### Mot à mot
+
+Un appui sur un mot arabe, en lecture, ouvre son analyse : le mot, sa
+translittération, sa racine, son lemme, sa catégorie grammaticale et le nombre
+d'occurrences de cette racine dans le Coran. Le panneau se superpose à la
+sourate — le fermer n'en fait pas sortir.
+
+**Source et licence** — le *Quranic Arabic Corpus* de Kais Dukes (université de
+Leeds), morphologie v0.4, sous **GNU General Public License** : copie verbatim
+autorisée, modification interdite, usage libre dans une application à condition
+d'indiquer clairement la source avec un lien vers corpus.quran.com. Licence
+claire, donc importable — mais l'import reste à la demande, depuis les réglages,
+avec ses conditions affichées.
+
+**Ce que le corpus ne donne pas : le sens.** Aucune glose mot à mot n'a de
+licence vérifiable — celles qui circulent, y compris dans des dépôts qui
+s'annoncent en CC BY, dérivent du corpus ou de Quran.com sans chaîne de droits
+traçable, et un dépôt qui se déclare libre ne rend pas libre ce qu'il
+redistribue. Rien n'est donc importé. Le panneau le dit et fonctionne sans : la
+racine, le lemme, la grammaire et la fréquence sont précisément ce qui s'apprend.
+Le champ `sens` existe en base, prêt à recevoir une glose dont la licence serait
+claire.
+
+**L'alignement** est le point délicat, et il est traité par le refus. Le corpus
+numérote les mots d'un verset ; le texte vient de Tanzil. On vérifie que les deux
+comptes coïncident avant d'écrire : un verset qui ne s'aligne pas est laissé sans
+analyse plutôt que d'attacher une racine au mauvais mot, et le total des versets
+écartés est rapporté à la fin de l'import. **La forme arabe affichée ne vient
+jamais du corpus** : elle est découpée du verset déjà en base, sur les blancs, à
+la position que le corpus indique.
+
+Depuis le panneau, un bouton range le mot dans un espace « Arabe coranique », en
+paquet par racine ou par sourate. La carte porte le mot au recto ; au verso sa
+racine, son analyse et le verset d'où il vient — un mot appris hors de sa phrase
+s'oublie.
+
+La page **Vocabulaire** liste les trois cents racines les plus fréquentes par
+fréquence décroissante, en marquant celles déjà travaillées, et dit quelle part
+des occurrences elles couvrent.
 
 ## Le bot Telegram
 
@@ -650,6 +719,7 @@ src/
     coran/
       sources.ts    éditions, licences, récitateurs — aucune donnée coranique
       formats.ts    formats de carte, masquage de fin — logique pure
+      calendrier.ts (voir cartes/) — le calendrier est partagé
       import.ts     import par lots, reprenable
       donnees.ts    lecture, suivi, progression
       hifz.ts       versets → cartes du module cartes

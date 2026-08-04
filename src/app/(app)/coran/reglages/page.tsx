@@ -3,7 +3,12 @@ import type { Metadata } from "next";
 import { Retour } from "@/components/retour";
 import { EcranInstallation } from "@/components/ecran-installation";
 import { ReglagesCoran } from "@/components/coran/reglages";
-import { chargerReglagesCoran, type ReglagesCoranComplets } from "@/lib/coran/donnees";
+import {
+  chargerReglagesCoran,
+  chargerSourates,
+  compterMots,
+  type ReglagesCoranComplets,
+} from "@/lib/coran/donnees";
 import { etatImport, poidsCoran, TOTAL_VERSETS } from "@/lib/coran/import";
 import { EDITION_ARABE } from "@/lib/coran/sources";
 import { diagnostiquer } from "@/lib/erreurs";
@@ -24,12 +29,16 @@ export default async function PageReglagesCoran() {
   let reglages: ReglagesCoranComplets;
   let etat: Awaited<ReturnType<typeof etatImport>>;
   let place: Awaited<ReturnType<typeof poidsCoran>>;
+  let listeSourates: Awaited<ReturnType<typeof chargerSourates>>;
+  let mots: number;
 
   try {
-    [reglages, etat, place] = await Promise.all([
+    [reglages, etat, place, listeSourates, mots] = await Promise.all([
       chargerReglagesCoran(),
       etatImport(),
       poidsCoran(),
+      chargerSourates(),
+      compterMots(),
     ]);
   } catch (erreur) {
     const probleme = diagnostiquer(erreur);
@@ -70,6 +79,8 @@ export default async function PageReglagesCoran() {
           complete: e.complete,
         }))}
         cleInstallation={process.env.SETUP_KEY ?? CLE_PAR_DEFAUT}
+        sourates={listeSourates.map((s) => ({ numero: s.numero, nom: s.nomTranslittere }))}
+        mots={mots}
       />
     </main>
   );

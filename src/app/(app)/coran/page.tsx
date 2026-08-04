@@ -138,12 +138,18 @@ export default async function PageCoran() {
         }}
       />
 
-      <div className="grid grid-cols-2 gap-2">
+      <div className="grid grid-cols-3 gap-2">
         <Link
           href="/coran/hifz"
           className="flex min-h-11 items-center justify-center rounded-xl border border-bordure px-3 text-[13px] text-doux transition-colors duration-300 active:bg-surface"
         >
           Mémorisation
+        </Link>
+        <Link
+          href="/coran/vocabulaire"
+          className="flex min-h-11 items-center justify-center rounded-xl border border-bordure px-3 text-[13px] text-doux transition-colors duration-300 active:bg-surface"
+        >
+          Vocabulaire
         </Link>
         <Link
           href="/coran/reglages"

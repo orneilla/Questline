@@ -64,6 +64,20 @@
       "when": 1785793355913,
       "tag": "0008_module_coran",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1785816948652,
+      "tag": "0009_coran_mot_a_mot",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1785817825813,
+      "tag": "0010_versets_reellement_lus",
+      "breakpoints": true
     }
   ]
 }

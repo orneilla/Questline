@@ -6,6 +6,8 @@ import { db } from "@/db";
 import {
   arcs,
   editionsCoran,
+  motsCoran,
+  positionsSourate,
   marquePages,
   positionLecture,
   quetes,
@@ -34,6 +36,9 @@ export type ReglagesCoranComplets = {
   translitteration: string | null;
   reciteur: string;
   tailleArabe: number;
+  tailleTranslitteration: number;
+  tailleTraduction: number;
+  modeMemorisation: boolean;
   policeArabe: string;
   afficherArabe: boolean;
   afficherTranslitteration: boolean;
@@ -47,6 +52,9 @@ const DEFAUTS: ReglagesCoranComplets = {
   translitteration: null,
   reciteur: "ar.alafasy",
   tailleArabe: 30,
+  tailleTranslitteration: 19,
+  tailleTraduction: 16,
+  modeMemorisation: false,
   policeArabe: "amiri",
   afficherArabe: true,
   afficherTranslitteration: true,
@@ -63,6 +71,9 @@ export async function chargerReglagesCoran(): Promise<ReglagesCoranComplets> {
     translitteration: ligne.translitteration,
     reciteur: ligne.reciteur,
     tailleArabe: ligne.tailleArabe,
+    tailleTranslitteration: ligne.tailleTranslitteration,
+    tailleTraduction: ligne.tailleTraduction,
+    modeMemorisation: ligne.modeMemorisation,
     policeArabe: ligne.policeArabe,
     afficherArabe: ligne.afficherArabe,
     afficherTranslitteration: ligne.afficherTranslitteration,
@@ -184,17 +195,110 @@ export async function positionCourante(): Promise<number> {
   return ligne?.versetNumero ?? 1;
 }
 
+/**
+ * Enregistre où l'on en est — globalement, et dans la sourate concernée.
+ *
+ * Les deux positions ne font pas double emploi. La globale répond à « reprends
+ * là où j'étais » ; celle de la sourate répond à « je rouvre Al-Baqara, remets-
+ * moi où je l'avais quittée », même si j'ai lu trois autres sourates entre
+ * temps. Vivre en base et non dans le navigateur est ce qui les fait suivre
+ * d'un appareil à l'autre.
+ */
 export async function enregistrerPosition(versetNumero: number): Promise<void> {
-  const valeurs = {
-    versetNumero: Math.max(1, Math.min(TOTAL_VERSETS, Math.round(versetNumero))),
-    modifieLe: new Date().toISOString(),
-  };
+  const numero = Math.max(1, Math.min(TOTAL_VERSETS, Math.round(versetNumero)));
+  const modifieLe = new Date().toISOString();
+
   const [existant] = await db.select({ id: positionLecture.id }).from(positionLecture).limit(1);
   if (existant) {
-    await db.update(positionLecture).set(valeurs).where(eq(positionLecture.id, existant.id));
-    return;
+    await db
+      .update(positionLecture)
+      .set({ versetNumero: numero, modifieLe })
+      .where(eq(positionLecture.id, existant.id));
+  } else {
+    await db.insert(positionLecture).values({ id: 1, versetNumero: numero, modifieLe });
   }
-  await db.insert(positionLecture).values({ id: 1, ...valeurs });
+
+  const [verset] = await db
+    .select({ sourate: versets.sourate })
+    .from(versets)
+    .where(eq(versets.numero, numero))
+    .limit(1);
+  if (!verset) return;
+
+  await db
+    .insert(positionsSourate)
+    .values({ sourate: verset.sourate, versetNumero: numero, modifieLe })
+    .onConflictDoUpdate({
+      target: positionsSourate.sourate,
+      set: { versetNumero: numero, modifieLe },
+    });
+}
+
+/** Où la lecture s'était arrêtée dans cette sourate, si elle y est passée. */
+export async function positionDansSourate(sourate: number): Promise<number | null> {
+  const [ligne] = await db
+    .select({ versetNumero: positionsSourate.versetNumero })
+    .from(positionsSourate)
+    .where(eq(positionsSourate.sourate, sourate))
+    .limit(1);
+  return ligne?.versetNumero ?? null;
+}
+
+/* ─────────────────────── Remise à zéro du suivi ─────────────────────── */
+
+export type BilanRemiseAZero = {
+  seances: number;
+  positions: number;
+};
+
+/**
+ * Efface le suivi de lecture — séances et positions — sans jamais toucher aux
+ * cartes ni à leur historique. Ce sont deux choses distinctes : recommencer un
+ * cycle de lecture n'a aucune raison de défaire une mémorisation.
+ */
+export async function remettreLectureAZero(
+  sourate: number | null,
+): Promise<BilanRemiseAZero> {
+  if (sourate === null) {
+    const seances = await db.delete(seancesLecture).returning({ id: seancesLecture.id });
+    const positions = await db
+      .delete(positionsSourate)
+      .returning({ sourate: positionsSourate.sourate });
+    await db.update(positionLecture).set({
+      versetNumero: 1,
+      modifieLe: new Date().toISOString(),
+    });
+    return { seances: seances.length, positions: positions.length };
+  }
+
+  const [bornes] = await db
+    .select({
+      debut: sql<number>`min(${versets.numero})`,
+      fin: sql<number>`max(${versets.numero})`,
+    })
+    .from(versets)
+    .where(eq(versets.sourate, sourate));
+
+  if (!bornes?.debut) return { seances: 0, positions: 0 };
+
+  // Une séance qui déborde de la sourate n'est pas effacée : elle appartient
+  // aussi à ce qui a été lu ailleurs.
+  const seances = await db
+    .delete(seancesLecture)
+    .where(
+      and(
+        gte(seancesLecture.debut, Number(bornes.debut)),
+        lte(seancesLecture.fin, Number(bornes.fin)),
+      ),
+    )
+    .returning({ id: seancesLecture.id });
+
+  const positions = await db
+    .delete(positionsSourate)
+    .where(eq(positionsSourate.sourate, sourate))
+    .returning({ sourate: positionsSourate.sourate });
+
+  return { seances: seances.length, positions: positions.length };
 }
 
 export async function chargerMarquePages() {
@@ -254,8 +358,8 @@ async function totalDuJour(unite: UniteObjectif, date: string): Promise<number> 
       .select({
         total: sql<number>`(
           select count(distinct v.page) from ${versets} v
-          join ${seancesLecture} s on v.numero between s.debut and s.fin
-          where s.date = ${date})`,
+          where v.numero in (
+            select unnest(s.numeros) from ${seancesLecture} s where s.date = ${date}))`,
       })
       .from(seancesLecture)
       .limit(1);
@@ -276,8 +380,8 @@ export async function progression(date = aujourdhui()): Promise<Progression> {
     db
       .select({
         combien: sql<number>`(
-          select count(distinct v.numero) from ${versets} v
-          join ${seancesLecture} s on v.numero between s.debut and s.fin)`,
+          select count(distinct n) from ${seancesLecture} s,
+          unnest(s.numeros) as n)`,
       })
       .from(seancesLecture)
       .limit(1),
@@ -318,19 +422,29 @@ export async function joursDeLecture(): Promise<{ date: string; combien: number 
  * compte ce qui a eu lieu, il ne sanctionne pas ce qui n'a pas eu lieu.
  */
 export async function enregistrerSeance(entree: {
-  debut: number;
-  fin: number;
+  numeros: number[];
   secondes: number;
 }): Promise<{ atteint: boolean }> {
   const date = aujourdhui();
-  const debut = Math.max(1, Math.min(TOTAL_VERSETS, Math.round(entree.debut)));
-  const fin = Math.max(debut, Math.min(TOTAL_VERSETS, Math.round(entree.fin)));
+  const numeros = [
+    ...new Set(
+      entree.numeros.filter((n) => Number.isInteger(n) && n >= 1 && n <= TOTAL_VERSETS),
+    ),
+  ].sort((a, b) => a - b);
+
+  if (numeros.length === 0) return { atteint: false };
+
+  const debut = numeros[0];
+  const fin = numeros[numeros.length - 1];
 
   await db.insert(seancesLecture).values({
     date,
     debut,
     fin,
-    versets: fin - debut + 1,
+    // Le compte est celui des versets réellement lus, pas celui de l'intervalle
+    // qu'ils couvrent : traverser une sourate n'est pas la lire.
+    versets: numeros.length,
+    numeros,
     secondes: Math.max(0, Math.min(entree.secondes, 12 * 3600)),
   });
 
@@ -432,5 +546,110 @@ export async function versetsDejaMemorises(sourate: number): Promise<number[]> {
 
 export async function compterVersets(): Promise<number> {
   const [ligne] = await db.select({ combien: count() }).from(versets);
+  return ligne?.combien ?? 0;
+}
+
+
+/* ─────────────────────────── Mot à mot ─────────────────────────── */
+
+export type MotAffiche = {
+  position: number;
+  arabe: string;
+  buckwalter: string;
+  racine: string | null;
+  lemme: string | null;
+  categorie: string;
+  sens: string | null;
+  /** Occurrences de la racine dans tout le Coran. */
+  frequenceRacine: number;
+};
+
+/**
+ * L'analyse d'un mot.
+ *
+ * La forme arabe ne vient pas du corpus : elle est découpée du verset déjà en
+ * base, sur les blancs, à la position que le corpus indique. Aucun caractère
+ * arabe affiché ne vient donc d'ailleurs que du texte verbatim.
+ */
+export async function analyserMot(
+  versetNumero: number,
+  position: number,
+): Promise<MotAffiche | null> {
+  const [verset] = await db
+    .select({ texte: versets.texte })
+    .from(versets)
+    .where(eq(versets.numero, versetNumero))
+    .limit(1);
+  if (!verset) return null;
+
+  const mots = verset.texte.split(/\s+/).filter((m) => m.length > 0);
+  const arabe = mots[position - 1];
+  if (!arabe) return null;
+
+  const [analyse] = await db
+    .select()
+    .from(motsCoran)
+    .where(
+      and(eq(motsCoran.versetNumero, versetNumero), eq(motsCoran.position, position)),
+    )
+    .limit(1);
+
+  let frequenceRacine = 0;
+  if (analyse?.racine) {
+    const [compte] = await db
+      .select({ combien: count() })
+      .from(motsCoran)
+      .where(eq(motsCoran.racine, analyse.racine));
+    frequenceRacine = compte?.combien ?? 0;
+  }
+
+  return {
+    position,
+    arabe,
+    buckwalter: analyse?.buckwalter ?? "",
+    racine: analyse?.racine ?? null,
+    lemme: analyse?.lemme ?? null,
+    categorie: analyse?.categorie ?? "",
+    sens: analyse?.sens ?? null,
+    frequenceRacine,
+  };
+}
+
+export type RacineFrequente = {
+  racine: string;
+  occurrences: number;
+  /** Vrai si une carte de vocabulaire existe déjà pour cette racine. */
+  connue: boolean;
+};
+
+/** Les racines les plus fréquentes du Coran, et celles déjà travaillées. */
+export async function racinesFrequentes(limite = 300): Promise<RacineFrequente[]> {
+  const lignes = await db.execute(sql`
+    select
+      m.racine,
+      count(*)::int as occurrences,
+      exists (
+        select 1 from cartes c, unnest(c.tags) as tag
+        where tag = 'racine:' || m.racine
+      ) as connue
+    from ${motsCoran} m
+    where m.racine is not null and m.racine <> ''
+    group by m.racine
+    order by count(*) desc
+    limit ${limite}
+  `);
+
+  const brutes = ((lignes as unknown as { rows?: unknown[] }).rows ??
+    lignes) as unknown as { racine: string; occurrences: number; connue: boolean }[];
+
+  return brutes.map((l) => ({
+    racine: l.racine,
+    occurrences: Number(l.occurrences),
+    connue: Boolean(l.connue),
+  }));
+}
+
+export async function compterMots(): Promise<number> {
+  const [ligne] = await db.select({ combien: count() }).from(motsCoran);
   return ligne?.combien ?? 0;
 }

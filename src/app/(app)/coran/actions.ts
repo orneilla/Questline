@@ -3,13 +3,16 @@
 import { revalidatePath } from "next/cache";
 
 import {
+  analyserMot,
   chargerReglagesCoran,
   enregistrerPosition,
   enregistrerReglagesCoran,
   poserMarquePage,
+  remettreLectureAZero,
   retirerMarquePage,
+  type MotAffiche,
 } from "@/lib/coran/donnees";
-import { memoriserVerset } from "@/lib/coran/hifz";
+import { apprendreMotDuCoran, memoriserVerset } from "@/lib/coran/hifz";
 import type { FormatHifz } from "@/lib/coran/formats";
 import { retirerEdition } from "@/lib/coran/import";
 import { EDITIONS_PROPOSEES, POLICES, RECITEURS } from "@/lib/coran/sources";
@@ -61,7 +64,7 @@ export async function supprimerMarquePage(id: number): Promise<void> {
 
 /* ────────────────────────────── Hifz ────────────────────────────── */
 
-const FORMATS: FormatHifz[] = ["traduction", "enchainement", "fin_masquee"];
+const FORMATS: FormatHifz[] = ["enchainement", "fin_masquee", "reciter"];
 
 export async function memoriser(
   versetNumero: number,
@@ -82,6 +85,58 @@ export async function memoriser(
   }
 }
 
+/* ────────────────────────── Mot à mot ────────────────────────── */
+
+/** L'analyse d'un mot. Appelée à l'appui, sans quitter la sourate. */
+export async function analyser(
+  versetNumero: number,
+  position: number,
+): Promise<MotAffiche | null> {
+  if (!Number.isInteger(versetNumero) || !Number.isInteger(position)) return null;
+  return analyserMot(versetNumero, position);
+}
+
+export async function apprendreMot(
+  versetNumero: number,
+  position: number,
+  parRacine: boolean,
+): Promise<Retour> {
+  try {
+    const resultat = await apprendreMotDuCoran(versetNumero, position, parRacine);
+    revalidatePath("/coran/vocabulaire");
+    revalidatePath("/cartes");
+    return { message: `${resultat.message} Paquet « ${resultat.paquet} ».` };
+  } catch (erreur) {
+    return { erreur: message(erreur) };
+  }
+}
+
+/* ───────────────────── Remise à zéro du suivi ───────────────────── */
+
+/**
+ * Efface le suivi de lecture. Les cartes et leur historique ne sont jamais
+ * touchés : recommencer un cycle de lecture n'a aucune raison de défaire une
+ * mémorisation.
+ */
+export async function remettreAZero(sourate: number | null): Promise<Retour> {
+  if (sourate !== null && (!Number.isInteger(sourate) || sourate < 1 || sourate > 114)) {
+    return { erreur: "Sourate inconnue." };
+  }
+
+  try {
+    const bilan = await remettreLectureAZero(sourate);
+    revalidatePath("/coran");
+    revalidatePath("/coran/reglages");
+    return {
+      message:
+        `${bilan.seances} séance(s) et ${bilan.positions} position(s) effacées. ` +
+        "Les cartes n'ont pas bougé.",
+    };
+  } catch (erreur) {
+    return { erreur: message(erreur) };
+  }
+}
+
 /* ──────────────────────────── Réglages ──────────────────────────── */
 
 const UNITES: UniteObjectif[] = ["versets", "pages", "minutes"];
@@ -94,12 +149,20 @@ export async function sauverReglagesCoran(
   const police = String(donnees.get("policeArabe") ?? "");
   const unite = String(donnees.get("uniteObjectif") ?? "");
   const taille = entier(donnees.get("tailleArabe"), 18, 64);
+  const tailleTranslitteration = entier(donnees.get("tailleTranslitteration"), 12, 48);
+  const tailleTraduction = entier(donnees.get("tailleTraduction"), 12, 40);
   const objectif = entier(donnees.get("objectifQuotidien"), 1, 6236);
 
   if (!RECITEURS.some((r) => r.cle === reciteur)) return { erreur: "Récitateur inconnu." };
   if (!POLICES.some((p) => p.cle === police)) return { erreur: "Police inconnue." };
   if (!(UNITES as string[]).includes(unite)) return { erreur: "Unité inconnue." };
-  if (taille === null) return { erreur: "La taille doit rester entre 18 et 64." };
+  if (taille === null) return { erreur: "La taille de l'arabe doit rester entre 18 et 64." };
+  if (tailleTranslitteration === null) {
+    return { erreur: "La taille de la translittération doit rester entre 12 et 48." };
+  }
+  if (tailleTraduction === null) {
+    return { erreur: "La taille de la traduction doit rester entre 12 et 40." };
+  }
   if (objectif === null) return { erreur: "Objectif hors limites." };
 
   try {
@@ -108,6 +171,9 @@ export async function sauverReglagesCoran(
       policeArabe: police,
       uniteObjectif: unite as UniteObjectif,
       tailleArabe: taille,
+      tailleTranslitteration,
+      tailleTraduction,
+      modeMemorisation: donnees.get("modeMemorisation") !== null,
       objectifQuotidien: objectif,
       afficherArabe: donnees.get("afficherArabe") !== null,
       afficherTranslitteration: donnees.get("afficherTranslitteration") !== null,

@@ -519,6 +519,15 @@ export const seancesLecture = pgTable(
     /** Premier et dernier verset lus, pour pouvoir y revenir. */
     debut: integer("debut").notNull(),
     fin: integer("fin").notNull(),
+    /**
+     * Les versets réellement lus, un par un.
+     *
+     * L'intervalle début–fin ne suffit pas : traverser une sourate en la
+     * faisant défiler n'en fait pas lire les trois cents versets. Seuls ceux
+     * restés sous les yeux assez longtemps entrent ici, et c'est cette liste
+     * qui compte — pour le total comme pour le décompte en pages.
+     */
+    numeros: integer("numeros").array().notNull().default([]),
   },
   (table) => [index("seances_lecture_date_idx").on(table.date)],
 );
@@ -551,6 +560,15 @@ export const reglagesCoran = pgTable("reglages_coran", {
   /** Édition audio d'alquran.cloud ; l'audio n'est jamais stocké. */
   reciteur: text("reciteur").notNull().default("ar.alafasy"),
   tailleArabe: integer("taille_arabe").notNull().default(30),
+  /**
+   * Trois tailles indépendantes. La translittération n'est pas une note de bas
+   * de page : c'est le texte de travail de quelqu'un qui mémorise sans lire
+   * l'arabe, et elle se règle donc pour elle-même.
+   */
+  tailleTranslitteration: integer("taille_translitteration").notNull().default(19),
+  tailleTraduction: integer("taille_traduction").notNull().default(16),
+  /** Arabe et translittération en grand, traduction réduite. */
+  modeMemorisation: boolean("mode_memorisation").notNull().default(false),
   policeArabe: text("police_arabe").notNull().default("amiri"),
   afficherTranslitteration: boolean("afficher_translitteration").notNull().default(true),
   afficherTraduction: boolean("afficher_traduction").notNull().default(true),
@@ -568,3 +586,54 @@ export type ReglagesCoran = typeof reglagesCoran.$inferSelect;
 export type Revelation = (typeof revelationEnum.enumValues)[number];
 export type UniteObjectif = (typeof uniteObjectifEnum.enumValues)[number];
 export type TypeEdition = (typeof typeEditionEnum.enumValues)[number];
+
+/* ═══════════════════ Coran — session 8 ═══════════════════ */
+
+/**
+ * Où la lecture s'est arrêtée, sourate par sourate.
+ *
+ * La position globale ne suffit pas : quitter Al-Baqara pour lire Al-Fatiha
+ * puis revenir doit ramener au verset quitté dans Al-Baqara, pas en haut.
+ * Vivre en base et non dans le navigateur est ce qui fait que le téléphone et
+ * la tablette retrouvent la même place.
+ */
+export const positionsSourate = pgTable("positions_sourate", {
+  sourate: integer("sourate").primaryKey(),
+  versetNumero: integer("verset_numero").notNull(),
+  modifieLe: text("modifie_le").notNull(),
+});
+
+/**
+ * Un mot du corpus morphologique.
+ *
+ * La forme arabe n'est pas stockée ici : elle est reprise du verset verbatim au
+ * moment de l'affichage, en découpant sur les blancs. Le corpus n'apporte que
+ * l'analyse — racine, lemme, catégorie grammaticale — et son numéro de mot sert
+ * de pont vers le texte déjà en base.
+ */
+export const motsCoran = pgTable(
+  "mots_coran",
+  {
+    id: serial("id").primaryKey(),
+    versetNumero: integer("verset_numero").notNull(),
+    sourate: integer("sourate").notNull(),
+    /** Rang du mot dans le verset, à partir de 1. */
+    position: integer("position").notNull(),
+    /** Translittération Buckwalter, telle que le corpus la donne. */
+    buckwalter: text("buckwalter").notNull().default(""),
+    racine: text("racine"),
+    lemme: text("lemme"),
+    /** Catégorie grammaticale, code du corpus (N, V, PN…). */
+    categorie: text("categorie").notNull().default(""),
+    /** Sens du mot ; nul tant qu'aucune glose n'est installée. */
+    sens: text("sens"),
+  },
+  (table) => [
+    uniqueIndex("mots_coran_verset_position_uniq").on(table.versetNumero, table.position),
+    index("mots_coran_racine_idx").on(table.racine),
+    index("mots_coran_sourate_idx").on(table.sourate),
+  ],
+);
+
+export type PositionSourate = typeof positionsSourate.$inferSelect;
+export type MotCoran = typeof motsCoran.$inferSelect;

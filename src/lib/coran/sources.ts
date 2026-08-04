@@ -125,6 +125,59 @@ export const EDITIONS_PROPOSEES: EditionProposee[] = [
   },
 ];
 
+/**
+ * Le corpus morphologique — analyse mot à mot.
+ *
+ * Licence claire, et c'est assez rare pour être dit : le Quranic Arabic Corpus
+ * de Kais Dukes (université de Leeds) est publié sous GNU General Public
+ * License. Copie verbatim autorisée, modification interdite, usage libre dans
+ * une application à condition d'indiquer clairement la source avec un lien vers
+ * corpus.quran.com. C'est exactement ce que fait le panneau mot à mot.
+ *
+ * Ce que le corpus apporte : la racine trilitère, le lemme, la catégorie
+ * grammaticale et la translittération Buckwalter de chaque mot. Ce qu'il
+ * n'apporte pas : le sens. La forme arabe non plus n'est pas reprise du corpus
+ * — elle est découpée du verset déjà en base, verbatim, pour qu'aucun caractère
+ * arabe affiché ne vienne d'ailleurs que de Tanzil.
+ */
+export const CORPUS_MORPHOLOGIE = {
+  cle: "corpus-morphologie-0.4",
+  nom: "Quranic Arabic Corpus — morphologie v0.4",
+  auteur: "Kais Dukes, université de Leeds",
+  source: "corpus.quran.com",
+  licence:
+    "GNU General Public License. Copie et distribution verbatim autorisées ; " +
+    "toute modification est interdite. L'annotation peut être utilisée dans " +
+    "n'importe quelle application à condition que sa source soit clairement " +
+    "indiquée, avec un lien vers corpus.quran.com.",
+  lien: "https://corpus.quran.com/license.jsp",
+} as const;
+
+/**
+ * Adresse du fichier de morphologie. Surchargeable, comme l'API du texte :
+ * corpus.quran.com sert le fichier derrière un formulaire, et les miroirs
+ * bougent. Une adresse qui ne répond pas doit pouvoir être remplacée sans
+ * redéploiement de code.
+ */
+export const URL_MORPHOLOGIE =
+  process.env.CORAN_MORPHOLOGIE_URL ??
+  "https://raw.githubusercontent.com/kaisdukes/quranic-corpus/main/data/quranic-corpus-morphology-0.4.txt";
+
+/**
+ * Le sens des mots.
+ *
+ * Aucune source n'a été retenue, et c'est délibéré. Les gloses mot à mot qui
+ * circulent — y compris dans des dépôts qui s'annoncent en CC BY — dérivent du
+ * corpus ou de Quran.com sans que la chaîne de droits soit vérifiable, et un
+ * dépôt qui se déclare libre ne rend pas libre ce qu'il redistribue. Le panneau
+ * mot à mot fonctionne sans : il donne la racine, le lemme, la grammaire et la
+ * fréquence, ce qui est précisément ce qui s'apprend. Le champ `sens` existe en
+ * base, prêt à recevoir une glose dont la licence serait claire.
+ */
+export const GLOSE_ABSENTE =
+  "Aucune glose mot à mot n'a de licence vérifiable : le panneau montre la racine, " +
+  "le lemme et la grammaire, qui viennent du corpus sous GPL.";
+
 export function editionProposee(cle: string): EditionProposee | undefined {
   return EDITIONS_PROPOSEES.find((e) => e.cle === cle);
 }

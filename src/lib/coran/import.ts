@@ -1,17 +1,18 @@
 import "server-only";
 
-import { count, eq, sql } from "drizzle-orm";
+import { asc, count, eq, sql } from "drizzle-orm";
 
 import { db } from "@/db";
 import {
   editionsCoran,
+  motsCoran,
   sourates,
   textesVersets,
   versets,
   type Revelation,
 } from "@/db/schema";
 import { aujourdhui } from "@/lib/dates";
-import { API_BASE, EDITION_ARABE, editionProposee } from "./sources";
+import { API_BASE, EDITION_ARABE, editionProposee, URL_MORPHOLOGIE } from "./sources";
 
 /**
  * Import du texte depuis alquran.cloud.
@@ -429,4 +430,189 @@ export async function poidsCoran(): Promise<{
     textes: nbTextes[0]?.combien ?? 0,
     octets,
   };
+}
+
+/* ─────────────────────── Corpus morphologique ─────────────────────── */
+
+/**
+ * Import de l'analyse mot à mot.
+ *
+ * Le corpus est un seul fichier de quelques mégaoctets, trié par sourate. On le
+ * retélécharge à chaque passage et l'on n'écrit que les sourates encore
+ * absentes : c'est le même principe de reprise que le reste — aucun état
+ * d'avancement stocké, tout se lit dans la base.
+ *
+ * L'alignement est le point délicat. Le corpus numérote les mots d'un verset ;
+ * le texte, lui, vient de Tanzil. On vérifie que les deux comptes coïncident
+ * avant d'écrire : si un verset ne s'aligne pas, il est laissé de côté plutôt
+ * que d'attacher une racine au mauvais mot, et le total des versets écartés est
+ * rapporté.
+ */
+export async function importerMorphologie(
+  budgetMs = BUDGET_DEFAUT_MS,
+): Promise<Avancement & { desalignes: number }> {
+  const depart = Date.now();
+
+  const reponse = await fetch(URL_MORPHOLOGIE, { cache: "no-store" });
+  if (!reponse.ok) {
+    throw new ImportRefuse(
+      `${URL_MORPHOLOGIE} a répondu ${reponse.status}. ` +
+        "Renseigne CORAN_MORPHOLOGIE_URL avec un miroir joignable.",
+    );
+  }
+
+  const brut = await reponse.text();
+  const analyse = analyserCorpus(brut);
+  if (analyse.size === 0) {
+    throw new ImportRefuse(
+      "Le fichier reçu ne contient aucune ligne exploitable ; rien n'a été écrit.",
+    );
+  }
+
+  const dejaFaites = await db
+    .select({ sourate: motsCoran.sourate })
+    .from(motsCoran)
+    .groupBy(motsCoran.sourate);
+  const faites = new Set(dejaFaites.map((l) => l.sourate));
+
+  const listeVersets = await db
+    .select({
+      numero: versets.numero,
+      sourate: versets.sourate,
+      numeroDansSourate: versets.numeroDansSourate,
+      texte: versets.texte,
+    })
+    .from(versets)
+    .orderBy(asc(versets.numero));
+
+  const parSourate = new Map<number, typeof listeVersets>();
+  for (const v of listeVersets) {
+    const liste = parSourate.get(v.sourate) ?? [];
+    liste.push(v);
+    parSourate.set(v.sourate, liste);
+  }
+
+  let traitees = 0;
+  let desalignes = 0;
+  const restantes = [...parSourate.keys()].filter((s) => !faites.has(s)).sort((a, b) => a - b);
+
+  for (const sourate of restantes) {
+    if (Date.now() - depart > budgetMs) break;
+
+    const lignes: (typeof motsCoran.$inferInsert)[] = [];
+
+    for (const verset of parSourate.get(sourate) ?? []) {
+      const mots = verset.texte.split(/\s+/).filter((m) => m.length > 0);
+      const analyses = analyse.get(`${sourate}:${verset.numeroDansSourate}`);
+      if (!analyses || analyses.length !== mots.length) {
+        desalignes += 1;
+        continue;
+      }
+
+      for (const mot of analyses) {
+        lignes.push({
+          versetNumero: verset.numero,
+          sourate,
+          position: mot.position,
+          buckwalter: mot.buckwalter,
+          racine: mot.racine,
+          lemme: mot.lemme,
+          categorie: mot.categorie,
+        });
+      }
+    }
+
+    for (let debut = 0; debut < lignes.length; debut += TAILLE_LOT) {
+      await db
+        .insert(motsCoran)
+        .values(lignes.slice(debut, debut + TAILLE_LOT))
+        .onConflictDoNothing();
+    }
+
+    traitees += 1;
+  }
+
+  const reste = restantes.length - traitees;
+  return {
+    traitees,
+    restantes: reste,
+    fini: reste === 0,
+    desalignes,
+    detail:
+      reste === 0
+        ? "Analyse mot à mot complète."
+        : `${traitees} sourate(s) analysée(s), ${reste} restante(s).`,
+  };
+}
+
+type MotAnalyse = {
+  position: number;
+  buckwalter: string;
+  racine: string | null;
+  lemme: string | null;
+  categorie: string;
+};
+
+/**
+ * Lit le format du corpus : une ligne par segment, la localisation en
+ * `(sourate:verset:mot:segment)`, puis la forme, la catégorie et les traits.
+ * Les segments d'un même mot sont recollés — c'est le mot entier qui intéresse
+ * la lecture, et sa racine se trouve sur l'un de ses segments.
+ */
+export function analyserCorpus(contenu: string): Map<string, MotAnalyse[]> {
+  const parVerset = new Map<string, Map<number, MotAnalyse>>();
+
+  for (const ligne of contenu.split("\n")) {
+    if (!ligne.startsWith("(")) continue;
+    const colonnes = ligne.split("\t");
+    if (colonnes.length < 4) continue;
+
+    const reperes = colonnes[0].replace(/[()]/g, "").split(":").map(Number);
+    if (reperes.length < 3 || reperes.some((n) => !Number.isInteger(n))) continue;
+
+    const [sourate, verset, mot] = reperes;
+    const cle = `${sourate}:${verset}`;
+    const mots = parVerset.get(cle) ?? new Map<number, MotAnalyse>();
+
+    const traits = colonnes[3] ?? "";
+    const racine = /ROOT:([^|\s]+)/.exec(traits)?.[1] ?? null;
+    const lemme = /LEM:([^|\s]+)/.exec(traits)?.[1] ?? null;
+
+    const existant = mots.get(mot);
+    mots.set(mot, {
+      position: mot,
+      buckwalter: (existant?.buckwalter ?? "") + (colonnes[1] ?? ""),
+      // La racine d'un mot est portée par son segment nominal ou verbal :
+      // le premier trouvé est le bon, les suivants sont des affixes.
+      racine: existant?.racine ?? racine,
+      lemme: existant?.lemme ?? lemme,
+      categorie: existant?.categorie || (colonnes[2] ?? ""),
+    });
+
+    parVerset.set(cle, mots);
+  }
+
+  const sortie = new Map<string, MotAnalyse[]>();
+  for (const [cle, mots] of parVerset) {
+    sortie.set(cle, [...mots.values()].sort((a, b) => a.position - b.position));
+  }
+  return sortie;
+}
+
+/** Place occupée par l'analyse mot à mot. */
+export async function poidsMorphologie(): Promise<{ mots: number; octets: number | null }> {
+  const compte = await db.select({ combien: count() }).from(motsCoran);
+  const octets = await db
+    .execute(
+      sql`select coalesce(pg_total_relation_size('mots_coran'), 0)::bigint as octets`,
+    )
+    .then((r) => {
+      const lignes = (r as unknown as { rows?: { octets: unknown }[] }).rows ?? r;
+      const premiere = Array.isArray(lignes) ? lignes[0] : undefined;
+      const brut = (premiere as { octets?: unknown } | undefined)?.octets;
+      return brut === undefined || brut === null ? null : Number(brut);
+    })
+    .catch(() => null);
+
+  return { mots: compte[0]?.combien ?? 0, octets };
 }

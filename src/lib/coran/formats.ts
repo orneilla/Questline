@@ -7,14 +7,9 @@
  * composant client.
  */
 
-export type FormatHifz = "traduction" | "enchainement" | "fin_masquee";
+export type FormatHifz = "enchainement" | "fin_masquee" | "reciter";
 
 export const FORMATS: { valeur: FormatHifz; libelle: string; aide: string }[] = [
-  {
-    valeur: "traduction",
-    libelle: "Depuis la traduction",
-    aide: "La traduction au recto, le verset arabe au verso.",
-  },
   {
     valeur: "enchainement",
     libelle: "Verset suivant",
@@ -25,7 +20,24 @@ export const FORMATS: { valeur: FormatHifz; libelle: string; aide: string }[] = 
     libelle: "Fin masquée",
     aide: "Le verset avec ses derniers mots cachés. Aucun caractère n'est modifié.",
   },
+  {
+    valeur: "reciter",
+    libelle: "Réciter",
+    aide: "La référence et le verset précédent au recto ; le verset à réciter au verso.",
+  },
 ];
+
+/**
+ * Assemble une face en superposant l'arabe et sa translittération.
+ *
+ * Les deux voyagent ensemble sur toutes les cartes : la mémorisation se fait en
+ * lisant la translittération, l'arabe sert de référence. La translittération
+ * passe en italique et sur sa propre ligne — c'est du Markdown, rendu par le
+ * module cartes comme n'importe quelle autre carte.
+ */
+export function face(arabe: string, translitteration: string | null): string {
+  return translitteration ? `${arabe}\n\n*${translitteration}*` : arabe;
+}
 
 /**
  * Masque la fin d'un verset sans toucher au texte.
