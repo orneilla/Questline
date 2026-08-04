@@ -186,6 +186,32 @@ export const GLOSE_ABSENTE =
   "Aucune glose mot à mot n'a de licence vérifiable : le panneau montre la racine, " +
   "le lemme et la grammaire, qui viennent du corpus sous GPL.";
 
+/**
+ * D'où vient le sens, quand il y en a un.
+ *
+ * Aucune glose n'est téléchargée : les gloses mot à mot ne s'obtiennent pas par
+ * requête, et leur chaîne de droits n'est pas vérifiable depuis ici. Celle qui
+ * peut être installée est déposée à la main, depuis un fichier récupéré sur la
+ * Quranic Universal Library. Le crédit ci-dessous est affiché partout où un sens
+ * apparaît — c'est la contrepartie du fait de l'utiliser.
+ *
+ * QUL est la bibliothèque de Tarteel qui héberge et distribue la ressource ;
+ * QuranWBW en est le projet d'origine, dont viennent les gloses mot à mot.
+ * L'app n'en produit, n'en corrige et n'en reformule aucune : elle affiche la
+ * chaîne du fichier, telle quelle, à la position que le fichier lui donne.
+ */
+export const GLOSE_DEPOSEE = {
+  fournisseur: "QUL — Quranic Universal Library",
+  lienFournisseur: "https://qul.tarteel.ai",
+  origine: "QuranWBW",
+  lienOrigine: "https://quranwbw.com",
+  mention: "Traduction mot à mot : QuranWBW, distribuée par QUL (Tarteel).",
+  note:
+    "La ressource est déposée depuis l'appareil, pas téléchargée : QUL ne sert " +
+    "pas ses fichiers à une adresse stable. Vérifie ses conditions sur la fiche " +
+    "de la ressource avant de la réutiliser ailleurs que pour ta propre lecture.",
+} as const;
+
 export function editionProposee(cle: string): EditionProposee | undefined {
   return EDITIONS_PROPOSEES.find((e) => e.cle === cle);
 }

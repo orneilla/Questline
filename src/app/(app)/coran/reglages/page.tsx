@@ -7,6 +7,7 @@ import {
   chargerReglagesCoran,
   chargerSourates,
   compterMots,
+  compterSens,
   type ReglagesCoranComplets,
 } from "@/lib/coran/donnees";
 import { etatImport, poidsCoran, TOTAL_VERSETS } from "@/lib/coran/import";
@@ -31,14 +32,16 @@ export default async function PageReglagesCoran() {
   let place: Awaited<ReturnType<typeof poidsCoran>>;
   let listeSourates: Awaited<ReturnType<typeof chargerSourates>>;
   let mots: number;
+  let sens: number;
 
   try {
-    [reglages, etat, place, listeSourates, mots] = await Promise.all([
+    [reglages, etat, place, listeSourates, mots, sens] = await Promise.all([
       chargerReglagesCoran(),
       etatImport(),
       poidsCoran(),
       chargerSourates(),
       compterMots(),
+      compterSens(),
     ]);
   } catch (erreur) {
     const probleme = diagnostiquer(erreur);
@@ -81,6 +84,7 @@ export default async function PageReglagesCoran() {
         cleInstallation={process.env.SETUP_KEY ?? CLE_PAR_DEFAUT}
         sourates={listeSourates.map((s) => ({ numero: s.numero, nom: s.nomTranslittere }))}
         mots={mots}
+        sens={sens}
       />
     </main>
   );

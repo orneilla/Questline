@@ -487,14 +487,14 @@ Mesuré sur le fichier réel : 130 030 lignes de segments, **77 429 mots**,
 6236 versets, analysés en moins d'une seconde ; **1650 racines distinctes** et
 18 Mo en base une fois écrits.
 
-**Ce que le corpus ne donne pas : le sens.** Aucune glose mot à mot n'a de
-licence vérifiable — celles qui circulent, y compris dans des dépôts qui
-s'annoncent en CC BY, dérivent du corpus ou de Quran.com sans chaîne de droits
-traçable, et un dépôt qui se déclare libre ne rend pas libre ce qu'il
-redistribue. Rien n'est donc importé. Le panneau le dit et fonctionne sans : la
-racine, le lemme, la grammaire et la fréquence sont précisément ce qui s'apprend.
-Le champ `sens` existe en base, prêt à recevoir une glose dont la licence serait
-claire.
+**Ce que le corpus ne donne pas : le sens.** Aucune glose mot à mot n'est
+téléchargée : celles qui circulent, y compris dans des dépôts qui s'annoncent en
+CC BY, dérivent du corpus ou de Quran.com sans chaîne de droits traçable, et un
+dépôt qui se déclare libre ne rend pas libre ce qu'il redistribue. Le panneau
+fonctionne sans — la racine, le lemme, la grammaire et la fréquence sont
+précisément ce qui s'apprend. Le sens, lui, se **dépose** : voir « Déposer une
+ressource » plus bas. Tant que rien n'est déposé, le champ `sens` reste vide et
+le panneau le dit.
 
 **L'alignement** est le point délicat, et il est traité par le refus. Le corpus
 numérote les mots d'un verset ; le texte vient de Tanzil. On vérifie que les deux
@@ -511,9 +511,82 @@ Tanzil ne coupent pas au même endroit — بَعْدَمَا contre بَعۡد�
 36:22, 37:130, 37:164 et 41:47, et ces dix-là restent sans analyse.
 
 Depuis le panneau, un bouton range le mot dans un espace « Arabe coranique », en
-paquet par racine ou par sourate. La carte porte le mot au recto ; au verso sa
-racine, son analyse et le verset d'où il vient — un mot appris hors de sa phrase
-s'oublie.
+paquet par racine ou par sourate. La carte est complète des deux côtés : au
+recto le mot arabe et sa translittération, au verso le sens français d'abord,
+puis la racine et le reste de l'analyse, et en note de bas de carte le verset
+d'où le mot est tiré — un mot appris hors de sa phrase s'oublie, et le contexte
+n'a pas à occuper la place de la réponse. La translittération d'un mot est
+découpée de celle du verset, et **seulement** si son compte de mots tombe sur
+celui de l'arabe : sinon aucune n'est donnée, un mot pris à côté valant moins que
+rien du tout. Un mot sans sens ni analyse ne fait pas de carte vide : la demande
+est refusée avec la raison.
+
+### Déposer une ressource
+
+Certaines ressources ne s'obtiennent pas par une adresse. La *Quranic Universal
+Library* (qul.tarteel.ai) sert ses fichiers depuis son site, sans lien stable :
+aucune requête ne les atteint. Ils se déposent donc depuis l'appareil.
+
+```
+https://<domaine>/api/setup/import?key=<clé>
+```
+
+L'adresse mène à `/coran/televerser`, aussi accessible depuis les réglages du
+Coran. Tout se passe dans le navigateur : le fichier n'y transite jamais d'un
+bloc — plusieurs mégaoctets ne passent pas dans une fonction serverless.
+
+**L'ordre des étapes n'est pas négociable : lire, montrer, écrire.** L'écran
+affiche d'abord ce qu'il a compris — le contenant, la structure reconnue, le
+nombre d'entrées, ce qui a été écarté, et **trois entrées réelles** : la
+première, celle du milieu, la dernière. Trois prises loin les unes des autres,
+pour qu'un décalage se voie tout de suite plutôt que six mois plus tard sur un
+mot mal traduit. Rien n'est écrit avant confirmation.
+
+**La route est générique.** Le type est déduit du contenu, jamais du nom du
+fichier, et trois sortes sont reconnues :
+
+| Reconnu                | À quoi ça se voit                | Ce que ça remplit          |
+| ---------------------- | -------------------------------- | -------------------------- |
+| Traduction mot à mot   | clés `sourate:verset:mot`        | `mots_coran.sens`          |
+| Traduction de versets  | clés `sourate:verset`            | une édition affichable     |
+| Analyse morphologique  | texte tabulé, quatre colonnes    | racine, lemme, grammaire   |
+
+En JSON — objet à clés plates, objet imbriqué `sourate → verset → mot`, ou
+tableau d'objets, éventuellement sous une enveloppe `data`, `words`, `verses` —
+ou en **base SQLite**, lue par `sqlite.ts`, un lecteur du format écrit pour ce
+projet plutôt qu'un moteur WebAssembly d'un mégaoctet chargé pour lire trois
+colonnes : en-tête, arbres de table et d'index, pages de débordement, colonne
+`INTEGER PRIMARY KEY` rendue depuis le rowid, tables `WITHOUT ROWID` remises dans
+l'ordre déclaré. Une valeur peut être une chaîne ou un objet portant `text`,
+`t`, `translation`… Un fichier qu'aucun lecteur ne reconnaît est refusé avec ses
+premiers octets, pas avec « format invalide ».
+
+**L'alignement est vérifié en base, pas dans le fichier.** Chaque verset est
+comparé au texte de Tanzil déjà importé : si le fichier ne lui donne pas
+exactement autant de mots, numérotés de 1 à N sans trou, **le verset entier est
+écarté**. Un mot sans correspondance reste sans sens — jamais un sens approché.
+Le rapport final dit combien de mots ont reçu un sens et combien n'en ont pas,
+compté sur le découpage du texte arabe et non sur la table d'analyse, qui
+donnerait toujours cent pour cent.
+
+**L'écriture part par lots**, un verset n'étant jamais coupé entre deux requêtes
+— c'est la condition du contrôle ci-dessus. Chaque lot est une requête courte :
+aucune ne s'approche de la limite de temps. Tout est écrit en `on conflict do
+update`, donc redéposer le même fichier ne duplique rien ; la position est
+retenue et l'écran propose de reprendre où il s'était arrêté. Un lot qui échoue
+est retenté trois fois avant d'abandonner, et ce qui est écrit reste écrit.
+
+Mesuré sur un fichier mot à mot de 77 426 entrées (2,3 Mo, 98 lots) contre le
+texte réel : 77 359 mots ont reçu un sens, 3 versets volontairement désalignés
+ont été écartés, et les 70 mots de ces versets sont restés sans sens —
+77 359 + 70 = 77 429, le compte exact des mots du texte. Interrompre au premier
+lot puis reprendre donne le même rapport, au mot près.
+
+**Crédit** — un dépôt mot à mot est attribué à **QuranWBW**, distribué par
+**QUL (Tarteel)**, sous chaque sens affiché en lecture et dans les réglages. Une
+traduction de versets ne s'écrit pas sans son nom, son traducteur et ses
+conditions recopiées telles quelles : le formulaire les exige, parce que chaque
+écran qui l'affichera devra pouvoir les citer.
 
 La page **Vocabulaire** liste les trois cents racines les plus fréquentes par
 fréquence décroissante, en marquant celles déjà travaillées, et dit quelle part
@@ -742,7 +815,11 @@ src/
       sources.ts    éditions, licences, récitateurs — aucune donnée coranique
       formats.ts    formats de carte, masquage de fin — logique pure
       calendrier.ts (voir cartes/) — le calendrier est partagé
+      morphologie.ts lecture du corpus, libellés grammaticaux — logique pure
+      sqlite.ts     lecteur du format SQLite, sans dépendance — logique pure
+      ressources.ts reconnaissance d'un fichier déposé — logique pure
       import.ts     import par lots, reprenable
+      televersement.ts écriture d'un dépôt, alignement vérifié
       donnees.ts    lecture, suivi, progression
       hifz.ts       versets → cartes du module cartes
     cartes/

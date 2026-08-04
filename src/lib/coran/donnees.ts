@@ -560,6 +560,12 @@ export type MotAffiche = {
   position: number;
   /** Le mot, découpé du verset verbatim — jamais reconstruit depuis le corpus. */
   arabe: string;
+  /**
+   * Le mot dans la translittération choisie, quand elle se découpe sur le même
+   * nombre de mots que l'arabe. Sinon `null` : une translittération décalée
+   * vaut moins que pas de translittération du tout.
+   */
+  translitteration: string | null;
   /** Le découpage du corpus : préfixes, radical, suffixes. */
   segments: string[];
   racine: string | null;
@@ -603,6 +609,27 @@ export async function analyserMot(
     )
     .limit(1);
 
+  // La translittération est un texte de verset, pas un dictionnaire de mots :
+  // on ne peut en tirer un mot qu'à condition que son découpage tombe sur le
+  // même compte que l'arabe. Sinon on n'en donne aucun — mieux vaut rien qu'un
+  // mot pris à côté.
+  const reglages = await chargerReglagesCoran();
+  let translitteration: string | null = null;
+  if (reglages.translitteration) {
+    const [ligne] = await db
+      .select({ texte: textesVersets.texte })
+      .from(textesVersets)
+      .where(
+        and(
+          eq(textesVersets.editionCle, reglages.translitteration),
+          eq(textesVersets.versetNumero, versetNumero),
+        ),
+      )
+      .limit(1);
+    const latins = ligne?.texte.split(/\s+/).filter((m) => m.length > 0) ?? [];
+    if (latins.length === mots.length) translitteration = latins[position - 1] ?? null;
+  }
+
   let frequenceRacine = 0;
   if (analyse?.racine) {
     const [compte] = await db
@@ -615,6 +642,7 @@ export async function analyserMot(
   return {
     position,
     arabe,
+    translitteration,
     segments: analyse?.segments ?? [],
     racine: analyse?.racine ?? null,
     lemme: analyse?.lemme ?? null,
@@ -664,6 +692,15 @@ export async function racinesFrequentes(limite = 300): Promise<RacineFrequente[]
 
 export async function compterMots(): Promise<number> {
   const [ligne] = await db.select({ combien: count() }).from(motsCoran);
+  return ligne?.combien ?? 0;
+}
+
+/** Mots dont le sens est installé — sert à créditer la ressource qui l'a fourni. */
+export async function compterSens(): Promise<number> {
+  const [ligne] = await db
+    .select({ combien: count() })
+    .from(motsCoran)
+    .where(and(sql`${motsCoran.sens} is not null`, sql`${motsCoran.sens} <> ''`));
   return ligne?.combien ?? 0;
 }
 

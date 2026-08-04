@@ -256,10 +256,21 @@ async function paquetVocabulaire(nom: string, ordre: number): Promise<number> {
 /**
  * Range un mot dans le vocabulaire.
  *
- * La carte porte le mot au recto ; au verso, sa racine, son analyse et le
- * verset d'où il vient, qui sert de contexte — un mot appris hors de sa phrase
- * s'oublie. Les étiquettes `racine:<racine>` permettent ensuite de savoir quelle
- * racine est déjà travaillée sans que le module Coran tienne le moindre état.
+ * La carte est complète des deux côtés. Au recto, le mot arabe et sa
+ * translittération : c'est cette dernière qui se lit quand on ne lit pas l'arabe
+ * couramment, et elle n'est pas une note de bas de page. Au verso, le sens
+ * français d'abord, puis la racine, puis le reste de l'analyse. En note de bas
+ * de carte, le verset d'où le mot est tiré — un mot appris hors de sa phrase
+ * s'oublie, et le contexte n'a pas à occuper la place de la réponse.
+ *
+ * Rien de tout cela n'est fabriqué ici : le sens vient d'une ressource déposée,
+ * la racine du corpus, l'arabe et le verset du texte de Tanzil, la
+ * translittération de son édition — et seulement quand son découpage tombe sur
+ * le même compte de mots. Une carte peut donc n'avoir pas de sens au verso : la
+ * ligne manque, elle n'est pas inventée.
+ *
+ * Les étiquettes `racine:<racine>` permettent ensuite de savoir quelle racine
+ * est déjà travaillée sans que le module Coran tienne le moindre état.
  */
 export async function apprendreMotDuCoran(
   versetNumero: number,
@@ -293,27 +304,38 @@ export async function apprendreMotDuCoran(
     parRacine ? 500 : verset.sourate,
   );
 
+  // Le verso s'ouvre sur ce qu'on cherche à retrouver — le sens, puis la
+  // racine. L'analyse détaillée vient après, en second plan.
   const details = [
+    analyse.sens ? `**${analyse.sens}**` : null,
     analyse.racine ? `Racine : ${analyse.racine}` : null,
     analyse.lemme ? `Lemme : ${analyse.lemme}` : null,
     analyse.grammaire ? `Grammaire : ${analyse.grammaire}` : null,
     analyse.segments.length > 1 ? `Découpage : ${analyse.segments.join(" ‑ ")}` : null,
-    analyse.sens ? `Sens : ${analyse.sens}` : null,
     analyse.racine
       ? `${analyse.frequenceRacine} occurrence${analyse.frequenceRacine > 1 ? "s" : ""} de la racine`
       : null,
   ].filter((l): l is string => l !== null);
+
+  if (details.length === 0) {
+    throw new Error(
+      "Ce mot n'a ni sens ni analyse en base : la carte n'aurait rien au verso. " +
+        "Installe l'analyse mot à mot, ou dépose une traduction mot à mot.",
+    );
+  }
 
   const tags = ["coran", "vocabulaire", `coran:${repere}`];
   if (analyse.racine) tags.push(`racine:${analyse.racine}`);
 
   const { creees } = await creerNote({
     paquetId,
-    // Le recto ne porte que le mot, tel qu'il est dans le verset.
-    recto: analyse.arabe,
-    verso: `${details.join("\n\n")}\n\n---\n\n${verset.texte}`,
+    // Le recto porte le mot tel qu'il est dans le verset, et sa translittération.
+    recto: face(analyse.arabe, analyse.translitteration),
+    verso: details.join("\n\n"),
     type: "recto_verso",
-    notes: `Coran ${repere}, mot ${position}`,
+    // Le verset d'origine tient en note de bas de carte : il donne le contexte
+    // sans se mettre à la place de la réponse.
+    notes: `${verset.texte}\n\nCoran ${repere}, mot ${position}`,
     tags,
   });
 

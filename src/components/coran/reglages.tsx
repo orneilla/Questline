@@ -11,6 +11,7 @@ import {
 import {
   CORPUS_MORPHOLOGIE,
   EDITIONS_PROPOSEES,
+  GLOSE_DEPOSEE,
   POLICES,
   RECITEURS,
   type EditionProposee,
@@ -170,12 +171,15 @@ export function ReglagesCoran({
   cleInstallation,
   sourates,
   mots,
+  sens,
 }: {
   reglages: ReglagesCoranComplets;
   installees: EtatEdition[];
   cleInstallation: string;
   sourates: { numero: number; nom: string }[];
   mots: number;
+  /** Mots dont le sens est installé, pour créditer la ressource qui l'a fourni. */
+  sens: number;
 }) {
   const [etat, action] = useActionState<Retour, FormData>(sauverReglagesCoran, {});
 
@@ -358,7 +362,76 @@ export function ReglagesCoran({
       <RemiseAZero sourates={sourates} />
 
       <MotAMot mots={mots} source={reglages.sourceMorphologie} cleInstallation={cleInstallation} />
+
+      <Depot sens={sens} />
     </div>
+  );
+}
+
+/**
+ * Ressources déposées à la main.
+ *
+ * Le sens des mots ne s'installe pas comme le reste : aucune glose n'est servie
+ * à une adresse stable, et rien n'est téléchargé d'office. Le fichier vient de
+ * la tablette, et ce qui l'a produit est cité ici comme partout ailleurs.
+ */
+function Depot({ sens }: { sens: number }) {
+  return (
+    <section className="flex flex-col gap-3">
+      <h2 className="text-[13px] tracking-[0.14em] text-doux uppercase">
+        Ressources déposées
+      </h2>
+
+      <article className="flex flex-col gap-3 rounded-2xl border border-bordure bg-surface p-4">
+        <p className="text-[12.5px] leading-relaxed text-doux">
+          Certaines ressources ne s'obtiennent que depuis un site, sans adresse
+          stable : elles se déposent depuis Fichiers. L'écran montre ce qu'il a lu —
+          structure, nombre d'entrées, trois exemples réels — avant d'écrire quoi
+          que ce soit.
+        </p>
+
+        {sens > 0 && (
+          <div className="flex flex-col gap-1.5 rounded-xl border border-bordure-vive p-3">
+            <span className="text-[11px] tracking-[0.14em] text-tres-doux uppercase">
+              Sens installés
+            </span>
+            <p className="text-[12.5px] text-doux tabular-nums">
+              {sens.toLocaleString("fr-FR")} mots ont un sens français.
+            </p>
+            <p className="text-[12.5px] leading-relaxed text-doux">
+              {GLOSE_DEPOSEE.mention}
+            </p>
+            <a
+              href={GLOSE_DEPOSEE.lienFournisseur}
+              target="_blank"
+              rel="noreferrer"
+              className="text-[12px] text-tres-doux underline underline-offset-4"
+            >
+              {GLOSE_DEPOSEE.lienFournisseur}
+            </a>
+            <a
+              href={GLOSE_DEPOSEE.lienOrigine}
+              target="_blank"
+              rel="noreferrer"
+              className="text-[12px] text-tres-doux underline underline-offset-4"
+            >
+              {GLOSE_DEPOSEE.lienOrigine}
+            </a>
+          </div>
+        )}
+
+        <a
+          href="/coran/televerser"
+          className="flex min-h-12 items-center justify-center rounded-xl border border-bordure-vive bg-surface-haut text-[14px] text-texte"
+        >
+          {sens > 0 ? "Déposer une autre ressource" : "Déposer un fichier"}
+        </a>
+
+        <p className="text-[11.5px] leading-relaxed text-tres-doux">
+          {GLOSE_DEPOSEE.note}
+        </p>
+      </article>
+    </section>
   );
 }
 

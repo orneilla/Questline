@@ -11,7 +11,7 @@ import {
 } from "@/app/(app)/coran/actions";
 import { FORMATS } from "@/lib/coran/formats";
 import type { MotAffiche, VersetAffiche } from "@/lib/coran/donnees";
-import { nomReciteur, pilePolice, urlAudio } from "@/lib/coran/sources";
+import { GLOSE_DEPOSEE, nomReciteur, pilePolice, urlAudio } from "@/lib/coran/sources";
 
 /**
  * Le lecteur.
@@ -579,14 +579,21 @@ function PanneauMot({
         aria-label="Analyse du mot"
       >
         <div className="flex items-start justify-between gap-4">
-          <p
-            dir="rtl"
-            lang="ar"
-            className="text-[38px] leading-tight"
-            style={{ fontFamily: '"Amiri Quran", "Amiri", "Noto Naskh Arabic", serif' }}
-          >
-            {mot.arabe}
-          </p>
+          <div className="flex flex-col gap-1">
+            <p
+              dir="rtl"
+              lang="ar"
+              className="text-[38px] leading-tight"
+              style={{ fontFamily: '"Amiri Quran", "Amiri", "Noto Naskh Arabic", serif' }}
+            >
+              {mot.arabe}
+            </p>
+            {mot.translitteration && (
+              <p className="police-titre text-[17px] leading-tight text-doux italic">
+                {mot.translitteration}
+              </p>
+            )}
+          </div>
           <button
             type="button"
             onClick={surFermeture}
@@ -656,8 +663,9 @@ function PanneauMot({
 
         {!mot.sens && (
           <p className="text-[11.5px] leading-relaxed text-tres-doux">
-            Aucune glose mot à mot n'a de licence vérifiable : le panneau donne la
-            racine, le lemme et la grammaire, qui viennent du corpus sous GPL.
+            Aucun sens n'est installé pour ce mot : le panneau donne la racine, le
+            lemme et la grammaire, qui viennent du corpus. Une traduction mot à mot
+            se dépose depuis les réglages.
           </p>
         )}
 
@@ -685,9 +693,16 @@ function PanneauMot({
           </div>
         </div>
 
+        {/* Chaque écran nomme ses sources : le corpus pour la grammaire, QUL et
+            QuranWBW pour le sens. */}
         {corpus && (
           <p className="text-[11px] leading-relaxed text-tres-doux">
             {corpus.nom} — {corpus.auteur}. {corpus.lien}
+          </p>
+        )}
+        {mot.sens && (
+          <p className="text-[11px] leading-relaxed text-tres-doux">
+            {GLOSE_DEPOSEE.mention}
           </p>
         )}
       </div>
