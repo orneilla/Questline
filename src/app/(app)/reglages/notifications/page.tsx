@@ -5,7 +5,7 @@ import { Notifications } from "@/components/reglages/notifications";
 import { Retour } from "@/components/retour";
 import { diagnostiquer } from "@/lib/erreurs";
 import { derniersEnvois } from "@/lib/notifications/envoi";
-import { abonnements } from "@/lib/notifications/push";
+import { abonnements, etatVapid } from "@/lib/notifications/push";
 import { chargerReglagesRappels } from "@/lib/notifications/reglages";
 import { identiteBot, variablesPresentes } from "@/lib/telegram/api";
 
@@ -45,12 +45,14 @@ export default async function PageNotifications() {
   let reglages: Awaited<ReturnType<typeof chargerReglagesRappels>>;
   let appareils: Awaited<ReturnType<typeof abonnements>>;
   let envois: Record<string, string>;
+  let vapid: Awaited<ReturnType<typeof etatVapid>>;
 
   try {
-    [reglages, appareils, envois] = await Promise.all([
+    [reglages, appareils, envois, vapid] = await Promise.all([
       chargerReglagesRappels(),
       abonnements(),
       derniersEnvois(),
+      etatVapid(),
     ]);
   } catch (erreur) {
     const probleme = diagnostiquer(erreur);
@@ -83,6 +85,7 @@ export default async function PageNotifications() {
           heureSoir: reglages.heureSoir,
           pauseJusqua: reglages.pauseJusqua,
         }}
+        vapid={vapid}
         appareils={appareils.map((a) => ({
           id: a.id,
           agent: a.agent,

@@ -6,6 +6,12 @@ import webpush from "web-push";
 import { db } from "@/db";
 import { abonnementsPush, reglagesNotifications } from "@/db/schema";
 import { aujourdhui } from "@/lib/dates";
+import {
+  DUREE_JETON_S,
+  resoudreSujet,
+  sujetValide,
+  sujetVapid,
+} from "./sujet";
 
 /**
  * Envoi de notifications web.
@@ -30,9 +36,6 @@ import { aujourdhui } from "@/lib/dates";
  * consignée et l'abonnement conservé, une panne passagère n'étant pas une
  * désinscription.
  */
-
-/** Contact exigé par la spécification VAPID. Aucun courriel n'est envoyé ici. */
-const SUJET = "mailto:questline@localhost";
 
 export type ChargePush = {
   titre: string;
@@ -99,6 +102,46 @@ export async function clesVapid(): Promise<{ publique: string; privee: string }>
 /** La clé publique seule, celle que le navigateur doit connaître pour s'abonner. */
 export async function clePubliqueVapid(): Promise<string> {
   return (await clesVapid()).publique;
+}
+
+/**
+ * Ce que le diagnostic peut montrer d'une configuration VAPID.
+ *
+ * La clé privée n'en sort jamais. La clé publique, elle, est publique par
+ * construction — c'est celle que le navigateur reçoit pour s'abonner — mais on
+ * n'en donne que le début : assez pour la comparer à celle de l'abonnement,
+ * pas assez pour encombrer l'écran.
+ */
+export type EtatVapid = {
+  sujet: string;
+  sujetValide: boolean;
+  /** D'où vient le sujet retenu, pour savoir quoi corriger. */
+  origineSujet: string;
+  dureeHeures: number;
+  clePubliqueDebut: string;
+  clesInstallees: boolean;
+};
+
+export async function etatVapid(): Promise<EtatVapid> {
+  const [ligne] = await db
+    .select({
+      publique: reglagesNotifications.vapidPublique,
+      privee: reglagesNotifications.vapidPrivee,
+    })
+    .from(reglagesNotifications)
+    .where(eq(reglagesNotifications.id, 1))
+    .limit(1);
+
+  const { sujet, origine } = resoudreSujet();
+
+  return {
+    sujet,
+    sujetValide: sujetValide(sujet),
+    origineSujet: origine,
+    dureeHeures: DUREE_JETON_S / 3600,
+    clePubliqueDebut: ligne?.publique ? ligne.publique.slice(0, 12) : "—",
+    clesInstallees: Boolean(ligne?.publique && ligne.privee),
+  };
 }
 
 export type AbonnementRecu = {
@@ -171,7 +214,7 @@ export async function envoyerPush(charge: ChargePush): Promise<ResultatEnvoi> {
   }
 
   const cles = await clesVapid();
-  webpush.setVapidDetails(SUJET, cles.publique, cles.privee);
+  webpush.setVapidDetails(sujetVapid(), cles.publique, cles.privee);
 
   const resultat: ResultatEnvoi = { envoyes: 0, retires: 0, echecs: [] };
   const quand = new Date().toISOString();
@@ -218,3 +261,5 @@ export async function envoyerPush(charge: ChargePush): Promise<ResultatEnvoi> {
 
   return resultat;
 }
+
+export { DUREE_JETON_S, sujetValide, sujetVapid } from "./sujet";

@@ -85,6 +85,17 @@ function estIOS(): boolean {
   );
 }
 
+/** L'inverse : des octets vers le base64url, pour comparer deux clés. */
+function enBase64url(octets: ArrayBuffer): string {
+  let binaire = "";
+  for (const octet of new Uint8Array(octets)) binaire += String.fromCharCode(octet);
+  return window
+    .btoa(binaire)
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/, "");
+}
+
 /** La clé VAPID arrive en base64url ; `subscribe` veut des octets. */
 function enOctets(base64url: string): Uint8Array {
   const complement = "=".repeat((4 - (base64url.length % 4)) % 4);
@@ -95,15 +106,28 @@ function enOctets(base64url: string): Uint8Array {
   return octets;
 }
 
+export type EtatVapidAffiche = {
+  sujet: string;
+  sujetValide: boolean;
+  origineSujet: string;
+  dureeHeures: number;
+  clePubliqueDebut: string;
+  clesInstallees: boolean;
+};
+
 export function Notifications({
   reglages,
   appareils,
+  vapid,
 }: {
   reglages: ReglagesAffiches;
   appareils: { id: number; agent: string; dernierEnvoi: string | null; derniereErreur: string | null }[];
+  vapid: EtatVapidAffiche;
 }) {
   const [etat, setEtat] = useState<Etat>("inconnu");
   const [message, setMessage] = useState<string | null>(null);
+  /** Début de la clé avec laquelle cet appareil s'est réellement abonné. */
+  const [cleAbonnement, setCleAbonnement] = useState<string | null>(null);
   const [enAttente, demarrer] = useTransition();
 
   const [canal, setCanal] = useState<Canal>(reglages.canal);
@@ -129,6 +153,12 @@ export function Notifications({
     try {
       const enregistrement = await navigator.serviceWorker.getRegistration("/sw.js");
       const abonnement = await enregistrement?.pushManager.getSubscription();
+
+      // La clé avec laquelle l'abonnement a été posé est lisible : c'est elle
+      // qu'il faut comparer à celle du serveur quand un envoi est refusé.
+      const cle = abonnement?.options.applicationServerKey;
+      setCleAbonnement(cle ? enBase64url(cle).slice(0, 12) : null);
+
       setEtat(abonnement && Notification.permission === "granted" ? "abonne" : "a_demander");
     } catch {
       setEtat("a_demander");
@@ -198,6 +228,33 @@ export function Notifications({
     } catch (probleme) {
       setMessage(probleme instanceof Error ? probleme.message : String(probleme));
       await relire();
+    }
+  }
+
+  /**
+   * Repose l'abonnement à neuf.
+   *
+   * Utile quand la clé du serveur ne correspond plus à celle de l'abonnement :
+   * le service de push refuse alors tout, et rien ne se répare de soi-même. On
+   * retire l'ancien des deux côtés avant d'en créer un nouveau.
+   */
+  async function reabonner() {
+    setMessage(null);
+    try {
+      const enregistrement = await navigator.serviceWorker.getRegistration("/sw.js");
+      const ancien = await enregistrement?.pushManager.getSubscription();
+      if (ancien) {
+        await fetch("/api/push/desabonner", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ endpoint: ancien.endpoint }),
+        });
+        await ancien.unsubscribe();
+      }
+      await activer();
+      setMessage("Abonnement refait avec la clé actuelle.");
+    } catch (probleme) {
+      setMessage(probleme instanceof Error ? probleme.message : String(probleme));
     }
   }
 
@@ -333,6 +390,9 @@ export function Notifications({
 
       <Diagnostic
         appareils={appareils}
+        vapid={vapid}
+        cleAbonnement={cleAbonnement}
+        surReabonnement={() => void reabonner()}
         etatPush={etat}
         test={test}
         surTest={(quoi) =>
@@ -492,12 +552,18 @@ function Creneau({
 
 function Diagnostic({
   appareils,
+  vapid,
+  cleAbonnement,
+  surReabonnement,
   etatPush,
   test,
   surTest,
   enAttente,
 }: {
   appareils: { id: number; agent: string; dernierEnvoi: string | null; derniereErreur: string | null }[];
+  vapid: EtatVapidAffiche;
+  cleAbonnement: string | null;
+  surReabonnement: () => void;
   etatPush: Etat;
   test: BilanTest | null;
   surTest: (quoi: "push" | "telegram") => void;
@@ -521,6 +587,61 @@ function Diagnostic({
         <dt className="text-tres-doux">Appareils abonnés</dt>
         <dd className="text-doux tabular-nums">{appareils.length}</dd>
       </dl>
+
+      {/* Ce qu'Apple valide, et que les autres services laissent passer. */}
+      <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 rounded-xl border border-bordure bg-surface p-4 text-[13px]">
+        <dt className="text-tres-doux">Sujet du jeton</dt>
+        <dd className="break-all text-doux">
+          {vapid.sujet}
+          <span className="block text-[11.5px] text-tres-doux">
+            {vapid.origineSujet}
+            {vapid.sujetValide ? "" : " — forme refusée"}
+          </span>
+        </dd>
+
+        <dt className="text-tres-doux">Durée du jeton</dt>
+        <dd className="text-doux tabular-nums">
+          {vapid.dureeHeures} h
+          <span className="block text-[11.5px] text-tres-doux">
+            Apple refuse au-delà de 24 h.
+          </span>
+        </dd>
+
+        <dt className="text-tres-doux">Clé du serveur</dt>
+        <dd className="font-mono text-[12px] break-all text-doux">
+          {vapid.clePubliqueDebut}…
+        </dd>
+
+        <dt className="text-tres-doux">Clé de l'abonnement</dt>
+        <dd className="font-mono text-[12px] break-all text-doux">
+          {cleAbonnement ? `${cleAbonnement}…` : "—"}
+          {cleAbonnement && (
+            <span
+              className="block font-sans text-[11.5px]"
+              style={{
+                color:
+                  cleAbonnement === vapid.clePubliqueDebut
+                    ? "var(--color-tres-doux)"
+                    : "var(--color-doux)",
+              }}
+            >
+              {cleAbonnement === vapid.clePubliqueDebut
+                ? "correspond au serveur"
+                : "ne correspond pas — refais l'abonnement"}
+            </span>
+          )}
+        </dd>
+      </dl>
+
+      {etatPush === "abonne" && (
+        <button
+          type="button"
+          onClick={surReabonnement}
+          className="min-h-12 rounded-xl border border-bordure text-[13.5px] text-doux"
+        >
+          Se réabonner avec la clé actuelle
+        </button>
+      )}
 
       {appareils.length > 0 && (
         <ul className="flex flex-col gap-1.5">

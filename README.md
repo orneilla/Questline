@@ -32,6 +32,7 @@ npm run dev
 | `CRON_SECRET`    | Protège `/api/cron` et sert de jeton partagé avec le webhook.     |
 | `CORAN_API_BASE` | Facultatif. Miroir de l'API du Coran (défaut : alquran.cloud).    |
 | `CORAN_MORPHOLOGIE_URL` | Facultatif. Miroir du corpus morphologique.               |
+| `VAPID_SUBJECT`  | Facultatif. Contact du jeton push : `mailto:…` ou `https://…`.     |
 
 > Sans `SESSION_SECRET`, changer le mot de passe déconnecte tous les appareils.
 
@@ -615,6 +616,30 @@ Service worker minuscule à la racine (`public/sw.js`) : il reçoit les rappels 
 les ouvre au bon écran, et ne met **rien** en cache. Un cache mal réglé
 afficherait une journée d'hier ; la base est la seule source de vérité.
 
+**Le sujet du jeton (`sub`) est validé.** C'est le champ qui a coûté une
+session : il valait `mailto:questline@localhost`, et Apple a répondu
+`403 BadJwtToken` sur tous les envois. Google et Mozilla acceptent à peu près
+n'importe quoi ici ; Apple le valide vraiment, et `localhost` n'est pas un
+domaine joignable.
+
+`notifications/sujet.ts` résout le sujet du plus explicite au plus déduit :
+`VAPID_SUBJECT` si elle est renseignée **et valide**, sinon le domaine de
+production exposé par Vercel, sinon le domaine du déploiement courant, sinon le
+domaine de production connu. Une valeur invalide n'est jamais retenue en
+silence — elle est écartée au profit de la suivante, et le diagnostic montre
+celle qui sert réellement ainsi que sa provenance. Sont refusés : `localhost`,
+les adresses IP, les domaines sans point, `.local`, `.internal`, et tout ce qui
+n'est ni `mailto:` ni `https:`.
+
+Pour mettre ta propre adresse, renseigne `VAPID_SUBJECT` dans Vercel — par
+exemple `mailto:toi@exemple.fr`. Ce n'est pas obligatoire : le défaut fonctionne.
+
+Le reste du jeton était correct et l'est resté, ce qu'un test vérifie sur un
+jeton réellement émis : `ES256`, signature de 64 octets, base64url sans
+remplissage, expiration à **12 h** — dans le futur et sous les 24 h qu'Apple
+tolère. Comparés côte à côte, l'ancien sujet et le nouveau ne diffèrent que par
+le `sub`.
+
 **Les clés VAPID vivent en base**, pas dans l'environnement. Elles sont
 engendrées à la première demande, depuis le navigateur, et n'ont donc jamais à
 être recopiées à la main dans Vercel — c'est le même principe que le reste de
@@ -655,6 +680,15 @@ Telegram à `getMe`, la présence de chaque variable — le jeton n'est jamais
 affiché, seulement son identifiant public suivi de points — et la date du
 dernier envoi réussi de chaque créneau sur chaque canal. Deux boutons de test
 donnent la réponse exacte du service en cas d'échec.
+
+Côté VAPID, il montre aussi **le sujet retenu et sa provenance**, **la durée du
+jeton**, et **le début des deux clés publiques** : celle du serveur et celle
+avec laquelle l'appareil s'est réellement abonné. La clé privée n'en sort
+jamais. Quand les deux ne correspondent pas — clés regénérées après un
+abonnement, par exemple — l'écran le dit et propose **« se réabonner avec la clé
+actuelle »**, qui retire l'ancien abonnement des deux côtés avant d'en poser un
+neuf. Rien ne se répare tout seul dans ce cas : le service de push refuse tout
+et ne dit pas pourquoi.
 
 ## Le bot Telegram
 
@@ -1040,6 +1074,7 @@ src/
     sauvegardes.ts  production, purge, restauration par lots (accès base)
     sauvegardes-partage.ts  analyse d'un fichier déposé — logique pure
     notifications/
+      sujet.ts      résolution et validation du `sub` VAPID — logique pure
       push.ts       VAPID, abonnements, envoi chiffré
       envoi.ts      composition des rappels, aiguillage des canaux
       reglages.ts   canal, créneaux, horaires, pause
