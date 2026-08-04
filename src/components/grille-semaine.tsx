@@ -178,14 +178,23 @@ function placer(liste: Morceau[]): Place[] {
 
 type Choix = { morceau: Morceau; date: string };
 
+/** Au-dessous, sept colonnes n'ont plus de sens : on montre un jour. */
+const LARGEUR_TELEPHONE = 500;
+
 export function GrilleSemaine({ jours }: { jours: JourSemaine[] }) {
-  const defilement = useRef<HTMLDivElement>(null);
+  const defilementSemaine = useRef<HTMLDivElement>(null);
+  const defilementJour = useRef<HTMLDivElement>(null);
   const [maintenant, setMaintenant] = useState<number | null>(null);
   const [choisi, setChoisi] = useState<Choix | null>(null);
 
+  const indexAujourdhui = jours.findIndex((j) => j.aujourdhui);
+  // Le jour courant est celui qu'on veut voir en ouvrant. À défaut — une semaine
+  // passée — le premier jour.
+  const [jourAffiche, setJourAffiche] = useState(Math.max(0, indexAujourdhui));
+  const [modeTelephone, setModeTelephone] = useState<"jour" | "semaine">("jour");
+
   const parJour = repartir(jours);
   const heures = Array.from({ length: 24 }, (_, i) => i);
-  const indexAujourdhui = jours.findIndex((j) => j.aujourdhui);
 
   // L'heure courante ne se lit qu'une fois montée : le serveur et le navigateur
   // ne la liraient pas au même instant, et l'écart ferait sauter la ligne au
@@ -197,124 +206,212 @@ export function GrilleSemaine({ jours }: { jours: JourSemaine[] }) {
     return () => clearInterval(battement);
   }, []);
 
+  // Les deux vues s'ouvrent sur l'heure courante. Celle qui est cachée par CSS
+  // a une hauteur nulle : on lui donne une position de repli plutôt que zéro,
+  // sinon elle s'ouvrirait à minuit une fois révélée.
   useEffect(() => {
-    const zone = defilement.current;
-    if (!zone) return;
-    zone.scrollTop = Math.max(0, hauteurDe(minutesLocales()) - zone.clientHeight / 3);
-  }, []);
+    const minute = minutesLocales();
+    for (const zone of [defilementSemaine.current, defilementJour.current]) {
+      if (!zone) continue;
+      const visible = zone.clientHeight > 0 ? zone.clientHeight : 420;
+      zone.scrollTop = Math.max(0, hauteurDe(minute) - visible / 3);
+    }
+  }, [modeTelephone]);
+
+  const jour = jours[jourAffiche];
 
   return (
-    <section aria-label="Emploi du temps de la semaine" className="flex flex-col gap-2">
-      <div className="flex" style={{ paddingLeft: COLONNE_HEURES }}>
-        <div className="grille-jours flex-1">
-          {jours.map((jour) => (
-            <div
-              key={jour.date}
-              className="flex flex-col items-center gap-0.5 rounded-t-lg py-1.5"
+    <section
+      aria-label="Emploi du temps de la semaine"
+      className="calendrier flex w-full min-w-0 flex-col gap-2"
+      data-mode={modeTelephone}
+    >
+      {/* ─────────────── Téléphone : le choix du jour ─────────────── */}
+      {/*
+        Une grille de sept colonnes plutôt qu'une bande défilante : à 390 px les
+        sept pastilles tiennent, et un jour qu'il faut aller chercher en faisant
+        défiler est un jour qu'on oublie de regarder.
+      */}
+      <div className="selecteur-jour grid grid-cols-7 gap-1">
+        {jours.map((j, index) => {
+          const actif = index === jourAffiche;
+          return (
+            <button
+              key={j.date}
+              type="button"
+              onClick={() => setJourAffiche(index)}
+              aria-pressed={actif}
+              className="flex min-h-14 min-w-0 flex-col items-center justify-center gap-0.5 rounded-xl border transition-colors duration-200"
               style={{
-                backgroundColor: jour.aujourdhui ? "var(--color-voile)" : "transparent",
+                borderColor: actif
+                  ? "var(--color-bordure-vive)"
+                  : "var(--color-bordure)",
+                backgroundColor: actif ? "var(--color-surface-haut)" : "transparent",
               }}
             >
               <span
-                className={`text-[12px] tracking-[0.1em] uppercase ${
-                  jour.aujourdhui ? "text-texte" : "text-tres-doux"
-                }`}
+                className="text-[10.5px] tracking-[0.08em] uppercase"
+                style={{
+                  color: actif ? "var(--color-doux)" : "var(--color-tres-doux)",
+                }}
               >
-                {JOURS_SEMAINE[jour.jourSemaine].slice(0, 3)}
+                {JOURS_SEMAINE[j.jourSemaine].slice(0, 3)}
               </span>
               <span
-                className={`text-[17px] leading-none tabular-nums ${
-                  jour.aujourdhui ? "text-texte" : "text-doux"
-                }`}
+                className="text-[16px] leading-none tabular-nums"
+                style={{
+                  color: actif ? "var(--color-texte)" : "var(--color-tres-doux)",
+                }}
               >
-                {Number(jour.date.slice(8, 10))}
+                {Number(j.date.slice(8, 10))}
               </span>
-              <span className="text-[10.5px] text-tres-doux tabular-nums">
-                {formaterDuree(jour.charge.tempsDispoMin)}
-              </span>
+              {j.aujourdhui && (
+                <span
+                  aria-hidden
+                  className="size-1 rounded-full"
+                  style={{ backgroundColor: "#c0996a" }}
+                />
+              )}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* ─────────────── Téléphone : la journée choisie ─────────────── */}
+      <div className="vue-jour flex w-full min-w-0 flex-col gap-2">
+        <p className="px-0.5 text-[12.5px] text-doux tabular-nums">
+          {formaterDuree(jour.charge.tempsDispoMin)} disponibles
+        </p>
+
+        <div
+          ref={defilementJour}
+          className="relative w-full overflow-y-auto overflow-x-hidden overscroll-contain rounded-xl border border-bordure"
+          style={{ maxHeight: "min(58dvh, 560px)" }}
+        >
+          <div className="flex w-full" style={{ height: HAUTEUR }}>
+            <ColonneHeures heures={heures} />
+
+            <div className="relative min-w-0 flex-1">
+              <LignesHeures heures={heures} />
+
+              {placer(parJour[jourAffiche]).map(({ morceau, colonne, colonnes }) => (
+                <BlocGrille
+                  key={`j-${morceau.bloc.cle}-${morceau.suite ? 1 : 0}`}
+                  morceau={morceau}
+                  colonne={colonne}
+                  colonnes={colonnes}
+                  large
+                  surAppui={() => setChoisi({ morceau, date: jour.date })}
+                />
+              ))}
+
+              {maintenant !== null && jourAffiche === indexAujourdhui && (
+                <LigneMaintenant minute={maintenant} />
+              )}
             </div>
-          ))}
+          </div>
         </div>
       </div>
 
+      {/* ─────────────── La semaine entière ─────────────── */}
       <div
-        ref={defilement}
-        className="relative overflow-auto overscroll-contain rounded-xl border border-bordure"
+        ref={defilementSemaine}
+        className="vue-semaine w-full overflow-auto overscroll-contain rounded-xl border border-bordure"
         style={{ maxHeight: "min(64dvh, 680px)" }}
       >
-        <div className="flex" style={{ height: HAUTEUR }}>
-          <div
-            className="sticky left-0 z-20 shrink-0 border-r border-bordure bg-fond"
-            style={{ width: COLONNE_HEURES }}
-          >
-            {heures.map((heure) => (
-              <span
-                key={heure}
-                className="absolute -translate-y-1/2 pr-2 text-right text-[11.5px] text-tres-doux tabular-nums"
-                style={{ top: hauteurDe(heure * 60), width: COLONNE_HEURES }}
-              >
-                {heure === 0 ? "" : `${String(heure).padStart(2, "0")} h`}
-              </span>
-            ))}
+        {/*
+          L'en-tête vit *dans* le conteneur qui défile, et non au-dessus : c'est
+          la correction du défaut qui cassait l'affichage sur téléphone. Un
+          en-tête posé à côté, calé par une simple marge, ne peut pas suivre le
+          défilement horizontal — il se désalignait d'autant de colonnes que la
+          grille était décalée, et débordait de la page.
+        */}
+        <div style={{ width: "max-content", minWidth: "100%" }}>
+          <div className="sticky top-0 z-30 flex bg-fond">
+            <div
+              className="sticky left-0 z-40 shrink-0 border-r border-b border-bordure bg-fond"
+              style={{ width: COLONNE_HEURES }}
+            />
+            <div className="grille-jours flex-1 border-b border-bordure">
+              {jours.map((j) => (
+                <div
+                  key={j.date}
+                  className="flex flex-col items-center gap-0.5 py-1.5"
+                  style={{
+                    backgroundColor: j.aujourdhui ? "var(--color-voile)" : "transparent",
+                  }}
+                >
+                  <span
+                    className={`text-[12px] tracking-[0.1em] uppercase ${
+                      j.aujourdhui ? "text-texte" : "text-tres-doux"
+                    }`}
+                  >
+                    {JOURS_SEMAINE[j.jourSemaine].slice(0, 3)}
+                  </span>
+                  <span
+                    className={`text-[17px] leading-none tabular-nums ${
+                      j.aujourdhui ? "text-texte" : "text-doux"
+                    }`}
+                  >
+                    {Number(j.date.slice(8, 10))}
+                  </span>
+                  <span className="text-[10.5px] text-tres-doux tabular-nums">
+                    {formaterDuree(j.charge.tempsDispoMin)}
+                  </span>
+                </div>
+              ))}
+            </div>
           </div>
 
-          <div className="grille-jours relative flex-1">
-            {heures.map((heure) => (
-              <span
-                key={heure}
-                aria-hidden
-                className="pointer-events-none absolute inset-x-0 h-px"
-                style={{
-                  top: hauteurDe(heure * 60),
-                  backgroundColor:
-                    heure % 6 === 0
-                      ? "var(--color-bordure-vive)"
-                      : "var(--color-bordure)",
-                  opacity: heure % 6 === 0 ? 0.9 : 0.5,
-                }}
-              />
-            ))}
+          <div className="flex" style={{ height: HAUTEUR }}>
+            <ColonneHeures heures={heures} />
 
-            {jours.map((jour, index) => (
-              <div
-                key={jour.date}
-                className="relative border-r border-bordure/50 last:border-r-0"
-                style={{
-                  backgroundColor: jour.aujourdhui ? "var(--color-voile)" : "transparent",
-                }}
-              >
-                {placer(parJour[index]).map(({ morceau, colonne, colonnes }) => (
-                  <BlocGrille
-                    key={`${morceau.annule ? "a" : "b"}-${morceau.bloc.cle}-${morceau.suite ? 1 : 0}`}
-                    morceau={morceau}
-                    colonne={colonne}
-                    colonnes={colonnes}
-                    surAppui={() => setChoisi({ morceau, date: jour.date })}
-                  />
-                ))}
+            <div className="grille-jours relative flex-1">
+              <LignesHeures heures={heures} />
 
-                {maintenant !== null && index === indexAujourdhui && (
-                  <span
-                    aria-label="Heure actuelle"
-                    className="pointer-events-none absolute inset-x-0 z-10 h-[1.5px] bg-[#c0996a]"
-                    style={{ top: hauteurDe(maintenant) }}
-                  >
-                    <span
-                      aria-hidden
-                      className="absolute top-1/2 left-0 size-2 -translate-y-1/2 rounded-full bg-[#c0996a]"
+              {jours.map((j, index) => (
+                <div
+                  key={j.date}
+                  className="relative border-r border-bordure/50 last:border-r-0"
+                  style={{
+                    backgroundColor: j.aujourdhui ? "var(--color-voile)" : "transparent",
+                  }}
+                >
+                  {placer(parJour[index]).map(({ morceau, colonne, colonnes }) => (
+                    <BlocGrille
+                      key={`s-${morceau.bloc.cle}-${morceau.suite ? 1 : 0}`}
+                      morceau={morceau}
+                      colonne={colonne}
+                      colonnes={colonnes}
+                      large={false}
+                      surAppui={() => setChoisi({ morceau, date: j.date })}
                     />
-                  </span>
-                )}
-              </div>
-            ))}
+                  ))}
+
+                  {maintenant !== null && index === indexAujourdhui && (
+                    <LigneMaintenant minute={maintenant} />
+                  )}
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       </div>
 
-      <p className="px-1 text-[11.5px] leading-relaxed text-tres-doux">
+      <button
+        type="button"
+        onClick={() =>
+          setModeTelephone(modeTelephone === "jour" ? "semaine" : "jour")
+        }
+        className="bascule min-h-11 self-start rounded-xl border border-bordure px-3.5 text-[12.5px] text-doux"
+      >
+        {modeTelephone === "jour" ? "Voir la semaine entière" : "Revenir au jour"}
+      </button>
+
+      <p className="px-0.5 text-[11.5px] leading-relaxed text-tres-doux">
         Les blocs à trame reviennent chaque semaine : ce sont des contraintes. Les
-        blocs unis sont posés sur une date. Sous chaque jour, le temps disponible une
-        fois les créneaux et les deux heures incompressibles retirés.
+        blocs unis sont posés sur une date. Sous chaque jour, le temps disponible
+        une fois les créneaux et les deux heures incompressibles retirés.
       </p>
 
       {choisi && (
@@ -326,16 +423,92 @@ export function GrilleSemaine({ jours }: { jours: JourSemaine[] }) {
       )}
 
       <style>{`
+        /*
+          Le palier téléphone est porté par le CSS, pas par du JavaScript qui
+          mesurerait la fenêtre : la bascule suit la largeur réelle dès le
+          premier rendu, sans clignotement ni écart entre serveur et navigateur.
+          Le seul rôle de l'état React est de permettre de demander la semaine
+          malgré tout, sur téléphone.
+        */
+        .calendrier[data-mode="jour"] .vue-semaine { display: none; }
+        .calendrier[data-mode="semaine"] .vue-jour,
+        .calendrier[data-mode="semaine"] .selecteur-jour { display: none; }
+
         .grille-jours {
           display: grid;
           grid-auto-flow: column;
-          grid-auto-columns: max(112px, calc((100vw - ${COLONNE_HEURES}px - 2.5rem) / 3));
+          /* Trois jours visibles ; la colonne des heures est déjà déduite. */
+          grid-auto-columns: max(104px, calc((100vw - ${COLONNE_HEURES}px - 2.5rem) / 3));
         }
+
+        @media (min-width: ${LARGEUR_TELEPHONE}px) {
+          /* Au-delà du téléphone, la semaine s'impose et le reste disparaît. */
+          .calendrier .vue-jour,
+          .calendrier .selecteur-jour,
+          .calendrier .bascule { display: none !important; }
+          .calendrier .vue-semaine { display: block !important; }
+        }
+
         @media (min-width: 1024px) and (orientation: landscape) {
           .grille-jours { grid-auto-columns: minmax(0, 1fr); }
         }
       `}</style>
     </section>
+  );
+}
+
+/** La colonne des heures, collée à gauche pendant le défilement horizontal. */
+function ColonneHeures({ heures }: { heures: number[] }) {
+  return (
+    <div
+      className="sticky left-0 z-20 shrink-0 border-r border-bordure bg-fond"
+      style={{ width: COLONNE_HEURES }}
+    >
+      {heures.map((heure) => (
+        <span
+          key={heure}
+          className="absolute -translate-y-1/2 pr-2 text-right text-[11.5px] text-tres-doux tabular-nums"
+          style={{ top: hauteurDe(heure * 60), width: COLONNE_HEURES }}
+        >
+          {heure === 0 ? "" : `${String(heure).padStart(2, "0")} h`}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+function LignesHeures({ heures }: { heures: number[] }) {
+  return (
+    <>
+      {heures.map((heure) => (
+        <span
+          key={heure}
+          aria-hidden
+          className="pointer-events-none absolute inset-x-0 h-px"
+          style={{
+            top: hauteurDe(heure * 60),
+            backgroundColor:
+              heure % 6 === 0 ? "var(--color-bordure-vive)" : "var(--color-bordure)",
+            opacity: heure % 6 === 0 ? 0.9 : 0.5,
+          }}
+        />
+      ))}
+    </>
+  );
+}
+
+function LigneMaintenant({ minute }: { minute: number }) {
+  return (
+    <span
+      aria-label="Heure actuelle"
+      className="pointer-events-none absolute inset-x-0 z-10 h-[1.5px] bg-[#c0996a]"
+      style={{ top: hauteurDe(minute) }}
+    >
+      <span
+        aria-hidden
+        className="absolute top-1/2 left-0 size-2 -translate-y-1/2 rounded-full bg-[#c0996a]"
+      />
+    </span>
   );
 }
 
@@ -345,11 +518,14 @@ function BlocGrille({
   morceau,
   colonne,
   colonnes,
+  large,
   surAppui,
 }: {
   morceau: Morceau;
   colonne: number;
   colonnes: number;
+  /** En vue jour, la colonne fait toute la largeur : le titre peut respirer. */
+  large: boolean;
   surAppui: () => void;
 }) {
   const { bloc, annule } = morceau;
@@ -379,15 +555,19 @@ function BlocGrille({
       }}
     >
       <span
-        className={`block truncate text-[12px] leading-tight ${
+        className={`block truncate leading-tight ${large ? "text-[13.5px]" : "text-[12px]"} ${
           annule ? "text-tres-doux line-through" : "text-texte"
         }`}
       >
         {morceau.suite ? "↳ " : ""}
         {bloc.titre}
       </span>
-      {hauteur >= 44 && (
-        <span className="block truncate text-[10.5px] leading-tight text-tres-doux tabular-nums">
+      {hauteur >= 40 && (
+        <span
+          className={`block truncate leading-tight text-tres-doux tabular-nums ${
+            large ? "text-[12px]" : "text-[10.5px]"
+          }`}
+        >
           {bloc.debut.slice(0, 5)} – {bloc.fin.slice(0, 5)}
         </span>
       )}

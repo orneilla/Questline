@@ -955,9 +955,25 @@ huit points et demi — elle disait ce qu'il y avait, on ne pouvait pas le lire.
 
 - **62 px par heure**, sur les vingt-quatre heures et non la seule fenêtre
   d'éveil : un service qui finit à 1 h doit se voir.
-- **Sept jours en paysage, trois en portrait** avec défilement horizontal. La
-  bascule est une requête de média sur l'orientation, pas du JavaScript qui
-  écouterait le redimensionnement.
+- **Trois paliers**, portés par des requêtes de média et non par du JavaScript
+  qui mesurerait la fenêtre — la bascule suit la largeur réelle dès le premier
+  rendu, sans clignotement ni écart entre serveur et navigateur :
+  - **téléphone, sous 500 px** — vue **jour** par défaut. Sept colonnes n'ont
+    aucun sens sur cette largeur. Un sélecteur montre les sept jours en
+    pastilles, tous visibles à 390 px sans défilement, le jour courant choisi à
+    l'ouverture et marqué d'un point. La grille du jour prend toute la largeur
+    utile. Un bouton bascule vers la semaine condensée si on la veut quand même.
+  - **tablette portrait** — trois jours, défilement horizontal ;
+  - **tablette paysage** — les sept jours d'un coup.
+- **L'en-tête des jours vit dans le conteneur qui défile**, et non au-dessus.
+  C'est la correction d'un défaut qui rendait la grille inutilisable sur
+  téléphone : un en-tête posé à côté et calé par une simple marge ne peut pas
+  suivre le défilement horizontal. Il se désalignait d'autant de colonnes que la
+  grille était décalée — les jours affichés commençaient au mercredi — et
+  débordait de la page, ce qui coupait la colonne des heures et tronquait le
+  texte sous la grille. Mesuré après correction : zéro pixel d'écart entre
+  en-tête et corps après un défilement de 400 px, et zéro débordement horizontal
+  à 390, 430, 820 et 1180 px.
 - **Ouverture sur l'heure courante**, jamais sur minuit, et une ligne d'heure
   sur la colonne du jour, rafraîchie chaque minute.
 - **Un bloc qui passe minuit est coupé en deux** : son jour jusqu'à minuit, le
