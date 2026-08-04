@@ -602,7 +602,7 @@ fonctionne exactement pareil.
 | -------- | -------------- | ---------------------------------------------------- |
 | Matin    | 7 h 30         | Titre du jour, charge, quêtes numérotées, quête rare  |
 | Soir     | 21 h 30        | Ce qui a été fait, puis la question de la phrase      |
-| Dimanche | 10 h           | Bilan de la semaine, version courte                   |
+| Dimanche | avec le matin  | Bilan de la semaine, version courte                   |
 
 Le message du matin porte un bouton par quête : y toucher valide sans ouvrir
 l'app, et les boutons se rafraîchissent aussitôt. Un bouton « Jour bas » est là
@@ -615,20 +615,36 @@ journée est annoncée comme allégée d'office, sans rien à rattraper. Une jou
 sans rien de coché reçoit le même égard qu'une autre : on constate, on pose la
 question, on ne relance pas.
 
-### Heure d'été
+### Heure d'été, et pourquoi rien n'arrivait
 
-Vercel planifie en UTC ; Paris avance d'une heure en hiver, de deux en été. Un
-horaire fixe dériverait donc d'une heure la moitié de l'année. `vercel.json`
-déclare **les deux horaires UTC possibles** pour chaque message, et
-`/api/cron` tranche : il lit l'heure réelle de Paris et n'envoie que si le
-créneau y correspond. Le déclenchement en trop tombe hors créneau et ne fait
-rien ; l'envoi est de toute façon consigné par date et par type, donc jamais
-dupliqué.
+Vercel planifie en UTC ; Paris avance d'une heure en hiver, de deux en été. La
+première version déclarait **six tâches** — deux horaires UTC par message — et
+`/api/cron` ne postait que dans une fenêtre de cinquante-neuf minutes après
+l'heure dite.
 
-> **Six tâches planifiées.** Les comptes Vercel Hobby sont limités à deux
-> tâches quotidiennes. Si le déploiement s'en plaint, garder les deux du matin
-> (`30 5` et `30 6`) : les messages du soir et du dimanche cessent, le reste
-> tient. Le plan Pro lève la limite.
+Deux choses clochaient, et il fallait les deux pour que rien n'arrive :
+
+1. **Six tâches sur un palier qui en autorise deux.** Vercel Hobby plafonne à
+   deux tâches quotidiennes. Un `vercel.json` qui en déclare six ne voit pas ses
+   tâches enregistrées : aucun déclencheur, donc aucun message, quelles que
+   soient les variables Telegram.
+2. **Une fenêtre étroite sur un déclencheur imprécis.** Sur le même palier, une
+   tâche planifiée peut partir n'importe quand dans l'heure. Même enregistrée,
+   elle serait souvent tombée hors de la fenêtre.
+
+`vercel.json` déclare donc maintenant **deux tâches** (6 h 30 et 20 h 30 UTC), et
+`planning.ts` ne demande plus « sommes-nous dans la fenêtre ? » mais **« ce
+message était-il dû aujourd'hui ? »** — dû dès que son heure de Paris est
+passée. L'idempotence par `(date, type)`, qui existait déjà, garantit qu'il ne
+part qu'une fois. Conséquences : un déclencheur en retard d'une heure envoie
+quand même, un déclencheur du soir rattrape un message du matin jamais parti, un
+doublon ne fait rien, et le passage à l'heure d'été ne demande plus aucun
+réglage. Le bilan du dimanche part avec le message du matin, faute d'un
+troisième créneau.
+
+> `CRON_SECRET` doit être renseignée dans Vercel : sans elle, `/api/cron` répond
+> 500 avant même de regarder l'heure, et `/api/telegram` ignore tout ce que
+> Telegram lui envoie. C'est la deuxième cause de silence, après les tâches.
 
 ### Si Telegram tombe
 
@@ -667,6 +683,38 @@ qui est resté silencieux, puis pose une question ouverte. La réponse est
 archivée telle quelle dans **Parcours**, sans traitement — et « Passer sans
 répondre » est une sortie légitime.
 
+## Tâches libres
+
+Ce qui tombe sans prévenir et n'entre dans aucun arc : un papier à envoyer, un
+appel à passer, un mémoire à avancer. La zone « à faire aujourd'hui » vit sur
+l'écran du jour, sous les quêtes.
+
+**C'est une liste, pas un système.** Pas de priorité, pas d'étiquette, pas
+d'échéance — ajouter l'un des trois transformerait la liste en chose à tenir, et
+une chose à tenir finit par être une dette. On tape une ligne, entrée, c'est là.
+
+Le rattachement à un pilier est **facultatif**, et ne pas le remplir est le cas
+normal. Rattachée, la tâche cochée crédite son pilier de deux points, une seule
+fois, par le même chemin idempotent que les quêtes (`crediterPilier`). Libre,
+elle ne compte nulle part.
+
+**Rien ne « passe au lendemain »**, parce qu'il n'y a rien à reporter : une tâche
+ouverte n'a pas de date de réalisation prévue, seulement une date de création.
+Elle reste jusqu'à ce qu'elle soit faite ou retirée. C'est aussi le seul moyen
+sûr de ne jamais afficher un retard — le retard n'est pas calculable. L'âge est
+lisible en ouvrant la tâche, jamais souligné, jamais coloré.
+
+Les gestes : **cocher** valide ; **glisser vers la gauche** ou **appuyer
+longuement** découvre la suppression. Aucun des deux ne supprime au premier
+geste — le glissement révèle un bouton, il ne déclenche pas. Une liste où un
+mouvement mal assuré efface une ligne est une liste dans laquelle on n'écrit
+plus.
+
+**La promotion en quête.** Une tâche dont l'intitulé a déjà été fait trois fois
+n'est pas un imprévu : c'est un geste régulier sans place. L'écran le signale et
+propose de la promouvoir — choix de l'arc, fréquence, durée — puis la retire de
+la liste ; elle reviendra désormais par la sélection du jour.
+
 ## Progression des arcs
 
 Elle ne se saisit pas, elle se lit dans les validations. Chaque validation
@@ -678,6 +726,24 @@ nominal (`Σ poids × frequenceSem` sur ses quêtes actives) pendant **douze
 semaines**. Un arc exigeant demande donc plus de gestes qu'un arc léger pour
 afficher le même pourcentage. La colonne `arcs.progression` a été supprimée :
 plus rien n'est stocké.
+
+### Créer et faire vivre un arc
+
+Le catalogue de départ n'est qu'un point de départ : rien n'y est figé. Un arc se
+crée depuis `/arcs/nouveau`, et un arc du catalogue se renomme, change de pilier
+et s'archive exactement comme un arc créé à la main — il n'existe aucun drapeau
+« fourni », parce qu'un tel drapeau finirait par interdire quelque chose.
+
+**Les étapes** (`etapes_arc`) sont ce qui distingue un arc d'une liste de
+tâches : le chemin est écrit à l'avance. Une étape n'est pas une quête — elle ne
+se planifie pas, ne consomme pas de budget-temps et ne nourrit aucun momentum.
+Elle se franchit, sa date de franchissement reste, et elle se réordonne d'un
+cran à la fois.
+
+**Archiver** met l'arc en sommeil (`actif = false`) : ses quêtes cessent de
+sortir dans la sélection, tout le reste demeure — validations, historique,
+seuils franchis. **Accomplir** pose `accompliLe` : l'arc rejoint
+`/arcs/accomplis` et quitte la liste courante. Les deux se défont.
 
 ## Bilan hebdomadaire
 
@@ -712,6 +778,31 @@ Un créneau dont la fin précède le début passe minuit. C'est de là que vient
 **récupération** : un créneau qui a mordu sur la nuit allège le lendemain. Le
 shift du samedi finit à 1 h, donc le dimanche est un jour de récupération ; celui
 du dimanche s'arrête pile à minuit et ne déborde pas sur le lundi.
+
+### La grille de la semaine
+
+Une vraie grille horaire, aux conventions d'un agenda : les heures en colonne à
+gauche, les jours en colonnes, chaque bloc positionné et dimensionné à sa durée
+réelle. La version précédente donnait vingt-sept pixels par heure et du texte de
+huit points et demi — elle disait ce qu'il y avait, on ne pouvait pas le lire.
+
+- **62 px par heure**, sur les vingt-quatre heures et non la seule fenêtre
+  d'éveil : un service qui finit à 1 h doit se voir.
+- **Sept jours en paysage, trois en portrait** avec défilement horizontal. La
+  bascule est une requête de média sur l'orientation, pas du JavaScript qui
+  écouterait le redimensionnement.
+- **Ouverture sur l'heure courante**, jamais sur minuit, et une ligne d'heure
+  sur la colonne du jour, rafraîchie chaque minute.
+- **Un bloc qui passe minuit est coupé en deux** : son jour jusqu'à minuit, le
+  reste sur le lendemain marqué d'un `↳`.
+- **Les chevauchements se rangent côte à côte**, en partageant la largeur — et
+  les blocs écartés entrent dans le même calcul que les autres, sans quoi un
+  récurrent et le ponctuel qui l'annule se superposeraient toujours.
+- **Contrainte ou choix.** Un récurrent porte une trame, un ponctuel une teinte
+  unie : ce qui est négociable saute aux yeux. Les couleurs sont celles des
+  piliers — `cours` reprend Savoir, `travail` Œuvre, `priere` Deen.
+- Toucher un bloc en ouvre le détail, avec l'écart ou le rétablissement pour ce
+  jour-là.
 
 ## Les deux règles qui comptent
 
@@ -809,7 +900,8 @@ src/
     selection.ts    choix des quêtes du jour — logique pure
     jour.ts         accès base et orchestration de l'écran du jour
     semaine.ts      accès base et orchestration de l'écran de la semaine
-    arcs.ts         progression calculée sur les validations
+    arcs.ts         progression calculée, création, étapes, archivage
+    taches.ts       tâches libres : ajout, coche, promotion en quête
     bilan.ts        chiffres de la semaine
     coran/
       sources.ts    éditions, licences, récitateurs — aucune donnée coranique

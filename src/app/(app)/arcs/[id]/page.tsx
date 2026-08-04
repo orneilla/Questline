@@ -3,6 +3,8 @@ import { Retour } from "@/components/retour";
 import { notFound } from "next/navigation";
 
 import { EcranInstallation } from "@/components/ecran-installation";
+import { EtapesArc, EtatDeLArc, FormulaireArc } from "@/components/arcs/edition";
+import { Depliant } from "@/components/reglages/briques";
 import { chargerArc, HORIZON_SEMAINES, type DetailArc } from "@/lib/arcs";
 import { COULEURS_PILIERS, JOURS_SEMAINE, LIBELLES_PILIERS } from "@/lib/constantes";
 import { formaterDateLongue } from "@/lib/dates";
@@ -55,9 +57,21 @@ export default async function PageArc({
           {LIBELLES_PILIERS[arc.pilier]}
         </p>
 
-        <h1 className="police-titre text-[30px] leading-tight">{arc.nom}</h1>
+        <h1 className="police-titre text-[30px] leading-tight">
+          {arc.nom}
+          {arc.accompliLe && <span className="text-tres-doux"> · accompli</span>}
+          {!arc.actif && !arc.accompliLe && (
+            <span className="text-tres-doux"> · en sommeil</span>
+          )}
+        </h1>
         <p className="text-[14.5px] leading-relaxed text-doux">{arc.vision}</p>
       </header>
+
+      <EtapesArc
+        arcId={arc.id}
+        etapes={arc.etapes}
+        modifiable={arc.accompliLe === null}
+      />
 
       <section className="flex flex-col gap-3">
         <div className="flex items-baseline justify-between">
@@ -119,6 +133,14 @@ export default async function PageArc({
           </div>
         ))}
       </section>
+
+      <Depliant titre="Modifier cet arc" detail="Nom, pilier, vision">
+        <FormulaireArc
+          arc={{ id: arc.id, nom: arc.nom, pilier: arc.pilier, vision: arc.vision }}
+        />
+      </Depliant>
+
+      <EtatDeLArc id={arc.id} archive={!arc.actif} accompliLe={arc.accompliLe} />
 
       <section className="flex flex-col gap-3">
         <h2 className="text-[13px] tracking-[0.14em] text-doux uppercase">Historique</h2>

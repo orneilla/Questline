@@ -44,6 +44,13 @@ function CarteArc({ arc }: { arc: ResumeArc }) {
 
       <p className="text-[13.5px] leading-relaxed text-doux">{arc.vision}</p>
 
+      {arc.etapesTotal > 0 && (
+        <p className="text-[12px] text-tres-doux tabular-nums">
+          {arc.etapesFaites} étape{arc.etapesFaites > 1 ? "s" : ""} sur{" "}
+          {arc.etapesTotal}
+        </p>
+      )}
+
       <p className="text-[12px] text-tres-doux">
         {arc.nombreValidations} validation{arc.nombreValidations > 1 ? "s" : ""} ·{" "}
         {arc.points} points
@@ -65,12 +72,16 @@ export default async function PageArcs() {
     return <EcranInstallation probleme={probleme} />;
   }
 
+  // Les arcs accomplis ont leur propre page : ils ne se mêlent pas aux vivants.
+  const enCours = liste.filter((a) => a.accompliLe === null);
+  const accomplis = liste.length - enCours.length;
+
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-md flex-col gap-9 px-6 pt-[calc(env(safe-area-inset-top)+2.75rem)] pb-10">
       <header className="apparait flex items-start justify-between gap-4">
         <div className="flex flex-col gap-2.5">
           <p className="text-[12px] tracking-[0.22em] text-tres-doux uppercase">
-            {liste.length} arcs
+            {enCours.length} arcs en cours
           </p>
           <h1 className="police-titre text-[34px] leading-none">Arcs</h1>
         </div>
@@ -79,8 +90,23 @@ export default async function PageArcs() {
         </div>
       </header>
 
+      <div className="flex gap-2">
+        <Link
+          href="/arcs/nouveau"
+          className="flex min-h-12 flex-1 items-center justify-center rounded-xl border border-bordure-vive bg-surface-haut text-[14px] text-texte"
+        >
+          Nouvel arc
+        </Link>
+        <Link
+          href="/arcs/accomplis"
+          className="flex min-h-12 flex-1 items-center justify-center rounded-xl border border-bordure text-[13.5px] text-doux"
+        >
+          Accomplis{accomplis > 0 ? ` · ${accomplis}` : ""}
+        </Link>
+      </div>
+
       {PILIERS.map((pilier) => {
-        const duPilier = liste.filter((a) => a.pilier === pilier);
+        const duPilier = enCours.filter((a) => a.pilier === pilier);
         if (duPilier.length === 0) return null;
 
         return (

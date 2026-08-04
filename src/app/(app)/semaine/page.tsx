@@ -36,7 +36,9 @@ export default async function PageSemaine() {
   const cejour = aujourdhui();
 
   return (
-    <main className="mx-auto flex min-h-dvh w-full max-w-md flex-col gap-10 px-4 pt-[calc(env(safe-area-inset-top)+2.75rem)] pb-10">
+    // La grille a besoin de toute la largeur disponible : la contrainte de
+    // téléphone ne s'applique qu'aux formulaires, plus bas.
+    <main className="mx-auto flex min-h-dvh w-full max-w-5xl flex-col gap-10 px-4 pt-[calc(env(safe-area-inset-top)+2.75rem)] pb-10">
       <header className="apparait flex flex-col gap-2.5 px-2">
         <div className="flex items-baseline justify-between gap-4">
           <p className="text-[12px] tracking-[0.22em] text-tres-doux uppercase">
@@ -51,7 +53,7 @@ export default async function PageSemaine() {
 
       <div aria-hidden className="h-px w-full bg-bordure/60" />
 
-      <div className="flex flex-col gap-9 px-2">
+      <div className="mx-auto flex w-full max-w-md flex-col gap-9 px-2">
         <FormulaireRecurrent jourParDefaut={jourDeLaSemaine(cejour)} />
         <FormulaireEvenement dateParDefaut={cejour} />
       </div>

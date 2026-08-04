@@ -42,7 +42,63 @@ export const arcs = pgTable("arcs", {
   vision: text("vision").notNull().default(""),
   /** La progression n'est pas stockée : elle se calcule sur les validations. */
   actif: boolean("actif").notNull().default(true),
+  /**
+   * Date à laquelle l'arc a été déclaré accompli. Un arc accompli quitte la
+   * liste courante pour la page des arcs accomplis, sans rien perdre : ses
+   * quêtes, ses validations et ses seuils restent en base.
+   */
+  accompliLe: date("accompli_le"),
+  /** Ordre d'affichage, modifiable. À égalité, l'identifiant tranche. */
+  ordre: integer("ordre").notNull().default(0),
 });
+
+/**
+ * Une étape d'arc.
+ *
+ * C'est ce qui distingue un arc d'une liste de tâches : il a un chemin, et le
+ * chemin est écrit à l'avance. Une étape n'est pas une quête — elle ne se
+ * planifie pas, ne consomme pas de budget-temps et ne nourrit aucun momentum.
+ * Elle se franchit, et sa date de franchissement reste.
+ */
+export const etapesArc = pgTable(
+  "etapes_arc",
+  {
+    id: serial("id").primaryKey(),
+    arcId: integer("arc_id")
+      .notNull()
+      .references(() => arcs.id, { onDelete: "cascade" }),
+    titre: text("titre").notNull(),
+    detail: text("detail").notNull().default(""),
+    ordre: integer("ordre").notNull().default(0),
+    atteinteLe: date("atteinte_le"),
+  },
+  (table) => [index("etapes_arc_arc_id_idx").on(table.arcId)],
+);
+
+/**
+ * Une tâche libre.
+ *
+ * Ce qui tombe sans prévenir et n'a pas d'arc : un papier à envoyer, un appel à
+ * passer. C'est une liste, pas un système — pas de priorité, pas d'étiquette,
+ * pas d'échéance. Ce qui n'est pas fait reste simplement ouvert : il n'existe
+ * nulle part de notion de retard, donc rien ne peut être signalé comme tel.
+ *
+ * Le rattachement à un pilier est facultatif. Rattachée, la tâche crédite son
+ * pilier une fois cochée ; libre, elle ne compte nulle part et c'est très bien.
+ */
+export const taches = pgTable(
+  "taches",
+  {
+    id: serial("id").primaryKey(),
+    texte: text("texte").notNull(),
+    pilier: pilierEnum("pilier"),
+    creeeLe: date("creee_le").notNull(),
+    /** Nulle tant que la tâche est ouverte. */
+    faiteLe: date("faite_le"),
+    ordre: integer("ordre").notNull().default(0),
+  },
+  (table) => [index("taches_faite_le_idx").on(table.faiteLe)],
+);
 
 /** Une quête = un geste concret qui fait avancer un arc. */
 export const quetes = pgTable(
@@ -646,3 +702,5 @@ export const motsCoran = pgTable(
 
 export type PositionSourate = typeof positionsSourate.$inferSelect;
 export type MotCoran = typeof motsCoran.$inferSelect;
+export type EtapeArc = typeof etapesArc.$inferSelect;
+export type Tache = typeof taches.$inferSelect;

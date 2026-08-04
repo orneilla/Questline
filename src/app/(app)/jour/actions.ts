@@ -9,6 +9,14 @@ import {
   validerQueteRare,
 } from "@/lib/jour";
 import { cloreSaison } from "@/lib/saisons";
+import {
+  ajouterTache,
+  cocherTache,
+  promouvoirTache,
+  rattacherTache,
+  supprimerTache,
+} from "@/lib/taches";
+import type { Pilier } from "@/db/schema";
 import { marquerSeuilVu } from "@/lib/seuils";
 
 export async function actionValider(queteId: number): Promise<void> {
@@ -41,4 +49,43 @@ export async function actionCloreSaison(numero: number, reponse: string): Promis
 /** Volontairement sans revalidation : la frappe ne doit jamais être interrompue. */
 export async function actionPhrase(texte: string): Promise<void> {
   await enregistrerPhrase(texte);
+}
+
+/* ───────────────────────────── Tâches libres ───────────────────────────── */
+
+export async function actionAjouterTache(
+  texte: string,
+  pilier: Pilier | null,
+): Promise<void> {
+  await ajouterTache(texte, pilier);
+  revalidatePath("/jour");
+}
+
+export async function actionCocherTache(id: number, faite: boolean): Promise<void> {
+  await cocherTache(id, faite);
+  revalidatePath("/jour");
+}
+
+export async function actionSupprimerTache(id: number): Promise<void> {
+  await supprimerTache(id);
+  revalidatePath("/jour");
+}
+
+export async function actionRattacherTache(
+  id: number,
+  pilier: Pilier | null,
+): Promise<void> {
+  await rattacherTache(id, pilier);
+  revalidatePath("/jour");
+}
+
+export async function actionPromouvoirTache(
+  id: number,
+  arcId: number,
+  frequenceSem: number,
+  dureeMin: number,
+): Promise<void> {
+  await promouvoirTache(id, arcId, frequenceSem, dureeMin);
+  revalidatePath("/jour");
+  revalidatePath("/arcs");
 }

@@ -10,6 +10,7 @@ import { BasculeJourBas } from "@/components/bascule-jour-bas";
 import { EcranInstallation } from "@/components/ecran-installation";
 import { ListeQuetes } from "@/components/liste-quetes";
 import { PhraseDuSoir } from "@/components/phrase-du-soir";
+import { Taches } from "@/components/taches";
 import { libelleCharge } from "@/lib/charge";
 import { formaterDateLongue } from "@/lib/dates";
 import { diagnostiquer } from "@/lib/erreurs";
@@ -17,6 +18,13 @@ import { cartesDues } from "@/lib/cartes/donnees";
 import { chargerJour, type EtatJour } from "@/lib/jour";
 import { texteDuTitre } from "@/lib/recit";
 import { saisonAClore, saisonCourante } from "@/lib/saisons";
+import {
+  arcsPourPromotion,
+  chargerTaches,
+  SEUIL_RECURRENCE,
+  type ArcDisponible,
+  type EtatTaches,
+} from "@/lib/taches";
 import { consignerSeuils, seuilAAnnoncer } from "@/lib/seuils";
 
 /** Au-delà, la révision pèse assez pour alléger le reste de la journée. */
@@ -31,10 +39,16 @@ export default async function PageJour() {
   let saison: Awaited<ReturnType<typeof saisonAClore>> = null;
   let cycle: Awaited<ReturnType<typeof saisonCourante>>;
   let dues = 0;
+  let taches: EtatTaches;
+  let arcsDisponibles: ArcDisponible[];
 
   try {
     etat = await chargerJour();
     dues = await cartesDues();
+    [taches, arcsDisponibles] = await Promise.all([
+      chargerTaches(),
+      arcsPourPromotion(),
+    ]);
     await consignerSeuils();
     // Un seuil franchi passe devant tout le reste ; la clôture de saison
     // attend son tour.
@@ -92,6 +106,12 @@ export default async function PageJour() {
       {etat.queteRare && (
         <QueteRare quete={etat.queteRare} faite={etat.queteRareFaite} />
       )}
+
+      <Taches
+        etat={taches}
+        arcs={arcsDisponibles}
+        seuilRecurrence={SEUIL_RECURRENCE}
+      />
 
       <BarresMomentum momentums={etat.momentums} />
 
