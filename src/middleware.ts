@@ -31,6 +31,11 @@ export const config = {
     // Les routes techniques portent leurs propres secrets et doivent rester
     // atteignables sans session : /api/setup avant même que les tables
     // existent, /api/cron pour Vercel, /api/telegram pour le webhook.
-    "/((?!api/setup|api/cron|api/telegram|_next/static|_next/image|favicon.ico|icones|manifest.webmanifest).*)",
+    //
+    // `sw.js` est exclu pour une autre raison : le navigateur revérifie le
+    // service worker périodiquement, parfois hors de toute page ouverte. Une
+    // redirection vers l'écran de connexion lui rendrait du HTML à la place du
+    // script, et il désinstallerait le worker — donc plus de notifications.
+    "/((?!api/setup|api/cron|api/telegram|sw.js|_next/static|_next/image|favicon.ico|icones|manifest.webmanifest).*)",
   ],
 };

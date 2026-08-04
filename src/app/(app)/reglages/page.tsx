@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { Retour } from "@/components/retour";
 import { asc } from "drizzle-orm";
 
@@ -81,6 +82,31 @@ export default async function PageReglages() {
           confirmation.
         </p>
       </header>
+
+      <nav className="flex flex-col gap-2">
+        {(
+          [
+            ["/reglages/notifications", "Rappels", "Notifications, Telegram, diagnostic"],
+            ["/reglages/sauvegardes", "Sauvegardes", "Automatiques, téléchargement, restauration"],
+            ["/cartes/reglages", "Cartes", "Révision, apparence, import et export"],
+            ["/coran/reglages", "Coran", "Éditions, lecture, ressources déposées"],
+          ] as const
+        ).map(([href, titre, detail]) => (
+          <Link
+            key={href}
+            href={href}
+            className="flex min-h-16 items-center justify-between gap-3 rounded-2xl border border-bordure bg-surface px-5 transition-colors duration-300 active:bg-surface-haut"
+          >
+            <span className="flex flex-col gap-0.5">
+              <span className="text-[16px] text-texte">{titre}</span>
+              <span className="text-[12px] text-tres-doux">{detail}</span>
+            </span>
+            <span aria-hidden className="text-tres-doux">
+              →
+            </span>
+          </Link>
+        ))}
+      </nav>
 
       {PILIERS.map((pilier) => {
         const duPilier = arcs.filter((a) => a.pilier === pilier);

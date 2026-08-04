@@ -26,6 +26,12 @@ import {
   type EtatTaches,
 } from "@/lib/taches";
 import { consignerSeuils, seuilAAnnoncer } from "@/lib/seuils";
+import { abonnements } from "@/lib/notifications/push";
+import {
+  anciennete,
+  chargerReglagesRappels,
+  JOURS_AVANT_PROPOSITION,
+} from "@/lib/notifications/reglages";
 
 /** Au-delà, la révision pèse assez pour alléger le reste de la journée. */
 const SEUIL_CHARGE_CARTES = 50;
@@ -41,6 +47,7 @@ export default async function PageJour() {
   let dues = 0;
   let taches: EtatTaches;
   let arcsDisponibles: ArcDisponible[];
+  let proposerRappels = false;
 
   try {
     etat = await chargerJour();
@@ -52,6 +59,14 @@ export default async function PageJour() {
     await consignerSeuils();
     // Un seuil franchi passe devant tout le reste ; la clôture de saison
     // attend son tour.
+    // Les notifications ne se proposent pas au premier lancement : une
+    // permission demandée avant qu'on sache à quoi elle sert est une
+    // permission refusée, et un refus ne se redemande pas sur iOS.
+    const rappels = await chargerReglagesRappels();
+    proposerRappels =
+      anciennete(rappels) >= JOURS_AVANT_PROPOSITION &&
+      (await abonnements()).length === 0;
+
     seuil = await seuilAAnnoncer();
     saison = seuil ? null : await saisonAClore();
     cycle = await saisonCourante();
@@ -93,6 +108,25 @@ export default async function PageJour() {
             <span className="text-[12px] text-tres-doux">
               {dues} carte{dues > 1 ? "s" : ""} en attente
               {dues > SEUIL_CHARGE_CARTES ? " · la journée en tient compte" : ""}
+            </span>
+          </span>
+          <span aria-hidden className="text-tres-doux">
+            →
+          </span>
+        </Link>
+      )}
+
+      {proposerRappels && (
+        <Link
+          href="/reglages/notifications"
+          className="flex min-h-16 items-center justify-between gap-3 rounded-2xl border border-bordure bg-surface px-5 transition-colors duration-300 active:bg-surface-haut"
+        >
+          <span className="flex flex-col gap-0.5">
+            <span className="text-[15px] text-texte">
+              Recevoir les rappels de Questline
+            </span>
+            <span className="text-[12px] leading-relaxed text-tres-doux">
+              Deux par jour, aux heures que tu choisis. Rien d'autre.
             </span>
           </span>
           <span aria-hidden className="text-tres-doux">

@@ -592,6 +592,70 @@ La page **Vocabulaire** liste les trois cents racines les plus fréquentes par
 fréquence décroissante, en marquant celles déjà travaillées, et dit quelle part
 des occurrences elles couvrent.
 
+## Rappels
+
+L'application ne compte pas sur le fait qu'on pense à l'ouvrir : elle vient.
+Deux canaux, réglables depuis **Réglages → Rappels** : les notifications de
+Questline, le bot Telegram, ou les deux. Par défaut les notifications seules —
+et changer de canal ne supprime rien de l'autre.
+
+| Créneau | Défaut  | Contenu                                                     |
+| ------- | ------- | ----------------------------------------------------------- |
+| Matin   | 7 h 30  | Les quêtes du jour avec leur pilier, les tâches en attente, les cartes dues |
+| Soir    | 21 h 30 | Ce qui a été validé, ce qui reste                            |
+
+Les horaires se changent, chaque créneau s'active séparément. Le ton est celui
+du reste : on annonce, on constate. Une journée sans rien de coché reçoit le
+même égard qu'une autre — pas de série brisée, pas de retard souligné, pas de
+relance.
+
+### Notifications web
+
+Service worker minuscule à la racine (`public/sw.js`) : il reçoit les rappels et
+les ouvre au bon écran, et ne met **rien** en cache. Un cache mal réglé
+afficherait une journée d'hier ; la base est la seule source de vérité.
+
+**Les clés VAPID vivent en base**, pas dans l'environnement. Elles sont
+engendrées à la première demande, depuis le navigateur, et n'ont donc jamais à
+être recopiées à la main dans Vercel — c'est le même principe que le reste de
+l'installation, rien qui demande un terminal. Elles ne changent plus ensuite :
+les regénérer invaliderait tous les abonnements.
+
+**Le moment de la demande.** Jamais au premier lancement. Une permission
+demandée avant qu'on sache à quoi elle sert est une permission refusée, et un
+refus sur iOS ne se redemande pas — il faut passer par les réglages du système.
+L'écran explique donc d'abord, et ne demande qu'au toucher explicite. Une
+invitation discrète apparaît sur l'écran du jour après **sept jours** d'usage,
+si aucun appareil n'est encore abonné.
+
+**iOS.** Safari n'accorde le push web que si l'application est installée sur
+l'écran d'accueil ; dans un onglet, `PushManager` n'existe même pas. L'écran le
+détecte et explique comment installer — Partager, puis Sur l'écran d'accueil —
+au lieu d'échouer sur une erreur incompréhensible. Une permission révoquée
+depuis le système est détectée à chaque affichage et dit où la redonner.
+
+**Ce qui se défait tout seul.** Un abonnement que le service de push déclare
+mort (404 ou 410) est retiré : le garder ferait échouer tous les envois
+suivants. Toute autre erreur est consignée sur la ligne de l'appareil et
+l'abonnement conservé — une panne passagère n'est pas une désinscription. Un
+abonnement renouvelé par le navigateur est réenregistré par le service worker
+lui-même, via `pushsubscriptionchange`.
+
+Vérifié contre un vrai service de push, en local et en TLS : chiffrement
+`aes128gcm` réel (303 octets pour le rappel du matin), signature VAPID validée
+contre la clé publique stockée en base, `TTL` de douze heures, et purge
+automatique des abonnements sur un 410.
+
+### Diagnostic
+
+**Réglages → Rappels** montre tout ce qu'il faut pour comprendre un rappel qui
+n'arrive pas, sans accès aux journaux : l'état de la permission, les appareils
+abonnés avec leur dernière erreur telle que le service l'a rendue, la réponse de
+Telegram à `getMe`, la présence de chaque variable — le jeton n'est jamais
+affiché, seulement son identifiant public suivi de points — et la date du
+dernier envoi réussi de chaque créneau sur chaque canal. Deux boutons de test
+donnent la réponse exacte du service en cas d'échec.
+
 ## Le bot Telegram
 
 L'application ne compte pas sur le fait qu'on pense à l'ouvrir : elle vient.
@@ -607,8 +671,20 @@ fonctionne exactement pareil.
 Le message du matin porte un bouton par quête : y toucher valide sans ouvrir
 l'app, et les boutons se rafraîchissent aussitôt. Un bouton « Jour bas » est là
 aussi. **Tout message texte envoyé au bot devient la phrase du soir** du jour en
-cours — le bot le confirme, et un nouveau message corrige le précédent. Les
-commandes (`/…`) sont ignorées.
+cours — le bot le confirme, et un nouveau message corrige le précédent.
+
+Quatre commandes, pour répondre sans ouvrir l'app :
+
+| Commande       | Effet                                                        |
+| -------------- | ------------------------------------------------------------ |
+| `/aujourdhui`  | Renvoie le message du matin, à l'heure qu'il est              |
+| `/fait <n>`    | Valide la n-ième quête de la liste du jour                    |
+| `/cartes`      | Cartes dues et tâches ouvertes                                |
+| `/pause <n>`   | Suspend les rappels n jours ; `/pause 0` les reprend          |
+
+La pause vaut pour **les deux canaux** : elle ne désactive rien et ne rattrape
+rien. Le `chat_id` est vérifié à chaque message — personne d'autre ne peut
+piloter l'application.
 
 Un lendemain de nuit — le shift du samedi finit à 1 h — ouvre autrement : la
 journée est annoncée comme allégée d'office, sans rien à rattraper. Une journée
@@ -651,6 +727,63 @@ troisième créneau.
 Rien ne casse. Jeton absent, réseau coupé, API en panne : l'appel se solde par
 une trace en journal, l'envoi n'est pas consigné, et le prochain déclenchement
 retentera. L'application ne dépend jamais du bot.
+
+## Recherche globale
+
+Un champ unique, atteignable depuis l'en-tête de n'importe quel écran, qui
+traverse tout : cartes (recto, verso, notes, étiquettes), versets (arabe,
+translittération, traduction), vocabulaire arabe (mot, racine, sens), quêtes,
+arcs et leurs étapes, tâches libres. Les résultats sont groupés par type avec le
+compte réel de chaque groupe, des filtres restreignent à un seul type, et chaque
+résultat mène **au bon endroit** — le verset dans sa sourate, la carte dans son
+paquet, la quête dans son arc.
+
+**L'insensibilité aux diacritiques sans extension Postgres.** `unaccent` est une
+extension, et une extension peut manquer à l'hébergement. Le pliage se fait donc
+avec `translate()`, à partir d'une table de correspondance définie en
+TypeScript : les deux chaînes qu'attend `translate` sont construites depuis la
+même liste de paires, donc elles ne peuvent pas se désaligner. La liste couvre le
+français et la translittération savante de l'arabe — « ṣalāt » se replie sur
+« salat », les signes ʾ et ʿ disparaissent.
+
+Le pliage ne suffit pas pour « coran » → « Qurʾān » : ce n'est pas un accent,
+c'est une autre graphie. Une **liste close** de correspondances connues comble
+l'écart — pas de recherche floue, qui rendrait des résultats qu'on ne saurait pas
+expliquer. Vérifié : « coran » et « quran » trouvent tous deux un verset
+contenant « Qurʾān », et « salat » trouve une tâche écrite « ṣalāt ».
+
+L'historique des dernières recherches vit dans le navigateur, pas en base : c'est
+un confort propre à l'appareil, et il ne garde que ce qui a donné un résultat.
+
+## Sauvegardes
+
+Automatiques, une par semaine, produites par le déclencheur planifié. Les **huit
+dernières** sont conservées, les plus anciennes purgées — sans quoi le poids
+grimperait sans fin sur un palier de 512 Mo. Date et poids de la dernière sont
+affichés dans **Réglages → Sauvegardes**, et un appui la télécharge.
+
+**Ce qui est dedans** : cartes et historique de révision, quêtes, arcs et
+étapes, validations, momentum, tâches, emploi du temps, progression de lecture,
+marque-pages, réglages. **Ce qui n'y est pas** : le texte coranique, la
+morphologie, les gloses, les images — des dizaines de mégaoctets qui se
+réinstallent d'une adresse, et dont l'inclusion rendrait la sauvegarde trop
+lourde pour être écrite dans une fonction serverless. Une sauvegarde qu'on ne
+peut pas produire ne protège rien. Mesuré sur une base réelle : **2,3 Mo** pour
+23 tables et 225 cartes.
+
+**La restauration** est la seule action de l'application qui puisse détruire des
+données. Elle suit donc le même ordre que la route de dépôt : lire, montrer,
+écrire. Le fichier est analysé dans le navigateur sans rien toucher, chaque table
+est comparée ligne à ligne avec ce qui est en base, et la confirmation dit en
+toutes lettres ce qui disparaît — chaque table listée est **vidée puis
+réécrite**, celles absentes du fichier ne sont pas touchées.
+
+Elle passe par une route et non par une action serveur : à 2,3 Mo, le fichier
+dépasse le plafond d'un mégaoctet des Server Actions. Le découpage se fait dans
+le navigateur — seul endroit où le fichier tient en entier — et le serveur ne
+voit jamais que quelques centaines de lignes à la fois. Les séquences `serial`
+sont remises au-delà du plus grand identifiant réécrit : sans cela, la première
+insertion suivante entrerait en collision avec une ligne restaurée.
 
 ## Texture narrative
 
@@ -902,6 +1035,14 @@ src/
     semaine.ts      accès base et orchestration de l'écran de la semaine
     arcs.ts         progression calculée, création, étapes, archivage
     taches.ts       tâches libres : ajout, coche, promotion en quête
+    recherche.ts    recherche globale (accès base)
+    recherche-partage.ts  types et libellés — logique pure
+    sauvegardes.ts  production, purge, restauration par lots (accès base)
+    sauvegardes-partage.ts  analyse d'un fichier déposé — logique pure
+    notifications/
+      push.ts       VAPID, abonnements, envoi chiffré
+      envoi.ts      composition des rappels, aiguillage des canaux
+      reglages.ts   canal, créneaux, horaires, pause
     bilan.ts        chiffres de la semaine
     coran/
       sources.ts    éditions, licences, récitateurs — aucune donnée coranique

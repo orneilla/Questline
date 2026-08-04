@@ -126,18 +126,52 @@ function RoueDentee() {
   );
 }
 
+function Loupe() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className="size-[18px]"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.6"
+      strokeLinecap="round"
+      aria-hidden
+    >
+      <circle cx="11" cy="11" r="7" />
+      <path d="m16.5 16.5 4 4" />
+    </svg>
+  );
+}
+
 /**
- * Accès aux réglages depuis l'en-tête d'un écran. Sur tablette en paysage, la
- * colonne de gauche porte déjà le lien : on n'en montre pas deux.
+ * Recherche et réglages, depuis l'en-tête de n'importe quel écran.
+ *
+ * La recherche n'a pas d'onglet à elle : cinq onglets suffisent en bas, et un
+ * sixième les rendrait tous plus étroits. Elle vit donc dans l'en-tête, où elle
+ * est atteignable partout — c'est ce que demandait « accessible depuis
+ * n'importe quel écran ».
+ *
+ * La roue dentée disparaît en paysage sur tablette : la colonne de gauche porte
+ * déjà le lien, et on n'en montre pas deux. La loupe, elle, reste : la colonne
+ * ne la porte pas.
  */
 export function LienReglages() {
   return (
-    <Link
-      href="/reglages"
-      aria-label="Réglages"
-      className="-m-2 shrink-0 p-2 text-tres-doux transition-colors duration-300 active:text-doux lg:landscape:hidden"
-    >
-      <RoueDentee />
-    </Link>
+    <span className="flex shrink-0 items-center gap-1">
+      <Link
+        href="/recherche"
+        aria-label="Chercher"
+        className="-m-1 p-1 text-tres-doux transition-colors duration-300 active:text-doux"
+      >
+        <Loupe />
+      </Link>
+      <Link
+        href="/reglages"
+        aria-label="Réglages"
+        className="-m-1 p-1 text-tres-doux transition-colors duration-300 active:text-doux lg:landscape:hidden"
+      >
+        <RoueDentee />
+      </Link>
+    </span>
   );
 }

@@ -228,6 +228,76 @@ export const messagesEnvoyes = pgTable(
   ],
 );
 
+/**
+ * Un appareil abonné aux notifications de Questline.
+ *
+ * Le navigateur produit un point de terminaison propre à l'appareil et deux
+ * clés de chiffrement ; le serveur ne peut rien envoyer sans elles. Il peut y
+ * avoir plusieurs lignes — la tablette et le téléphone sont deux abonnements
+ * distincts, et un même appareil réinstallé en produit un nouveau.
+ *
+ * Une ligne dont le point de terminaison a expiré est retirée automatiquement :
+ * c'est le service de push lui-même qui le dit, par un 404 ou un 410.
+ */
+export const abonnementsPush = pgTable(
+  "abonnements_push",
+  {
+    id: serial("id").primaryKey(),
+    endpoint: text("endpoint").notNull(),
+    p256dh: text("p256dh").notNull(),
+    auth: text("auth").notNull(),
+    /** De quel appareil il s'agit, pour pouvoir s'y reconnaître dans la liste. */
+    agent: text("agent").notNull().default(""),
+    creeLe: text("cree_le").notNull(),
+    dernierEnvoi: text("dernier_envoi"),
+    derniereErreur: text("derniere_erreur"),
+  },
+  (table) => [uniqueIndex("abonnements_push_endpoint_uniq").on(table.endpoint)],
+);
+
+/** Par quel canal les rappels arrivent. */
+export const canalEnum = pgEnum("canal_notification", ["push", "telegram", "les_deux"]);
+
+/**
+ * Réglages des rappels, ligne unique.
+ *
+ * Les clés VAPID vivent ici plutôt que dans l'environnement : elles sont
+ * engendrées au premier abonnement, depuis le navigateur, et n'ont donc jamais
+ * à être recopiées à la main dans Vercel. C'est le même principe que le reste
+ * de l'installation — rien qui demande un terminal.
+ */
+export const reglagesNotifications = pgTable("reglages_notifications", {
+  id: integer("id").primaryKey().default(1),
+  canal: canalEnum("canal").notNull().default("push"),
+  matinActif: boolean("matin_actif").notNull().default(true),
+  soirActif: boolean("soir_actif").notNull().default(true),
+  /** Minutes depuis minuit, heure de référence. */
+  heureMatin: integer("heure_matin").notNull().default(7 * 60 + 30),
+  heureSoir: integer("heure_soir").notNull().default(21 * 60 + 30),
+  vapidPublique: text("vapid_publique"),
+  vapidPrivee: text("vapid_privee"),
+  /** Aucun rappel jusqu'à cette date incluse. Posée par /pause. */
+  pauseJusqua: date("pause_jusqua"),
+  /** Première journée vécue : sert à ne proposer le push qu'après une semaine. */
+  premiereOuverture: date("premiere_ouverture"),
+});
+
+/**
+ * Une sauvegarde complète, en JSON.
+ *
+ * Elle est produite une fois par semaine par le déclencheur planifié, et les
+ * huit dernières sont conservées. Le contenu est stocké tel quel : une
+ * sauvegarde qu'il faudrait reconstruire pour la lire n'en serait pas une.
+ */
+export const sauvegardes = pgTable("sauvegardes", {
+  id: serial("id").primaryKey(),
+  creeeLe: text("creee_le").notNull(),
+  octets: integer("octets").notNull(),
+  /** Nombre de lignes par table, pour l'afficher sans relire tout le JSON. */
+  resume: text("resume").notNull().default("{}"),
+  contenu: text("contenu").notNull(),
+});
+
 /** Trace d'une quête accomplie. */
 export const validations = pgTable(
   "validations",
@@ -704,3 +774,7 @@ export type PositionSourate = typeof positionsSourate.$inferSelect;
 export type MotCoran = typeof motsCoran.$inferSelect;
 export type EtapeArc = typeof etapesArc.$inferSelect;
 export type Tache = typeof taches.$inferSelect;
+export type AbonnementPush = typeof abonnementsPush.$inferSelect;
+export type ReglagesNotifications = typeof reglagesNotifications.$inferSelect;
+export type Canal = (typeof canalEnum.enumValues)[number];
+export type Sauvegarde = typeof sauvegardes.$inferSelect;

@@ -124,3 +124,64 @@ export function echapper(texte: string): string {
     .replaceAll("<", "&lt;")
     .replaceAll(">", "&gt;");
 }
+
+/**
+ * Interroge Telegram sur l'identité du bot.
+ *
+ * Sert au diagnostic : si le jeton est faux ou révoqué, c'est ici que ça se
+ * voit, avec le message exact de l'API plutôt qu'un échec muet.
+ */
+export async function identiteBot(): Promise<
+  { ok: true; nom: string; identifiant: string } | { ok: false; raison: string }
+> {
+  const jeton = process.env.TELEGRAM_BOT_TOKEN;
+  if (!jeton) return { ok: false, raison: "TELEGRAM_BOT_TOKEN absente." };
+
+  try {
+    const reponse = await fetch(`${BASE}${jeton}/getMe`, {
+      signal: AbortSignal.timeout(10_000),
+      cache: "no-store",
+    });
+    const donnees = (await reponse.json()) as {
+      ok?: boolean;
+      description?: string;
+      result?: { first_name?: string; username?: string };
+    };
+
+    if (!reponse.ok || !donnees.ok) {
+      return {
+        ok: false,
+        raison: `${reponse.status} — ${donnees.description ?? "réponse inattendue"}`,
+      };
+    }
+
+    return {
+      ok: true,
+      nom: donnees.result?.first_name ?? "sans nom",
+      identifiant: donnees.result?.username ? `@${donnees.result.username}` : "—",
+    };
+  } catch (erreur) {
+    return {
+      ok: false,
+      raison: erreur instanceof Error ? erreur.message : String(erreur),
+    };
+  }
+}
+
+/** Ce qui est présent dans l'environnement, sans jamais montrer le jeton. */
+export function variablesPresentes(): {
+  jeton: boolean;
+  salon: boolean;
+  cronSecret: boolean;
+  empreinteJeton: string;
+} {
+  const jeton = process.env.TELEGRAM_BOT_TOKEN ?? "";
+  return {
+    jeton: jeton.length > 0,
+    salon: Boolean(process.env.TELEGRAM_CHAT_ID),
+    cronSecret: Boolean(process.env.CRON_SECRET),
+    // De quoi vérifier qu'on parle du bon jeton sans jamais l'afficher : son
+    // identifiant numérique de tête est public, le secret qui suit ne l'est pas.
+    empreinteJeton: jeton ? `${jeton.split(":")[0]}:••••••` : "—",
+  };
+}
