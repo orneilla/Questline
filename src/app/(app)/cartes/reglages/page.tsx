@@ -16,6 +16,7 @@ import {
   QUOTA_NEON_OCTETS,
   type EtatBase,
 } from "@/lib/cartes/edition";
+import { repartitionBase, type Repartition } from "@/lib/place";
 import { aujourdhui, decalerJours } from "@/lib/dates";
 import { diagnostiquer } from "@/lib/erreurs";
 
@@ -47,18 +48,21 @@ export default async function PageReglagesCartes() {
   let reglages: Awaited<ReturnType<typeof chargerReglages>>;
   let courbe: Awaited<ReturnType<typeof retention>>;
   let base: EtatBase;
+  let repartition: Repartition;
   let paquets: PaquetChoix[];
 
   try {
-    const [lus, jours, etat, arbre] = await Promise.all([
+    const [lus, jours, etat, parts, arbre] = await Promise.all([
       chargerReglages(),
       retention(30),
       etatBase(),
+      repartitionBase(),
       chargerArborescence(),
     ]);
     reglages = lus;
     courbe = jours;
     base = etat;
+    repartition = parts;
     paquets = arbre.flatMap((espace) =>
       espace.paquets.map((p) => ({
         id: p.id,
@@ -97,9 +101,13 @@ export default async function PageReglagesCartes() {
         <FormulaireReglages reglages={reglages} />
       </Section>
 
-      <Section titre="Place occupée">
+      <Section
+        titre="Place occupée"
+        aide="Poste par poste, mesuré table par table. Le texte coranique est importé une fois : c'est du poids qui ne bouge plus."
+      >
         <PlaceOccupee
           base={base}
+          repartition={repartition}
           quota={QUOTA_NEON_OCTETS}
           archivageParDefaut={decalerJours(aujourdhui(), -ARCHIVAGE_JOURS)}
         />

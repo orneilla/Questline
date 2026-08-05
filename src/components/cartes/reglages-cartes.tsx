@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState, useTransition } from "react";
+import { Fragment, useActionState, useState, useTransition } from "react";
 
 import {
   archiver,
@@ -10,6 +10,7 @@ import {
   type Retour,
 } from "@/app/(app)/cartes/edition-actions";
 import type { EtatBase } from "@/lib/cartes/edition";
+import type { Poste as PosteBase, Repartition } from "@/lib/place";
 import type { PaquetChoix } from "./editeur-carte";
 import { Envoyer, Retourner, champ, etiquette } from "@/components/reglages/briques";
 
@@ -123,12 +124,91 @@ export function FormulaireReglages({ reglages }: { reglages: ReglagesAffiches })
   );
 }
 
+/** Une ligne de poste : son nom, son poids, sa part du total. */
+function Poste({
+  poste,
+  total,
+  teinte,
+}: {
+  poste: PosteBase;
+  total: number;
+  teinte: string;
+}) {
+  const part = total > 0 ? poste.octets / total : 0;
+
+  return (
+    <div className="flex flex-col gap-1.5">
+      <div className="flex items-baseline justify-between gap-3 text-[13px]">
+        <span className="text-doux">{poste.nom}</span>
+        <span className="shrink-0 text-texte tabular-nums">{poids(poste.octets)}</span>
+      </div>
+      <span
+        aria-hidden
+        className="flex h-1 w-full overflow-hidden rounded-full bg-bordure"
+      >
+        <span
+          style={{ width: `${Math.max(0.5, Math.min(100, part * 100))}%`, backgroundColor: teinte }}
+        />
+      </span>
+      <p className="text-[11.5px] leading-relaxed text-tres-doux">{poste.aide}</p>
+      {poste.lignes.length > 0 && (
+        <dl className="mt-0.5 grid grid-cols-[1fr_auto] gap-x-4 gap-y-1 border-l border-bordure pl-3 text-[12px]">
+          {poste.lignes.map((ligne) => (
+            <Fragment key={ligne.nom}>
+              <dt className="text-tres-doux">{ligne.nom}</dt>
+              <dd className="text-right text-doux tabular-nums">{poids(ligne.octets)}</dd>
+            </Fragment>
+          ))}
+        </dl>
+      )}
+    </div>
+  );
+}
+
+function Bloc({
+  titre,
+  aide,
+  total,
+  postes,
+  reference,
+  teinte,
+}: {
+  titre: string;
+  aide: string;
+  total: number;
+  postes: PosteBase[];
+  /** Total de la base, pour dimensionner les barres à la même échelle. */
+  reference: number;
+  teinte: string;
+}) {
+  if (postes.length === 0) return null;
+
+  return (
+    <div className="flex flex-col gap-4 rounded-xl border border-bordure p-4">
+      <div className="flex flex-col gap-1">
+        <div className="flex items-baseline justify-between gap-3">
+          <span className={etiquette}>{titre}</span>
+          <span className="shrink-0 text-[14px] text-texte tabular-nums">
+            {poids(total)}
+          </span>
+        </div>
+        <p className="text-[11.5px] leading-relaxed text-tres-doux">{aide}</p>
+      </div>
+      {postes.map((poste) => (
+        <Poste key={poste.cle} poste={poste} total={reference} teinte={teinte} />
+      ))}
+    </div>
+  );
+}
+
 export function PlaceOccupee({
   base,
+  repartition,
   quota,
   archivageParDefaut,
 }: {
   base: EtatBase;
+  repartition: Repartition;
   quota: number;
   /** Date proposée : tout ce qui précède est archivable. */
   archivageParDefaut: string;
@@ -139,6 +219,10 @@ export function PlaceOccupee({
   const [confirme, setConfirme] = useState(false);
 
   const part = base.octetsBase === null ? null : base.octetsBase / quota;
+  // Les barres se comparent entre elles, à l'échelle du plus gros poste.
+  const reference = Math.max(1, ...repartition.postes.map((p) => p.octets));
+  const fixes = repartition.postes.filter((p) => p.fixe);
+  const vivants = repartition.postes.filter((p) => !p.fixe);
 
   return (
     <div className="flex flex-col gap-4">
@@ -164,7 +248,7 @@ export function PlaceOccupee({
               }}
             />
           </span>
-          {part > 0.75 && (
+          {part > 0.75 && repartition.totalVivant > repartition.totalFixe && (
             <p className="text-[12px] leading-relaxed text-doux">
               La base approche du palier gratuit de Neon. Archiver l'historique ancien
               libère le plus gros — c'est la table des révisions qui grossit.
@@ -173,9 +257,27 @@ export function PlaceOccupee({
         </div>
       ) : (
         <p className="text-[13px] text-tres-doux">
-          La base ne dit pas sa taille. Les comptes ci-dessous restent justes.
+          La base ne dit pas sa taille. La répartition ci-dessous reste juste.
         </p>
       )}
+
+      <Bloc
+        titre="Fixe"
+        aide="Importé une fois. Ne grandira plus, quoi que vous fassiez dans l'app."
+        total={repartition.totalFixe}
+        postes={fixes}
+        reference={reference}
+        teinte="#7d8ea8"
+      />
+
+      <Bloc
+        titre="Grandit avec l'usage"
+        aide="Ce que chaque journée ajoute."
+        total={repartition.totalVivant}
+        postes={vivants}
+        reference={reference}
+        teinte="#8fa37e"
+      />
 
       <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-[13px]">
         <dt className="text-tres-doux">Cartes</dt>
@@ -191,6 +293,15 @@ export function PlaceOccupee({
           {base.plusAncienneRevision ?? "—"}
         </dd>
       </dl>
+
+      {repartition.reste !== null && repartition.reste > 0 && (
+        <p className="text-[11.5px] leading-relaxed text-tres-doux">
+          {poids(repartition.mesure)} tenus par les tables ci-dessus, sur{" "}
+          {poids(base.octetsBase ?? 0)} annoncés par la base. L'écart —{" "}
+          {poids(repartition.reste)} — est le catalogue interne de Postgres et la
+          place libérée qu'il n'a pas encore rendue.
+        </p>
+      )}
 
       <div className="flex flex-col gap-2 rounded-xl border border-bordure p-4">
         <span className={etiquette}>Archiver l'historique</span>
