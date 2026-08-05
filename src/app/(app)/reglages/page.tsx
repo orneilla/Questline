@@ -9,6 +9,7 @@ import {
   FormulaireRecurrent,
 } from "@/components/formulaires-semaine";
 import { Donnees } from "@/components/reglages/donnees";
+import { RemiseAZeroVie } from "@/components/reglages/remise-a-zero";
 import {
   AjoutQuete,
   EditeurArc,
@@ -163,6 +164,13 @@ export default async function PageReglages() {
         <div className="mt-2 rounded-2xl border border-bordure px-5 py-4">
           <FormulaireEvenement dateParDefaut={cejour} />
         </div>
+      </Section>
+
+      <Section
+        titre="Remise à zéro"
+        aide="Efface la trace de ce qui a été fait, pas ce que tu as construit. Utile après une période de test, ou pour rouvrir un cycle. Les cartes et le Coran ont chacun la leur, dans leurs propres réglages."
+      >
+        <RemiseAZeroVie />
       </Section>
 
       <Section titre="Données">

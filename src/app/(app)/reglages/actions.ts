@@ -14,6 +14,13 @@ import {
   validations,
   type CategorieCreneau,
 } from "@/db/schema";
+import {
+  apercuRemise,
+  lirePortee,
+  remettreVieAZero,
+  type Apercu,
+  type Choix,
+} from "@/lib/remise-a-zero";
 
 export type Retour = { erreur?: string; message?: string };
 
@@ -49,6 +56,50 @@ function rafraichir() {
   revalidatePath("/semaine");
   revalidatePath("/arcs");
   revalidatePath("/bilan");
+}
+
+/* ------------------------------ Remise à zéro ------------------------------ */
+
+/** Ce qui serait effacé, compté avant confirmation. Rien n'est touché ici. */
+export async function compterRemise(portee: string): Promise<Apercu> {
+  return apercuRemise(lirePortee(portee));
+}
+
+/**
+ * Efface la trace de ce qui a été fait, dans la portée demandée.
+ *
+ * Ne touche ni les cartes, ni leur historique de révision, ni la lecture du
+ * Coran : ce sont trois choses distinctes, chacune avec sa propre remise à zéro.
+ */
+export async function remettreAZeroVie(
+  portee: string,
+  choix: Choix,
+): Promise<Retour> {
+  if (!choix.elan && !choix.quetes && !choix.taches) {
+    return { erreur: "Rien n'a été coché : rien n'a été effacé." };
+  }
+
+  try {
+    const bilan = await remettreVieAZero(lirePortee(portee), choix);
+    rafraichir();
+    revalidatePath("/jardin");
+    revalidatePath("/parcours");
+
+    const parties = [
+      choix.elan && `${bilan.piliers} pilier(s) remis à zéro`,
+      choix.quetes &&
+        `${bilan.validations} validation(s), ${bilan.quetesRares} quête(s) rare(s) et ${bilan.seuils} seuil(s) effacés`,
+      choix.taches && `${bilan.taches} tâche(s) accomplie(s) effacée(s)`,
+    ].filter((p): p is string => typeof p === "string");
+
+    return {
+      message: `${parties.join(" · ")}. Les cartes et le Coran n'ont pas bougé.`,
+    };
+  } catch (erreur) {
+    return {
+      erreur: `Remise à zéro interrompue : ${erreur instanceof Error ? erreur.message : String(erreur)}`,
+    };
+  }
 }
 
 /* --------------------------------- Créneaux -------------------------------- */

@@ -13,7 +13,9 @@ import { chargerPaquets, type ResumePaquet } from "@/lib/cartes/donnees";
 import { COULEURS_PILIERS, LIBELLES_PILIERS, PILIERS } from "@/lib/constantes";
 import { db } from "@/db";
 import { momentum } from "@/db/schema";
+import { aujourdhui } from "@/lib/dates";
 import { diagnostiquer } from "@/lib/erreurs";
+import { synchroniserMomentum } from "@/lib/jour";
 import { intensite } from "@/lib/momentum";
 
 export const metadata: Metadata = { title: "Questline — Jardin" };
@@ -26,6 +28,11 @@ export default async function PageJardin() {
   let elans: { pilier: string; valeur: number }[];
 
   try {
+    // La décroissance en attente s'appliquait seulement à l'ouverture du jour :
+    // le jardin pouvait donc montrer un élan figé à la dernière visite de /jour,
+    // c'est-à-dire une pousse qui n'existait plus. Idempotent.
+    await synchroniserMomentum(aujourdhui());
+
     [paquets, elans] = await Promise.all([
       chargerPaquets(),
       db.select({ pilier: momentum.pilier, valeur: momentum.valeur }).from(momentum),
