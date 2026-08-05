@@ -411,6 +411,31 @@ arrière-plan à mesure que les versets passent au centre de l'écran, et l'écr
 d'accueil rouvre là où la lecture s'est arrêtée. Marque-pages nommés, sans
 limite.
 
+### Enchaînement des sourates
+
+Arrivée au dernier verset, la sourate suivante se charge et s'ajoute à la
+suite : on ne sort pas d'une sourate pour entrer dans la suivante, pas plus que
+dans un moushaf. Remonter avant le premier verset ramène de la même façon à la
+sourate précédente.
+
+Vers le bas, une sentinelle placée un écran à l'avance. Vers le haut, **pas de
+sentinelle** : une sentinelle en tête est visible dès l'ouverture et chargerait
+la sourate précédente sans qu'on l'ait demandée — l'écran s'ouvrirait sur la fin
+de la sourate d'avant. C'est le défilement qui est écouté, et l'extension ne
+part que sur un geste réel : être remonté près du début, **en remontant**.
+L'insertion en tête compense le décalage qu'elle provoque, sinon ce qu'on est en
+train de lire sauterait sous les yeux.
+
+La coupure porte le numéro, le nom, et la basmala là où elle est d'usage —
+c'est-à-dire partout sauf Al-Fatiha, qui la porte comme premier verset, et
+At-Tawba, qui n'en a pas. **Le texte arabe de la basmala n'est écrit nulle part
+dans le code** : il est relu du premier verset d'Al-Fatiha tel qu'il est en base
+et passé en propriété. Aucun caractère arabe affiché ne vient d'ailleurs que du
+texte importé.
+
+La position enregistrée suit la sourate réellement affichée, et le compteur de
+lecture traverse le changement sans rien perdre.
+
 ### Suivre
 
 Objectif quotidien configurable en versets, en pages ou en minutes. Progression
@@ -422,12 +447,27 @@ pilier deen crédité, une fois par jour. Les jours où il ne l'est pas ne laiss
 aucune trace : le suivi compte ce qui a eu lieu, il ne sanctionne pas ce qui n'a
 pas eu lieu.
 
-Un verset n'est compté comme lu que s'il est resté sous les yeux plusieurs
-secondes. Sans ce délai, faire défiler une sourate pour vérifier un import
-enregistrait trois cents versets lus, ce qui est faux : un défilement rapide ne
-traverse chaque verset que quelques dizaines de millisecondes. Et c'est la liste
-des versets réellement lus qui est envoyée, pas l'intervalle qu'ils couvrent —
-traverser une sourate n'est pas la lire.
+**Ce qui compte comme lu.** Un verset est crédité quand il est resté *assez
+visible assez longtemps* : plus de la moitié du verset à l'écran, ou — pour un
+verset plus grand que l'écran — plus de la moitié de l'écran occupée, pendant
+**deux secondes**. Ni l'audio ni aucun geste ne sont requis : la lecture
+silencieuse est la lecture normale, l'écoute n'est qu'un moyen parmi d'autres.
+C'est la liste des versets réellement lus qui est envoyée, pas l'intervalle
+qu'ils couvrent — traverser une sourate n'est pas la lire.
+
+Une version antérieure exigeait qu'un verset croise une bande étroite au centre
+exact de l'écran, trente pour cent de la hauteur. Ce qui décidait n'était donc
+pas d'avoir lu le verset mais l'endroit où il s'était arrêté sous le doigt : un
+verset court posé en haut de l'écran, parfaitement lisible, ne touchait jamais
+la bande. Une sourate lue en entier pouvait être créditée de zéro.
+
+Le garde-fou contre le survol tient dans la durée, et nulle part ailleurs. Un
+défilement continu ne laisse chaque verset à l'écran que quelques centaines de
+millisecondes ; lire le plus court en prend plusieurs. Mesuré : Al-Fatiha lue en
+s'arrêtant sur chaque verset compte **7 sur 7**, sans audio ; un survol continu
+d'Al-Baqara de bout en bout compte **0 sur 286**. Après trois secondes d'arrêt
+sur l'écran d'ouverture, le même survol compte 2 — les deux versets qui étaient
+réellement sous les yeux avant que le doigt ne parte.
 
 Les séances partent par `navigator.sendBeacon` et non par une action serveur :
 une action partirait avec l'onglet et la lecture ne compterait pas. Le journal

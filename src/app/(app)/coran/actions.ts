@@ -5,12 +5,14 @@ import { revalidatePath } from "next/cache";
 import {
   analyserMot,
   chargerReglagesCoran,
+  chargerTrancheSourate,
   enregistrerPosition,
   enregistrerReglagesCoran,
   poserMarquePage,
   remettreLectureAZero,
   retirerMarquePage,
   type MotAffiche,
+  type TrancheSourate,
 } from "@/lib/coran/donnees";
 import { apprendreMotDuCoran, memoriserVerset } from "@/lib/coran/hifz";
 import type { FormatHifz } from "@/lib/coran/formats";
@@ -220,4 +222,16 @@ export async function desinstallerEdition(cle: string): Promise<Retour> {
   } catch (erreur) {
     return { erreur: message(erreur) };
   }
+}
+
+/**
+ * Charge une sourate voisine, pour l'enchaînement continu du lecteur.
+ *
+ * Le lecteur la demande quand on approche d'un bout, et la met à la suite — ou
+ * en tête — de ce qui est déjà affiché. Rend `null` aux extrémités du moushaf.
+ */
+export async function chargerSourateVoisine(
+  numeroSourate: number,
+): Promise<TrancheSourate | null> {
+  return chargerTrancheSourate(numeroSourate);
 }

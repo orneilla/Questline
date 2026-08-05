@@ -8,7 +8,9 @@ import {
   bornesJuz,
   chargerReglagesCoran,
   chargerSourates,
+  chargerTrancheSourate,
   chargerVersets,
+  texteBasmala,
   compterMots,
   positionDansSourate,
 } from "@/lib/coran/donnees";
@@ -87,6 +89,15 @@ export default async function PageLecture({
       translitteration: reglages.translitteration,
     });
 
+    // L'enchaînement continu n'a de sens que sur une sourate entière : un juz'
+    // ou une plage n'ont pas de « suivante » évidente.
+    const [trancheOuverte, basmala] = await Promise.all([
+      sourateOuverte !== null && tranche >= fin
+        ? chargerTrancheSourate(sourateOuverte)
+        : Promise.resolve(null),
+      texteBasmala(),
+    ]);
+
     if (versets.length === 0) {
       return (
         <main className="mx-auto flex min-h-dvh w-full max-w-md flex-col gap-5 px-6 pt-[calc(env(safe-area-inset-top)+2.75rem)]">
@@ -154,6 +165,8 @@ export default async function PageLecture({
 
         <Lecteur
           versets={versets}
+        tranche={trancheOuverte}
+        basmala={basmala}
           reglages={{
             reciteur: reglages.reciteur,
             tailleArabe: reglages.tailleArabe,

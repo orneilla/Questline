@@ -117,6 +117,71 @@ export type VersetAffiche = {
 };
 
 /** Les versets d'une plage globale, avec les éditions choisies. */
+export type TrancheSourate = {
+  sourate: number;
+  nom: string;
+  /**
+   * Vrai quand la basmala ouvre la sourate sans en être le premier verset.
+   * Al-Fatiha la porte comme verset 1, et At-Tawba n'en a pas : ce sont les
+   * deux seules exceptions, et elles sont de règle, pas d'opinion.
+   */
+  basmala: boolean;
+  versets: VersetAffiche[];
+};
+
+/**
+ * Une sourate entière, prête à être mise à la suite d'une autre.
+ *
+ * Sert à l'enchaînement continu du lecteur : arrivée au bout d'une sourate, la
+ * suivante se charge et s'ajoute sans rupture. Rend `null` au-delà des bornes —
+ * il n'y a rien avant la Fatiha ni après An-Nas.
+ */
+export async function chargerTrancheSourate(
+  numeroSourate: number,
+): Promise<TrancheSourate | null> {
+  if (numeroSourate < 1 || numeroSourate > 114) return null;
+
+  const [sourate] = await db
+    .select()
+    .from(sourates)
+    .where(eq(sourates.numero, numeroSourate))
+    .limit(1);
+  if (!sourate) return null;
+
+  const reglages = await chargerReglagesCoran();
+  const lignes = await chargerVersets(
+    sourate.premierVerset,
+    sourate.premierVerset + sourate.versets - 1,
+    {
+      traduction: reglages.traduction,
+      translitteration: reglages.translitteration,
+    },
+  );
+
+  return {
+    sourate: sourate.numero,
+    nom: sourate.nomTranslittere,
+    basmala: sourate.numero !== 1 && sourate.numero !== 9,
+    versets: lignes,
+  };
+}
+
+/**
+ * Le texte de la basmala, tel qu'il est en base.
+ *
+ * Il n'est pas écrit ici : c'est le premier verset d'Al-Fatiha, recopié depuis
+ * la base à l'octet près. Aucun caractère arabe affiché par l'application ne
+ * vient d'ailleurs que du texte importé.
+ */
+export async function texteBasmala(): Promise<string | null> {
+  const [ligne] = await db
+    .select({ texte: versets.texte })
+    .from(versets)
+    .where(eq(versets.numero, 1))
+    .limit(1);
+  return ligne?.texte ?? null;
+}
+
 export async function chargerVersets(
   debut: number,
   fin: number,

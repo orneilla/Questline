@@ -1,16 +1,17 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useRef, useState } from "react";
 
 import {
   ajouterMarquePage,
   analyser,
   apprendreMot,
+  chargerSourateVoisine,
   memoriser,
   sauverPosition,
 } from "@/app/(app)/coran/actions";
 import { FORMATS } from "@/lib/coran/formats";
-import type { MotAffiche, VersetAffiche } from "@/lib/coran/donnees";
+import type { MotAffiche, TrancheSourate, VersetAffiche } from "@/lib/coran/donnees";
 import { GLOSE_DEPOSEE, nomReciteur, pilePolice, urlAudio } from "@/lib/coran/sources";
 
 /**
@@ -53,14 +54,42 @@ const INTERVALLE_JOURNAL_MS = 180_000;
 const PAS_JOURNAL = 20;
 
 /**
- * Temps qu'un verset doit rester en vue avant d'être compté comme lu.
+ * Ce qui compte comme « lu ».
  *
- * Sans ce délai, faire défiler une sourate pour vérifier un import enregistrait
- * trois cents versets lus, ce qui est faux. Un défilement rapide ne traverse
- * chaque verset que quelques dizaines de millisecondes ; lire en prend
- * plusieurs secondes.
+ * Un verset est compté quand il est resté **assez visible assez longtemps**.
+ * Ni l'audio ni aucun geste ne sont requis : la lecture silencieuse est la
+ * lecture normale, et l'écoute n'est qu'un moyen parmi d'autres.
+ *
+ * ── Pourquoi la version précédente comptait zéro
+ *
+ * Elle exigeait qu'un verset croise une bande étroite au centre exact de
+ * l'écran — trente pour cent de la hauteur. Ce qui décidait n'était donc pas
+ * d'avoir lu le verset mais l'endroit où il s'était arrêté sous le doigt : un
+ * verset court posé en haut de l'écran, parfaitement lisible, ne touchait
+ * jamais la bande et ne comptait pas. D'où une sourate lue en entier créditée
+ * de rien.
+ *
+ * ── Le critère retenu
+ *
+ * Le verset est visible pour de bon, n'importe où dans l'écran : soit plus de
+ * la moitié du verset est à l'écran, soit — pour un verset plus grand que
+ * l'écran — il en occupe plus de la moitié. Les deux ensemble couvrent aussi
+ * bien un verset court qu'un verset qui déborde.
+ *
+ * ── Le garde-fou contre le survol
+ *
+ * Il tient dans la durée, et nulle part ailleurs. Un défilement continu ne
+ * laisse chaque verset à l'écran que quelques centaines de millisecondes ;
+ * lire le plus court des versets en prend plusieurs. Deux secondes suffisent à
+ * séparer les deux sans exiger un arrêt prolongé.
  */
-const DUREE_LECTURE_MS = 2_500;
+const DUREE_LECTURE_MS = 2_000;
+
+/** Part du verset qui doit être à l'écran, pour un verset qui y tient. */
+const PART_VERSET = 0.5;
+
+/** Part de l'écran que doit occuper un verset trop grand pour y tenir. */
+const PART_ECRAN = 0.5;
 
 /** En mode mémorisation, l'arabe et la translittération priment franchement. */
 function tailles(reglages: ReglagesLecteur) {
@@ -79,7 +108,9 @@ function tailles(reglages: ReglagesLecteur) {
 }
 
 export function Lecteur({
-  versets,
+  versets: versetsInitiaux,
+  tranche,
+  basmala,
   reglages,
   sources,
   versetInitial,
@@ -87,6 +118,13 @@ export function Lecteur({
   motAMotDisponible,
 }: {
   versets: VersetAffiche[];
+  /**
+   * La sourate ouverte, quand l'écran en montre une entière. Absente pour un
+   * juz' ou une plage : l'enchaînement n'a alors pas de sens.
+   */
+  tranche: TrancheSourate | null;
+  /** La basmala, recopiée de la base — jamais écrite ici. */
+  basmala: string | null;
   reglages: ReglagesLecteur;
   sources: Sources;
   versetInitial: number;
@@ -94,6 +132,21 @@ export function Lecteur({
   repriseSuggeree: { numero: number; reference: string } | null;
   motAMotDisponible: boolean;
 }) {
+  /**
+   * Les sourates affichées, dans l'ordre.
+   *
+   * En continuant de défiler après le dernier verset, la suivante s'ajoute à la
+   * suite ; en remontant avant le premier, la précédente se met en tête. C'est
+   * ce que fait n'importe quel moushaf : on ne sort pas d'une sourate pour
+   * entrer dans la suivante.
+   */
+  const [tranches, setTranches] = useState<TrancheSourate[]>(() =>
+    tranche ? [tranche] : [],
+  );
+  const chargement = useRef<Set<number>>(new Set());
+  const zoneBas = useRef<HTMLDivElement | null>(null);
+
+  const versets = tranche ? tranches.flatMap((t) => t.versets) : versetsInitiaux;
   const [actif, setActif] = useState<number | null>(null);
   const [continu, setContinu] = useState(false);
   const [ouvert, setOuvert] = useState<number | null>(null);
@@ -163,19 +216,105 @@ export function Lecteur({
   }, [journaliser]);
 
   /**
-   * Un verset n'est compté que s'il est resté en vue le temps de le lire. Le
-   * compteur démarre quand il entre au centre de l'écran et s'annule s'il en
-   * sort avant l'échéance.
+   * Charge la sourate voisine quand on approche d'un bout.
+   *
+   * Vers le bas, elle s'ajoute simplement. Vers le haut, il faut compenser :
+   * insérer du contenu au-dessus déplacerait tout ce qu'on est en train de
+   * lire. On mesure la hauteur avant, et on rend le défilement après.
+   */
+  const etendre = useCallback(
+    async (sens: -1 | 1) => {
+      if (tranches.length === 0) return;
+      const bord = sens === 1 ? tranches[tranches.length - 1] : tranches[0];
+      const vise = bord.sourate + sens;
+      if (vise < 1 || vise > 114 || chargement.current.has(vise)) return;
+
+      chargement.current.add(vise);
+      try {
+        const suite = await chargerSourateVoisine(vise);
+        if (!suite || suite.versets.length === 0) return;
+
+        setTranches((actuelles) => {
+          if (actuelles.some((t) => t.sourate === vise)) return actuelles;
+          if (sens === 1) return [...actuelles, suite];
+
+          // Compensation : on note la position du document avant l'insertion.
+          const avant = document.body.scrollHeight;
+          requestAnimationFrame(() => {
+            const gagne = document.body.scrollHeight - avant;
+            if (gagne > 0) window.scrollBy({ top: gagne, behavior: "instant" });
+          });
+          return [suite, ...actuelles];
+        });
+      } finally {
+        chargement.current.delete(vise);
+      }
+    },
+    [tranches],
+  );
+
+  // Vers le bas, une sentinelle suffit : on anticipe d'un écran, la suite est
+  // là avant qu'on arrive au bout.
+  useEffect(() => {
+    const cible = zoneBas.current;
+    if (!tranche || !cible) return;
+
+    const observateur = new IntersectionObserver(
+      (entrees) => {
+        if (entrees.some((e) => e.isIntersecting)) void etendre(1);
+      },
+      { rootMargin: "600px 0px" },
+    );
+    observateur.observe(cible);
+    return () => observateur.disconnect();
+  }, [tranche, etendre]);
+
+  /**
+   * Vers le haut, on écoute le défilement plutôt qu'une sentinelle.
+   *
+   * Une sentinelle placée en tête est visible dès l'ouverture : elle chargerait
+   * la sourate précédente sans qu'on l'ait demandée, et l'écran s'ouvrirait sur
+   * la fin de la sourate d'avant. On attend donc un geste réel — être remonté
+   * près du début, en remontant.
+   */
+  useEffect(() => {
+    if (!tranche) return;
+
+    let precedent = window.scrollY;
+    const auDefilement = () => {
+      const y = window.scrollY;
+      const remonte = y < precedent - 2;
+      precedent = y;
+      if (remonte && y < 400) void etendre(-1);
+    };
+
+    window.addEventListener("scroll", auDefilement, { passive: true });
+    return () => window.removeEventListener("scroll", auDefilement);
+  }, [tranche, etendre]);
+
+  /**
+   * Un verset n'est compté que s'il est resté assez visible assez longtemps.
+   * Le compteur démarre quand il devient franchement lisible et s'annule dès
+   * qu'il cesse de l'être.
    */
   useEffect(() => {
     const observateur = new IntersectionObserver(
       (entrees) => {
+        const hauteurEcran = window.innerHeight || 1;
+
         for (const entree of entrees) {
           const numero = Number(entree.target.getAttribute("data-verset"));
           if (!Number.isInteger(numero)) continue;
 
+          // Deux façons d'être lisible : montrer la moitié de soi, ou occuper
+          // la moitié de l'écran quand on est plus grand que lui.
+          const lisible =
+            entree.isIntersecting &&
+            (entree.intersectionRatio >= PART_VERSET ||
+              entree.intersectionRect.height / hauteurEcran >= PART_ECRAN);
+
           const enCours = minuteries.current.get(numero);
-          if (!entree.isIntersecting) {
+          if (!lisible) {
             if (enCours) {
               clearTimeout(enCours);
               minuteries.current.delete(numero);
@@ -199,7 +338,11 @@ export function Lecteur({
           );
         }
       },
-      { rootMargin: "-35% 0px -35% 0px" },
+      {
+        // Assez de paliers pour voir passer les deux seuils, y compris sur un
+        // verset bien plus grand que l'écran.
+        threshold: Array.from({ length: 21 }, (_, i) => i / 20),
+      },
     );
 
     for (const element of elements.current.values()) observateur.observe(element);
@@ -349,10 +492,26 @@ export function Lecteur({
 
       <ol className="flex flex-col">
         {versets.map((verset) => {
+          const ouvreSourate =
+            tranche !== null && verset.numeroDansSourate === 1;
+          const bloc = ouvreSourate
+            ? tranches.find((t) => t.sourate === verset.sourate)
+            : undefined;
+
           const enCours = actif === verset.numero;
           return (
+            <Fragment key={verset.numero}>
+              {bloc && (
+                <SeparateurSourate
+                  nom={bloc.nom}
+                  numero={bloc.sourate}
+                  basmala={bloc.basmala ? basmala : null}
+                  police={pilePolice(reglages.policeArabe)}
+                  taille={echelle.arabe}
+                  premier={versets[0]?.numero === verset.numero}
+                />
+              )}
             <li
-              key={verset.numero}
               data-verset={verset.numero}
               ref={(element) => {
                 if (element) elements.current.set(verset.numero, element);
@@ -441,9 +600,13 @@ export function Lecteur({
                 />
               )}
             </li>
+            </Fragment>
           );
         })}
       </ol>
+
+      {/* Sentinelle du bas : la dépasser charge la sourate suivante. */}
+      {tranche && <div ref={zoneBas} aria-hidden className="h-px" />}
 
       {mot && (
         <PanneauMot
@@ -764,5 +927,55 @@ function ActionsVerset({
         </button>
       </div>
     </div>
+  );
+}
+
+/**
+ * La coupure entre deux sourates.
+ *
+ * Nette, mais sans emphase : le nom, le numéro, et la basmala là où elle est
+ * d'usage. Le texte arabe de la basmala n'est pas écrit ici — il est recopié du
+ * premier verset d'Al-Fatiha tel qu'il est en base, et passé en propriété. Il
+ * est absent pour Al-Fatiha, qui la porte comme premier verset, et pour
+ * At-Tawba, qui n'en a pas.
+ */
+function SeparateurSourate({
+  nom,
+  numero,
+  basmala,
+  police,
+  taille,
+  premier,
+}: {
+  nom: string;
+  numero: number;
+  basmala: string | null;
+  police: string;
+  taille: number;
+  /** La première sourate affichée n'a pas besoin d'un trait au-dessus d'elle. */
+  premier: boolean;
+}) {
+  return (
+    <li
+      className={`flex flex-col items-center gap-2.5 px-1 pb-6 ${
+        premier ? "pt-1" : "mt-4 border-t border-bordure-vive pt-8"
+      }`}
+    >
+      <span className="text-[11.5px] tracking-[0.22em] text-tres-doux uppercase">
+        Sourate {numero}
+      </span>
+      <span className="police-titre text-[24px] leading-none text-texte">{nom}</span>
+
+      {basmala && (
+        <span
+          dir="rtl"
+          lang="ar"
+          className="mt-1 text-center leading-loose text-doux"
+          style={{ fontFamily: police, fontSize: taille * 0.8 }}
+        >
+          {basmala}
+        </span>
+      )}
+    </li>
   );
 }
