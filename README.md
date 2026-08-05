@@ -411,6 +411,24 @@ arrière-plan à mesure que les versets passent au centre de l'écran, et l'écr
 d'accueil rouvre là où la lecture s'est arrêtée. Marque-pages nommés, sans
 limite.
 
+### La barre du lecteur
+
+Fixe en haut de l'écran, elle répond à trois besoins d'un coup et c'est pour
+cela qu'elle ne défile pas : **sortir**, savoir **où l'on est**, voir **ce qu'on
+a lu**. Sans elle, quitter Al-Baqara demandait de remonter deux cent
+quatre-vingt-six versets ou de passer par la barre d'onglets — ce qui n'est pas
+une sortie, c'est un contournement. Une flèche, le numéro et le nom de la
+sourate en cours, le compte du jour. Le compte n'est pas un score et ne se
+compare à rien.
+
+### La numérotation affichée
+
+La numérotation continue de 1 à 6236 sert aux calculs, aux clés de base et aux
+liens ; **elle n'apparaît jamais à l'écran**. Chaque sourate repart à 1 :
+Al-Fatiha 1 à 7, puis Al-Baqara 1, 2, 3. Partout où une position se lit —
+bannière de reprise, accueil du Coran, marque-pages, notes de cartes — le format
+nomme la sourate : « Al-Baqara, verset 45 », jamais « verset 52 ».
+
 ### Enchaînement des sourates
 
 Arrivée au dernier verset, la sourate suivante se charge et s'ajoute à la
@@ -469,10 +487,19 @@ d'Al-Baqara de bout en bout compte **0 sur 286**. Après trois secondes d'arrêt
 sur l'écran d'ouverture, le même survol compte 2 — les deux versets qui étaient
 réellement sous les yeux avant que le doigt ne parte.
 
-Les séances partent par `navigator.sendBeacon` et non par une action serveur :
-une action partirait avec l'onglet et la lecture ne compterait pas. Le journal
-est aussi écrit tous les vingt versets, pour qu'une fermeture brutale ne coûte
-rien.
+**Le compteur bouge pendant la lecture.** Le serveur donne le point de départ au
+chargement de l'écran ; chaque verset crédité incrémente aussitôt le compte
+affiché dans la barre. Attendre l'aller-retour rendrait le compteur inerte
+pendant toute la lecture — c'est ce qui obligeait à quitter l'écran pour le voir
+bouger.
+
+Les envois, eux, restent groupés : tous les dix versets, toutes les minutes, et
+en quittant. `navigator.sendBeacon` est réservé au départ de la page — lui seul
+survit à la fermeture d'un onglet, mais il ne rend rien. Tant que la page vit,
+c'est une requête ordinaire qui part, et sa réussite déclenche un
+rafraîchissement : l'accueil du Coran et sa progression sont à jour dès qu'on y
+revient, sans avoir à relancer l'application. Mesuré : lire six versets fait
+passer l'accueil de « 0 versets » à « 6 versets » sans quitter l'app.
 
 **Remise à zéro** — depuis les réglages, pour tout le moushaf ou sourate par
 sourate, avec un texte qui dit exactement ce qui part et ce qui reste. Les

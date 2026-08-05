@@ -10,6 +10,7 @@ import {
   chargerSourates,
   chargerTrancheSourate,
   chargerVersets,
+  progression,
   texteBasmala,
   compterMots,
   positionDansSourate,
@@ -39,7 +40,7 @@ export default async function PageLecture({
 
     if (sourates.length === 0) {
       return (
-        <main className="mx-auto flex min-h-dvh w-full max-w-md flex-col gap-5 px-6 pt-[calc(env(safe-area-inset-top)+2.75rem)]">
+        <main className="mx-auto flex min-h-dvh w-full max-w-md flex-col gap-5 px-6 pt-[calc(env(safe-area-inset-top)+4.25rem)]">
           <Retour vers="/coran" libelle="Coran" />
           <p className="text-[14.5px] leading-relaxed text-doux">
             Le texte n'est pas encore importé.
@@ -91,16 +92,17 @@ export default async function PageLecture({
 
     // L'enchaînement continu n'a de sens que sur une sourate entière : un juz'
     // ou une plage n'ont pas de « suivante » évidente.
-    const [trancheOuverte, basmala] = await Promise.all([
+    const [trancheOuverte, basmala, avancement] = await Promise.all([
       sourateOuverte !== null && tranche >= fin
         ? chargerTrancheSourate(sourateOuverte)
         : Promise.resolve(null),
       texteBasmala(),
+      progression(),
     ]);
 
     if (versets.length === 0) {
       return (
-        <main className="mx-auto flex min-h-dvh w-full max-w-md flex-col gap-5 px-6 pt-[calc(env(safe-area-inset-top)+2.75rem)]">
+        <main className="mx-auto flex min-h-dvh w-full max-w-md flex-col gap-5 px-6 pt-[calc(env(safe-area-inset-top)+4.25rem)]">
           <Retour vers="/coran" libelle="Coran" />
           <p className="text-[14.5px] leading-relaxed text-doux">
             Cette portion n'est pas encore importée. L'import reprend là où il s'est
@@ -157,7 +159,7 @@ export default async function PageLecture({
       : undefined;
 
     return (
-      <main className="mx-auto flex min-h-dvh w-full max-w-md flex-col gap-5 px-5 pt-[calc(env(safe-area-inset-top)+2.75rem)] pb-10 lg:max-w-2xl">
+      <main className="mx-auto flex min-h-dvh w-full max-w-md flex-col gap-5 px-5 pt-[calc(env(safe-area-inset-top)+4.25rem)] pb-10 lg:max-w-2xl">
         <header className="flex flex-col gap-2">
           <Retour vers="/coran" libelle="Coran" />
           <h1 className="police-titre text-[26px] leading-tight">{titre}</h1>
@@ -185,10 +187,16 @@ export default async function PageLecture({
               ? {
                   numero: versetRepris.numero,
                   reference: `${versetRepris.sourate}:${versetRepris.numeroDansSourate}`,
+                  nomSourate:
+                    sourates[versetRepris.sourate - 1]?.nomTranslittere ??
+                    `Sourate ${versetRepris.sourate}`,
+                  versetDansSourate: versetRepris.numeroDansSourate,
                 }
               : null
           }
           motAMotDisponible={motsAnalyses > 0}
+          luAujourdhui={avancement.aujourdhui}
+          objectifJour={avancement.objectif}
         />
 
         {tranche < fin && (

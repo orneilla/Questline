@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Fragment, useCallback, useEffect, useRef, useState } from "react";
 
 import {
@@ -50,8 +52,8 @@ export type ReglagesLecteur = {
   afficherTraduction: boolean;
 };
 
-const INTERVALLE_JOURNAL_MS = 180_000;
-const PAS_JOURNAL = 20;
+const INTERVALLE_JOURNAL_MS = 60_000;
+const PAS_JOURNAL = 10;
 
 /**
  * Ce qui compte comme « lu ».
@@ -116,6 +118,8 @@ export function Lecteur({
   versetInitial,
   repriseSuggeree,
   motAMotDisponible,
+  luAujourdhui,
+  objectifJour,
 }: {
   versets: VersetAffiche[];
   /**
@@ -129,9 +133,14 @@ export function Lecteur({
   sources: Sources;
   versetInitial: number;
   /** Verset où la lecture de cette sourate s'était arrêtée, s'il y en a un. */
-  repriseSuggeree: { numero: number; reference: string } | null;
+  repriseSuggeree: { numero: number; reference: string; nomSourate: string; versetDansSourate: number } | null;
   motAMotDisponible: boolean;
+  /** Ce qui a déjà été lu aujourd'hui, au chargement de l'écran. */
+  luAujourdhui: number;
+  objectifJour: number;
 }) {
+  const router = useRouter();
+
   /**
    * Les sourates affichées, dans l'ordre.
    *
@@ -143,6 +152,14 @@ export function Lecteur({
   const [tranches, setTranches] = useState<TrancheSourate[]>(() =>
     tranche ? [tranche] : [],
   );
+  /**
+   * Le compte du jour, tenu à jour sur place.
+   *
+   * Le serveur donne le point de départ ; chaque verset crédité l'incrémente
+   * aussitôt. Attendre l'aller-retour rendrait le compteur inerte pendant toute
+   * la lecture — c'est ce qui obligeait à quitter l'écran pour le voir bouger.
+   */
+  const [luDuJour, setLuDuJour] = useState(luAujourdhui);
   const chargement = useRef<Set<number>>(new Set());
   const zoneBas = useRef<HTMLDivElement | null>(null);
 
@@ -173,16 +190,18 @@ export function Lecteur({
 
   const echelle = tailles({ ...reglages, modeMemorisation: memorisation });
 
-  const journaliser = useCallback(() => {
+  const journaliser = useCallback((quitte = false) => {
     if (lus.current.size === 0) return;
     const charge = JSON.stringify({
       numeros: [...lus.current],
       secondes: Math.round((Date.now() - debutSeance.current) / 1000),
     });
 
-    // `sendBeacon` est le seul envoi qui survive à la fermeture de la page :
-    // une action serveur partirait avec l'onglet et la lecture ne compterait pas.
-    const envoye =
+    // `sendBeacon` est le seul envoi qui survive à la fermeture de la page —
+    // une requête ordinaire partirait avec l'onglet. Mais il ne rend rien et ne
+    // permet pas de rafraîchir : tant que la page vit, on préfère une requête
+    // dont on peut attendre la fin pour remettre les écrans à jour.
+    const parBalise = () =>
       typeof navigator !== "undefined" && typeof navigator.sendBeacon === "function"
         ? navigator.sendBeacon(
             "/api/coran/lecture",
@@ -190,23 +209,36 @@ export function Lecteur({
           )
         : false;
 
-    if (!envoye) {
+    if (quitte) {
+      if (!parBalise()) {
+        void fetch("/api/coran/lecture", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: charge,
+          keepalive: true,
+        }).catch(() => undefined);
+      }
+    } else {
       void fetch("/api/coran/lecture", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: charge,
         keepalive: true,
-      }).catch(() => undefined);
+      })
+        // Les écrans servis par le serveur — l'accueil du Coran et sa
+        // progression — se remettent d'aplomb dès que l'envoi a abouti.
+        .then(() => router.refresh())
+        .catch(() => undefined);
     }
 
     lus.current.clear();
     premierLu.current = dernierLu.current;
     debutSeance.current = Date.now();
-  }, []);
+  }, [router]);
 
   useEffect(() => {
-    const minuteur = setInterval(journaliser, INTERVALLE_JOURNAL_MS);
-    const partir = () => journaliser();
+    const minuteur = setInterval(() => journaliser(), INTERVALLE_JOURNAL_MS);
+    const partir = () => journaliser(true);
     window.addEventListener("pagehide", partir);
     return () => {
       clearInterval(minuteur);
@@ -329,6 +361,7 @@ export function Lecteur({
             setTimeout(() => {
               minuteries.current.delete(numero);
               lus.current.add(numero);
+              setLuDuJour((compte) => compte + 1);
               if (numero > dernierLu.current) {
                 dernierLu.current = numero;
                 void sauverPosition(numero);
@@ -423,9 +456,23 @@ export function Lecteur({
     </button>
   );
 
+  // La sourate sous les yeux : celle du dernier verset crédité, à défaut la
+  // première affichée. Elle nomme la barre fixe pendant tout l'enchaînement.
+  const sourateCourante =
+    tranches.find((t) => t.sourate === (versets.find((v) => v.numero === dernierLu.current)?.sourate ?? tranches[0]?.sourate)) ??
+    tranches[0] ??
+    null;
+
   return (
     <div className="flex flex-col gap-5">
       <audio ref={audio} onEnded={auBout} preload="none" className="sr-only" />
+
+      <BarreLecture
+        nomSourate={sourateCourante?.nom ?? null}
+        numeroSourate={sourateCourante?.sourate ?? null}
+        lu={luDuJour}
+        objectif={objectifJour}
+      />
 
       {repriseVisible && repriseSuggeree && (
         <button
@@ -437,7 +484,8 @@ export function Lecteur({
           className="flex min-h-12 items-center justify-between gap-3 rounded-xl border border-bordure bg-surface px-4 text-left transition-colors duration-200 active:bg-surface-haut"
         >
           <span className="text-[13.5px] text-doux">
-            Reprendre au verset {repriseSuggeree.reference}
+            Reprendre à {repriseSuggeree.nomSourate}, verset{" "}
+            {repriseSuggeree.versetDansSourate}
           </span>
           <span aria-hidden className="text-[15px] text-tres-doux">
             ↓
@@ -977,5 +1025,53 @@ function SeparateurSourate({
         </span>
       )}
     </li>
+  );
+}
+
+/**
+ * La barre fixe du lecteur.
+ *
+ * Elle répond à trois besoins d'un coup, et c'est pour cela qu'elle est fixe :
+ * sortir, savoir où l'on est, voir ce qu'on a lu. Sans elle, quitter Al-Baqara
+ * demandait de remonter deux cent quatre-vingt-six versets ou de passer par la
+ * barre d'onglets — ce qui n'est pas une sortie, c'est un contournement.
+ *
+ * Discrète : un fond voilé, une flèche, le nom de la sourate, le compte du
+ * jour. Le compte n'est pas un score et ne se compare à rien ; il dit
+ * simplement où en est la journée, et il bouge pendant qu'on lit.
+ */
+function BarreLecture({
+  nomSourate,
+  numeroSourate,
+  lu,
+  objectif,
+}: {
+  nomSourate: string | null;
+  numeroSourate: number | null;
+  lu: number;
+  objectif: number;
+}) {
+  return (
+    <div className="fixed inset-x-0 top-0 z-30 border-b border-bordure bg-fond/92 backdrop-blur-sm">
+      <div className="mx-auto flex w-full max-w-md items-center gap-2 px-3 pt-[env(safe-area-inset-top)] lg:max-w-2xl">
+        <Link
+          href="/coran"
+          aria-label="Revenir au Coran"
+          className="-ml-1 flex size-11 shrink-0 items-center justify-center text-doux transition-colors duration-200 active:text-texte"
+        >
+          <svg viewBox="0 0 24 24" className="size-[19px]" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+            <path d="m14.5 5-7 7 7 7" />
+          </svg>
+        </Link>
+
+        <span className="min-w-0 flex-1 truncate text-[13.5px] text-texte">
+          {nomSourate ? `${numeroSourate}. ${nomSourate}` : "Lecture"}
+        </span>
+
+        <span className="shrink-0 text-[12px] text-tres-doux tabular-nums">
+          {lu} / {objectif}
+        </span>
+      </div>
+    </div>
   );
 }

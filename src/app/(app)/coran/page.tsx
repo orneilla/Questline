@@ -102,6 +102,18 @@ export default async function PageCoran() {
     );
   }
 
+  // La numérotation continue de 1 à 6236 sert aux calculs ; elle ne s'affiche
+  // jamais. Ce qui se lit, c'est la sourate et le rang du verset dans celle-ci.
+  const sourateReprise = [...sourates]
+    .reverse()
+    .find((s) => s.premierVerset <= position);
+  const reprise = sourateReprise
+    ? {
+        nomSourate: sourateReprise.nomTranslittere,
+        versetDansSourate: position - sourateReprise.premierVerset + 1,
+      }
+    : null;
+
   const parJuz = Array.from({ length: 30 }, (_, i) => i + 1);
 
   return (
@@ -123,7 +135,11 @@ export default async function PageCoran() {
         className="flex min-h-16 items-center justify-between rounded-2xl border border-bordure-vive bg-surface-haut px-5 text-[17px] text-texte transition-colors duration-300 active:bg-bordure"
       >
         Reprendre la lecture
-        <span className="text-[13px] text-doux tabular-nums">verset {position}</span>
+        <span className="text-right text-[13px] text-doux">
+          {reprise
+            ? `${reprise.nomSourate}, verset ${reprise.versetDansSourate}`
+            : "au début"}
+        </span>
       </Link>
 
       <Avancement etat={etat} />

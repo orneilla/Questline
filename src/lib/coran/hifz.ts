@@ -98,7 +98,7 @@ export async function memoriserVerset(demande: DemandeHifz): Promise<ResultatHif
 
   const reglages = await chargerReglagesCoran();
   const paquetId = await paquetSourate(verset.sourate, verset.nomSourate);
-  const repere = `${verset.sourate}:${verset.numeroDansSourate}`;
+  const repere = `${verset.nomSourate} ${verset.sourate}:${verset.numeroDansSourate}`;
   const tags = ["coran", `coran:${verset.sourate}:${verset.numeroDansSourate}`];
 
   // Toutes les faces portent l'arabe et sa translittération : c'est cette
@@ -139,13 +139,13 @@ export async function memoriserVerset(demande: DemandeHifz): Promise<ResultatHif
       recto: faceVerset,
       verso: face(suivant.texte, await translittere(verset.numero + 1)),
       type: "recto_verso",
-      notes: `Coran ${repere} → ${verset.sourate}:${suivant.numeroDansSourate}`,
+      notes: `${repere} → verset ${suivant.numeroDansSourate}`,
       tags,
     });
     return {
       cartes: creees,
       paquet: `${verset.sourate}. ${verset.nomSourate}`,
-      message: `Enchaînement ${repere} → ${verset.sourate}:${suivant.numeroDansSourate} créé.`,
+      message: `Enchaînement ${repere} → verset ${suivant.numeroDansSourate} créé.`,
     };
   }
 
@@ -168,10 +168,10 @@ export async function memoriserVerset(demande: DemandeHifz): Promise<ResultatHif
 
     const { creees } = await creerNote({
       paquetId,
-      recto: `**${verset.nomSourate} ${repere}**\n\n${amorce}`,
+      recto: `**${repere}**\n\n${amorce}`,
       verso: faceVerset,
       type: "recto_verso",
-      notes: `Coran ${repere} — à réciter`,
+      notes: `${repere} — à réciter`,
       tags,
     });
     return {
@@ -189,7 +189,7 @@ export async function memoriserVerset(demande: DemandeHifz): Promise<ResultatHif
     // Le verso porte le verset entier, verbatim.
     verso: faceVerset,
     type: "trous",
-    notes: `Coran ${repere}`,
+    notes: `${repere}`,
     tags,
   });
 
@@ -293,7 +293,7 @@ export async function apprendreMotDuCoran(
     .limit(1);
   if (!verset) throw new Error("Verset introuvable.");
 
-  const repere = `${verset.sourate}:${verset.numeroDansSourate}`;
+  const repere = `${verset.nomSourate} ${verset.sourate}:${verset.numeroDansSourate}`;
   const nomPaquet =
     parRacine && analyse.racine
       ? `Racine ${analyse.racine}`
@@ -335,7 +335,7 @@ export async function apprendreMotDuCoran(
     type: "recto_verso",
     // Le verset d'origine tient en note de bas de carte : il donne le contexte
     // sans se mettre à la place de la réponse.
-    notes: `${verset.texte}\n\nCoran ${repere}, mot ${position}`,
+    notes: `${verset.texte}\n\n${repere}, mot ${position}`,
     tags,
   });
 
