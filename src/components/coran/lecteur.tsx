@@ -181,6 +181,8 @@ export function Lecteur({
   /** Répétition en cours pour le verset ou le passage, à partir de 1. */
   const [tour, setTour] = useState(1);
   const [reglagesOuverts, setReglagesOuverts] = useState(false);
+  /** Verset où l'on vient d'atterrir : signalé quelques secondes, puis oublié. */
+  const [repris, setRepris] = useState<number | null>(null);
   /** Bornes du passage, en numéros globaux. Posées depuis les réglages. */
   const [passage, setPassage] = useState<{ debut: number; fin: number } | null>(null);
   const attente = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -405,23 +407,100 @@ export function Lecteur({
     };
   }, [versets, journaliser]);
 
-  /** Amène un verset sous les yeux, avec un peu de contexte au-dessus. */
-  const allerAu = useCallback((numero: number, doux = true) => {
-    const cible = elements.current.get(numero);
-    if (!cible) return;
-    // Un seul défilement, recul compris. Enchaîner `scrollIntoView` puis
-    // `scrollBy` ne marche pas : le second interrompt le premier et s'applique
-    // depuis la position d'avant, ce qui annule le déplacement.
-    const y = cible.getBoundingClientRect().top + window.scrollY - 110;
-    window.scrollTo({ top: Math.max(0, y), behavior: doux ? "smooth" : "auto" });
+  /**
+   * Amène un verset en haut de l'écran, entier et visible.
+   *
+   * ── Pourquoi ce n'est pas un simple `scrollTo`
+   *
+   * La version précédente reculait de cent dix pixels « pour le contexte » et
+   * calculait la position au montage. Deux choses la faisaient viser faux.
+   *
+   * D'abord un recul en pixels ne veut rien dire ici : un verset d'Al-Fatiha
+   * tient en trois lignes, certains d'Al-Baqara en font vingt. Le même recul
+   * saute donc un demi-verset ou quatre selon l'endroit. Le verset repris est
+   * désormais posé *en haut*, juste sous la barre fixe — dont la hauteur est
+   * mesurée, pas devinée. Aucun verset de contexte n'est ajouté au-dessus :
+   * un verset précédent de vingt lignes repousserait la cible hors de l'écran,
+   * ce qui est exactement le défaut qu'on corrige.
+   *
+   * Ensuite et surtout, la hauteur des versets dépend de ce qui n'est pas
+   * encore là au montage : les polices arabes, et la mise en page de deux cent
+   * quatre-vingt-six versets. Une position calculée à cet instant est fausse de
+   * plusieurs versets. On attend donc `document.fonts.ready`, puis on
+   * **converge** — mesurer l'écart réel, corriger, remesurer — jusqu'à ce que la
+   * cible soit à sa place. Une seule passe ne suffit pas : corriger déplace ce
+   * qui est au-dessus, qui peut encore s'être redimensionné entre-temps.
+   *
+   * ── Pourquoi le déplacement est instantané
+   *
+   * Un défilement doux continue de s'animer pendant que l'on corrige, et il
+   * écrase les corrections : mesuré, la cible finissait huit cent quatre-vingt-
+   * dix pixels trop haut. On ne peut pas viser juste et animer en même temps ;
+   * entre les deux, c'est viser juste qui compte. Le repère visuel sur le
+   * verset d'arrivée remplace l'animation — il dit où l'on a atterri mieux
+   * qu'un glissement.
+   */
+  const allerAu = useCallback(async (numero: number) => {
+    if (!elements.current.get(numero)) return;
+    setRepris(numero);
+
+    // Les polices arabes changent la hauteur des versets du tout au tout.
+    if (typeof document !== "undefined" && "fonts" in document) {
+      try {
+        await document.fonts.ready;
+      } catch {
+        // Un navigateur sans cette promesse ne doit pas empêcher le calage.
+      }
+    }
+
+    // La barre fixe couvre le haut de l'écran : la cible se pose dessous.
+    const marge = () =>
+      (document.querySelector(".barre-haut")?.getBoundingClientRect().height ?? 0) + 10;
+
+    const premier = elements.current.get(numero);
+    if (!premier) return;
+    window.scrollTo({
+      top: Math.max(0, premier.getBoundingClientRect().top + window.scrollY - marge()),
+      behavior: "auto",
+    });
+
+    /**
+     * Corrige jusqu'à ce que la cible soit à sa place.
+     *
+     * Chaque passe a son propre budget : la seconde, lancée plus tard, doit
+     * pouvoir travailler même si la première a épuisé le sien.
+     */
+    const caler = (restant: number) => {
+      const cible = elements.current.get(numero);
+      if (!cible) return;
+      const ecart = cible.getBoundingClientRect().top - marge();
+      // Deux pixels d'écart ne se voient pas ; au bout du budget on s'arrête
+      // plutôt que de boucler sur une mise en page qui bouge encore.
+      if (Math.abs(ecart) <= 2 || restant <= 0) return;
+      window.scrollBy({ top: ecart, behavior: "auto" });
+      requestAnimationFrame(() => caler(restant - 1));
+    };
+
+    requestAnimationFrame(() => caler(30));
+
+    // Une seconde passe plus tard rattrape ce qui se serait redimensionné après
+    // coup — une police qui arrive en retard, une image de fond qui se pose.
+    window.setTimeout(() => requestAnimationFrame(() => caler(30)), 600);
   }, []);
 
   // Une adresse qui désigne un verset l'amène directement ; une reprise
   // seulement suggérée attend qu'on la demande.
   useEffect(() => {
     if (repriseSuggeree && repriseSuggeree.numero === versetInitial) return;
-    allerAu(versetInitial, false);
+    void allerAu(versetInitial);
   }, [versetInitial, repriseSuggeree, allerAu]);
+
+  // Le signalement s'efface de lui-même : c'est un repère, pas un état.
+  useEffect(() => {
+    if (repris === null) return;
+    const minuteur = window.setTimeout(() => setRepris(null), 4_000);
+    return () => window.clearTimeout(minuteur);
+  }, [repris]);
 
   const jouer = useCallback(
     (numero: number) => {
@@ -538,7 +617,7 @@ export function Lecteur({
         <button
           type="button"
           onClick={() => {
-            allerAu(repriseSuggeree.numero);
+            void allerAu(repriseSuggeree.numero);
             setRepriseVisible(false);
           }}
           className="flex min-h-12 items-center justify-between gap-3 rounded-xl border border-bordure bg-surface px-4 text-left transition-colors duration-200 active:bg-surface-haut"
@@ -591,6 +670,7 @@ export function Lecteur({
             : undefined;
 
           const enCours = actif === verset.numero;
+          const signale = repris === verset.numero && !enCours;
           return (
             <Fragment key={verset.numero}>
               {bloc && (
@@ -609,11 +689,17 @@ export function Lecteur({
                 if (element) elements.current.set(verset.numero, element);
                 else elements.current.delete(verset.numero);
               }}
-              className="scroll-mt-24 border-b border-bordure py-5 transition-colors duration-500"
-              style={{
-                backgroundColor: enCours ? "var(--color-voile)" : "transparent",
-                boxShadow: enCours ? "inset 2px 0 0 0 var(--color-deen)" : undefined,
-              }}
+              className={`scroll-mt-24 border-b border-bordure py-5 transition-colors duration-500${
+                signale ? " verset-repris" : ""
+              }`}
+              style={
+                signale
+                  ? undefined
+                  : {
+                      backgroundColor: enCours ? "var(--color-voile)" : "transparent",
+                      boxShadow: enCours ? "inset 2px 0 0 0 var(--color-deen)" : undefined,
+                    }
+              }
             >
               <div className="flex items-center justify-between gap-3 px-1">
                 <button
@@ -1360,7 +1446,7 @@ function BarreLecture({
   objectif: number;
 }) {
   return (
-    <div className="fixed inset-x-0 top-0 z-30 border-b border-bordure bg-fond/92 backdrop-blur-sm">
+    <div className="barre-haut fixed inset-x-0 top-0 z-30 border-b border-bordure bg-fond/92 backdrop-blur-sm">
       <div className="mx-auto flex w-full max-w-md items-center gap-2 px-3 pt-[env(safe-area-inset-top)] lg:max-w-2xl">
         <Link
           href="/coran"

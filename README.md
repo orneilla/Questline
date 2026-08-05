@@ -411,6 +411,48 @@ arrière-plan à mesure que les versets passent au centre de l'écran, et l'écr
 d'accueil rouvre là où la lecture s'est arrêtée. Marque-pages nommés, sans
 limite.
 
+### Reprendre au bon endroit
+
+La reprise atterrissait plusieurs versets trop haut. Deux défauts, dont un seul
+saute aux yeux.
+
+**Le recul « pour le contexte » était en pixels.** Cent dix pixels ne veulent
+rien dire ici : un verset d'Al-Fatiha tient en trois lignes, certains d'Al-Baqara
+en font vingt — mesuré, les hauteurs vont de 237 à 2494 px sur un écran de
+390 px. Le verset repris est désormais posé **en haut**, juste sous la barre
+fixe dont la hauteur est mesurée et non devinée. **Aucun verset de contexte n'est
+ajouté au-dessus** : un verset précédent de vingt lignes repousserait la cible
+hors de l'écran, ce qui est exactement le défaut qu'on corrige.
+
+**La position était calculée trop tôt.** La hauteur des versets dépend de ce qui
+n'est pas encore là au montage : les polices arabes, et la mise en page de deux
+cent quatre-vingt-six versets. Le code attend donc `document.fonts.ready`, puis
+**converge** — mesurer l'écart réel, corriger, remesurer — jusqu'à ce que la
+cible soit à sa place, avec une seconde passe six cents millisecondes plus tard
+pour ce qui se serait redimensionné après coup.
+
+**Le déplacement est instantané, et c'est délibéré.** Un défilement doux
+continue de s'animer pendant qu'on corrige et écrase les corrections : mesuré,
+la cible finissait 890 px trop haut. On ne peut pas viser juste et animer en même
+temps. Le verset d'arrivée est **signalé quatre secondes** par un voile qui
+s'estompe — il dit où l'on a atterri mieux qu'un glissement, et l'estompement
+est porté par une animation CSS plutôt que par un état qu'il faudrait
+orchestrer.
+
+Vérifié sur trois cas, à 390 px, par le chemin réel — accueil du Coran, puis la
+bannière de reprise :
+
+| Cas | Verset en haut de l'écran | Écart avec la barre |
+| --- | --- | --- |
+| Al-Fatiha 1:5 (237 px) | 1:5 | 10 px |
+| Al-Baqara 2:12 (301 px) | 2:12 | 10 px |
+| Al-Baqara 2:282 (2494 px) | 2:282 | 10 px |
+
+Le plus long verset du Coran ne tient pas dans un écran — 2494 px contre 844 —
+mais son début est en haut, ce qui est ce qui compte. Le mécanisme est éprouvé
+contre une mise en page qui grandit *après* le positionnement : la cible reste
+à 10 px de la barre.
+
 ### Les deux barres du lecteur
 
 **En haut, fixe :** la sortie. Flèche de retour vers l'accueil du Coran, numéro

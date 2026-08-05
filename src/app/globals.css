@@ -243,3 +243,34 @@
     left: 13rem;
   }
 }
+
+/*
+ * Le verset où l'on vient d'atterrir se signale quelques secondes, puis
+ * s'efface. C'est un repère pour l'œil, pas un état : rien ne le distingue une
+ * fois qu'on l'a trouvé, et il ne demande aucune action.
+ *
+ * L'estompement est porté par l'animation plutôt que par un état React qui
+ * basculerait à mi-parcours — une transition qu'on n'a pas à orchestrer est une
+ * transition qui ne se désynchronise pas.
+ */
+@keyframes verset-repris {
+  0%,
+  55% {
+    background-color: var(--color-voile);
+    box-shadow: inset 2px 0 0 0 var(--color-deen);
+  }
+  100% {
+    background-color: transparent;
+    box-shadow: inset 2px 0 0 0 transparent;
+  }
+}
+
+.verset-repris {
+  animation: verset-repris 4s ease-out forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .verset-repris {
+    animation-duration: 0.01ms;
+  }
+}
