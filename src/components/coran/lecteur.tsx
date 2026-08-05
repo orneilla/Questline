@@ -9,11 +9,15 @@ import {
   analyser,
   apprendreMot,
   chargerSourateVoisine,
+  apercuMemorisation,
   memoriser,
+  sauverEcoute,
   sauverPosition,
 } from "@/app/(app)/coran/actions";
-import { FORMATS } from "@/lib/coran/formats";
+import { FORMATS, type FormatHifz } from "@/lib/coran/formats";
 import type { MotAffiche, TrancheSourate, VersetAffiche } from "@/lib/coran/donnees";
+import type { ModeEcoute } from "@/db/schema";
+import type { ApercuCarte } from "@/lib/coran/hifz";
 import { GLOSE_DEPOSEE, nomReciteur, pilePolice, urlAudio } from "@/lib/coran/sources";
 
 /**
@@ -50,6 +54,10 @@ export type ReglagesLecteur = {
   afficherArabe: boolean;
   afficherTranslitteration: boolean;
   afficherTraduction: boolean;
+  modeEcoute: ModeEcoute;
+  repetitions: number;
+  pauseRepetitionDs: number;
+  vitesseCent: number;
 };
 
 const INTERVALLE_JOURNAL_MS = 60_000;
@@ -166,6 +174,16 @@ export function Lecteur({
   const versets = tranche ? tranches.flatMap((t) => t.versets) : versetsInitiaux;
   const [actif, setActif] = useState<number | null>(null);
   const [continu, setContinu] = useState(false);
+  const [mode, setMode] = useState<ModeEcoute>(reglages.modeEcoute);
+  const [repetitions, setRepetitions] = useState(reglages.repetitions);
+  const [pauseDs, setPauseDs] = useState(reglages.pauseRepetitionDs);
+  const [vitesse, setVitesse] = useState(reglages.vitesseCent);
+  /** Répétition en cours pour le verset ou le passage, à partir de 1. */
+  const [tour, setTour] = useState(1);
+  const [reglagesOuverts, setReglagesOuverts] = useState(false);
+  /** Bornes du passage, en numéros globaux. Posées depuis les réglages. */
+  const [passage, setPassage] = useState<{ debut: number; fin: number } | null>(null);
+  const attente = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [ouvert, setOuvert] = useState<number | null>(null);
   const [retour, setRetour] = useState<string | null>(null);
   const [mot, setMot] = useState<{ verset: VersetAffiche; analyse: MotAffiche } | null>(
@@ -410,6 +428,7 @@ export function Lecteur({
       const lecteur = audio.current;
       if (!lecteur) return;
       lecteur.src = urlAudio(reglages.reciteur, numero);
+      lecteur.playbackRate = vitesse / 100;
       setActif(numero);
       void lecteur.play().catch(() => {
         setActif(null);
@@ -417,7 +436,7 @@ export function Lecteur({
         setRetour("La récitation n'a pas pu être jointe. Le texte reste lisible.");
       });
     },
-    [reglages.reciteur],
+    [reglages.reciteur, vitesse],
   );
 
   useEffect(() => {
@@ -425,18 +444,59 @@ export function Lecteur({
     elements.current.get(actif)?.scrollIntoView({ behavior: "smooth", block: "center" });
   }, [actif]);
 
+  /**
+   * Ce qui suit la fin d'un verset, selon le mode.
+   *
+   * Le silence entre deux répétitions n'est pas un détail d'implémentation :
+   * c'est pendant lui qu'on récite à voix haute. Il est donc respecté avant
+   * *chaque* reprise, y compris la première, et vaut aussi entre deux passages.
+   */
   function auBout(): void {
     if (!continu || actif === null) {
       setActif(null);
       return;
     }
-    const rang = versets.findIndex((v) => v.numero === actif);
-    const suivant = versets[rang + 1];
-    if (!suivant) {
+
+    const enchainer = (numero: number, tourSuivant: number) => {
+      setTour(tourSuivant);
+      if (attente.current) clearTimeout(attente.current);
+      const silence = pauseDs * 100;
+      if (silence === 0) {
+        jouer(numero);
+        return;
+      }
+      // Le verset reste surligné pendant le silence : on sait ce qu'on récite.
+      attente.current = setTimeout(() => {
+        attente.current = null;
+        jouer(numero);
+      }, silence);
+    };
+
+    const arreter = () => {
       setActif(null);
       setContinu(false);
-      return;
+      setTour(1);
+    };
+
+    if (mode === "verset_boucle") {
+      // 0 répétition veut dire « sans fin ».
+      if (repetitions !== 0 && tour >= repetitions) return arreter();
+      return enchainer(actif, tour + 1);
     }
+
+    if (mode === "passage_boucle" && passage) {
+      const rang = versets.findIndex((v) => v.numero === actif);
+      const suivant = versets[rang + 1];
+      if (suivant && suivant.numero <= passage.fin) {
+        return enchainer(suivant.numero, tour);
+      }
+      if (repetitions !== 0 && tour >= repetitions) return arreter();
+      return enchainer(passage.debut, tour + 1);
+    }
+
+    const rang = versets.findIndex((v) => v.numero === actif);
+    const suivant = versets[rang + 1];
+    if (!suivant) return arreter();
     jouer(suivant.numero);
   }
 
@@ -514,22 +574,6 @@ export function Lecteur({
           mémorisation
         </button>
 
-        <button
-          type="button"
-          onClick={() => {
-            if (continu) {
-              setContinu(false);
-              audio.current?.pause();
-              setActif(null);
-              return;
-            }
-            setContinu(true);
-            jouer(actif ?? versets[0].numero);
-          }}
-          className="ml-auto min-h-9 rounded-lg border border-bordure-vive bg-surface-haut px-3 text-[12px] text-texte transition-colors duration-200"
-        >
-          {continu ? "Arrêter la lecture" : "Lecture continue"}
-        </button>
       </div>
 
       {retour && (
@@ -655,6 +699,69 @@ export function Lecteur({
 
       {/* Sentinelle du bas : la dépasser charge la sourate suivante. */}
       {tranche && <div ref={zoneBas} aria-hidden className="h-px" />}
+
+      {/*
+        Réserve sous le texte : la barre de lecture est fixe, elle ne pousse
+        rien. Sans cette réserve elle masquerait les derniers versets.
+      */}
+      <div aria-hidden className="h-28" />
+
+      <BarreEcoute
+        versetActif={versets.find((v) => v.numero === actif) ?? null}
+        joue={continu}
+        mode={mode}
+        tour={tour}
+        repetitions={repetitions}
+        pauseDs={pauseDs}
+        vitesse={vitesse}
+        passage={passage}
+        ouvert={reglagesOuverts}
+        versets={versets}
+        surOuverture={() => setReglagesOuverts(!reglagesOuverts)}
+        surBascule={() => {
+          if (continu) {
+            setContinu(false);
+            if (attente.current) clearTimeout(attente.current);
+            attente.current = null;
+            audio.current?.pause();
+            setActif(null);
+            setTour(1);
+            return;
+          }
+          setContinu(true);
+          setTour(1);
+          const depart =
+            mode === "passage_boucle" && passage
+              ? passage.debut
+              : (actif ?? versets[0]?.numero);
+          if (depart !== undefined) jouer(depart);
+        }}
+        surMode={(nouveau) => {
+          setMode(nouveau);
+          setTour(1);
+          if (nouveau === "passage_boucle" && !passage) {
+            const depart = actif ?? versets[0]?.numero;
+            const rang = versets.findIndex((v) => v.numero === depart);
+            const fin = versets[Math.min(rang + 4, versets.length - 1)]?.numero ?? depart;
+            if (depart !== undefined) setPassage({ debut: depart, fin });
+          }
+          void sauverEcoute({ modeEcoute: nouveau });
+        }}
+        surRepetitions={(n) => {
+          setRepetitions(n);
+          void sauverEcoute({ repetitions: n });
+        }}
+        surPause={(ds) => {
+          setPauseDs(ds);
+          void sauverEcoute({ pauseRepetitionDs: ds });
+        }}
+        surVitesse={(cent) => {
+          setVitesse(cent);
+          if (audio.current) audio.current.playbackRate = cent / 100;
+          void sauverEcoute({ vitesseCent: cent });
+        }}
+        surPassage={setPassage}
+      />
 
       {mot && (
         <PanneauMot
@@ -930,49 +1037,250 @@ function ActionsVerset({
 }) {
   const [nom, setNom] = useState("");
   const [enCours, setEnCours] = useState(false);
+  const [propose, setPropose] = useState<{
+    format: FormatHifz;
+    apercu: ApercuCarte;
+    paquets: { id: number; nom: string }[];
+  } | null>(null);
 
-  async function lancer(action: () => Promise<{ erreur?: string; message?: string }>) {
+  async function demander(format: FormatHifz) {
     setEnCours(true);
-    const resultat = await action();
+    const retour = await apercuMemorisation(verset.numero, format);
     setEnCours(false);
-    surRetour(resultat.erreur ?? resultat.message ?? "");
+    if (retour.erreur || !retour.apercu) {
+      surRetour(retour.erreur ?? "L'aperçu n'a pas abouti.");
+      return;
+    }
+    setPropose({ format, apercu: retour.apercu, paquets: retour.paquets ?? [] });
   }
 
   return (
-    <div className="mt-4 flex flex-col gap-3 rounded-xl border border-bordure bg-surface p-3">
-      <p className="text-[11px] tracking-[0.14em] text-tres-doux uppercase">Mémoriser</p>
-      <div className="flex flex-wrap gap-2">
-        {FORMATS.map((format) => (
-          <button
-            key={format.valeur}
-            type="button"
-            disabled={enCours}
-            title={format.aide}
-            onClick={() => void lancer(() => memoriser(verset.numero, format.valeur))}
-            className="min-h-10 rounded-lg border border-bordure px-3 text-[12.5px] text-doux transition-colors duration-200 active:bg-surface-haut disabled:opacity-50"
-          >
-            {format.libelle}
-          </button>
-        ))}
+    <div className="mt-4 flex flex-col gap-4">
+      {/*
+        Deux blocs distincts, séparément encadrés : mis à la suite dans une
+        même boîte, le champ du marque-page passait pour un champ de nom de
+        carte.
+      */}
+      <div className="flex flex-col gap-2.5 rounded-xl border border-bordure bg-surface p-3">
+        <p className="text-[11px] tracking-[0.14em] text-tres-doux uppercase">
+          Mémoriser ce verset
+        </p>
+        <div className="flex flex-col gap-1.5">
+          {FORMATS.map((format) => (
+            <button
+              key={format.valeur}
+              type="button"
+              disabled={enCours}
+              onClick={() => void demander(format.valeur)}
+              className="flex min-h-12 flex-col justify-center gap-0.5 rounded-lg border border-bordure px-3 text-left transition-colors duration-200 active:bg-surface-haut disabled:opacity-50"
+            >
+              <span className="text-[13.5px] text-texte">{format.libelle}</span>
+              <span className="text-[11.5px] leading-snug text-tres-doux">
+                {format.aide}
+              </span>
+            </button>
+          ))}
+        </div>
       </div>
 
-      <p className="text-[11px] tracking-[0.14em] text-tres-doux uppercase">Marque-page</p>
-      <div className="flex gap-2">
-        <input
-          value={nom}
-          onChange={(evenement) => setNom(evenement.target.value)}
-          placeholder="Un nom, pour le retrouver"
-          maxLength={120}
-          className="min-h-11 flex-1 rounded-lg border border-bordure bg-fond px-3 text-[14px] text-texte outline-none focus:border-bordure-vive"
+      <div className="flex flex-col gap-2.5 rounded-xl border border-bordure bg-surface p-3">
+        <p className="text-[11px] tracking-[0.14em] text-tres-doux uppercase">
+          Marque-page
+        </p>
+        <p className="-mt-1 text-[11.5px] leading-snug text-tres-doux">
+          Sans rapport avec les cartes : c'est un repère pour revenir ici.
+        </p>
+        <div className="flex gap-2">
+          <input
+            value={nom}
+            onChange={(evenement) => setNom(evenement.target.value)}
+            placeholder="Un nom, pour le retrouver"
+            maxLength={120}
+            className="min-h-11 flex-1 rounded-lg border border-bordure bg-fond px-3 text-[14px] text-texte outline-none focus:border-bordure-vive"
+          />
+          <button
+            type="button"
+            disabled={enCours}
+            onClick={() => {
+              setEnCours(true);
+              void ajouterMarquePage(verset.numero, nom).then((r) => {
+                setEnCours(false);
+                surRetour(r.erreur ?? r.message ?? "");
+              });
+            }}
+            className="min-h-11 shrink-0 rounded-lg border border-bordure-vive bg-surface-haut px-4 text-[13px] text-texte disabled:opacity-50"
+          >
+            Poser
+          </button>
+        </div>
+      </div>
+
+      {propose && (
+        <ApercuMemorisation
+          format={propose.format}
+          apercu={propose.apercu}
+          paquets={propose.paquets}
+          versetNumero={verset.numero}
+          surFermeture={() => setPropose(null)}
+          surRetour={(texte) => {
+            setPropose(null);
+            surRetour(texte);
+          }}
         />
-        <button
-          type="button"
-          disabled={enCours}
-          onClick={() => void lancer(() => ajouterMarquePage(verset.numero, nom))}
-          className="min-h-11 shrink-0 rounded-lg border border-bordure-vive bg-surface-haut px-4 text-[13px] text-texte disabled:opacity-50"
-        >
-          Poser
-        </button>
+      )}
+    </div>
+  );
+}
+
+/**
+ * L'aperçu d'une carte, avant de la créer.
+ *
+ * La carte partait au premier appui, sans qu'on puisse voir ce qu'elle
+ * contiendrait ni choisir où elle irait. On montre donc les deux faces telles
+ * qu'elles seront — c'est le même code qui les a composées — et on laisse
+ * choisir le paquet. Un doublon est signalé plutôt que créé en double.
+ */
+function ApercuMemorisation({
+  format,
+  apercu,
+  paquets,
+  versetNumero,
+  surFermeture,
+  surRetour,
+}: {
+  format: FormatHifz;
+  apercu: ApercuCarte;
+  paquets: { id: number; nom: string }[];
+  versetNumero: number;
+  surFermeture: () => void;
+  surRetour: (texte: string) => void;
+}) {
+  const [paquetId, setPaquetId] = useState(apercu.paquetParDefaut.id);
+  const [enCours, setEnCours] = useState(false);
+  const libelle = FORMATS.find((f) => f.valeur === format)?.libelle ?? format;
+
+  useEffect(() => {
+    const auClavier = (evenement: KeyboardEvent) => {
+      if (evenement.key === "Escape") surFermeture();
+    };
+    window.addEventListener("keydown", auClavier);
+    return () => window.removeEventListener("keydown", auClavier);
+  }, [surFermeture]);
+
+  const liste = paquets.some((p) => p.id === apercu.paquetParDefaut.id)
+    ? paquets
+    : [apercu.paquetParDefaut, ...paquets];
+
+  return (
+    <div
+      className="fixed inset-0 z-40 flex items-end justify-center bg-fond/85 backdrop-blur-sm"
+      onClick={surFermeture}
+      role="presentation"
+    >
+      <div
+        className="flex max-h-[88dvh] w-full max-w-md flex-col gap-3.5 overflow-y-auto rounded-t-3xl border-t border-bordure-vive bg-surface p-5 pb-[calc(env(safe-area-inset-bottom)+1.5rem)]"
+        onClick={(evenement) => evenement.stopPropagation()}
+        role="dialog"
+        aria-label="Aperçu de la carte"
+      >
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex flex-col gap-0.5">
+            <span className="text-[11px] tracking-[0.14em] text-tres-doux uppercase">
+              {libelle}
+            </span>
+            <h3 className="text-[17px] leading-snug text-texte">{apercu.repere}</h3>
+          </div>
+          <button
+            type="button"
+            onClick={surFermeture}
+            aria-label="Fermer"
+            className="-m-2 flex size-11 shrink-0 items-center justify-center p-2 text-tres-doux active:text-texte"
+          >
+            <svg viewBox="0 0 24 24" className="size-[17px]" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" aria-hidden>
+              <path d="M6.5 6.5 17.5 17.5M17.5 6.5 6.5 17.5" />
+            </svg>
+          </button>
+        </div>
+
+        {apercu.doublon && (
+          <p className="rounded-xl border border-bordure-vive bg-surface-haut p-3 text-[12.5px] leading-relaxed text-doux">
+            Une carte de ce verset existe déjà dans ce format. En créer une
+            seconde ferait remonter deux fois la même chose à la révision.
+          </p>
+        )}
+
+        <FaceApercu titre="Recto" contenu={apercu.recto} />
+        <FaceApercu titre="Verso" contenu={apercu.verso} />
+
+        <label className="flex flex-col gap-1.5">
+          <span className="text-[11px] tracking-[0.14em] text-tres-doux uppercase">
+            Paquet
+          </span>
+          <select
+            value={paquetId}
+            onChange={(evenement) => setPaquetId(Number(evenement.target.value))}
+            className="min-h-12 rounded-xl border border-bordure bg-fond px-3 text-[14px] text-texte outline-none"
+          >
+            {liste.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.nom}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={surFermeture}
+            className="min-h-12 flex-1 rounded-xl border border-bordure text-[13.5px] text-doux"
+          >
+            Annuler
+          </button>
+          <button
+            type="button"
+            disabled={enCours}
+            onClick={() => {
+              setEnCours(true);
+              void memoriser(versetNumero, format, paquetId).then((r) => {
+                setEnCours(false);
+                surRetour(r.erreur ?? r.message ?? "");
+              });
+            }}
+            className="min-h-12 flex-1 rounded-xl border border-bordure-vive bg-surface-haut text-[13.5px] text-texte disabled:opacity-40"
+          >
+            {enCours ? "…" : apercu.doublon ? "Créer quand même" : "Créer la carte"}
+          </button>
+        </div>
+      </div>
+
+    </div>
+  );
+}
+
+/** Une face de l'aperçu, rendue telle qu'elle sera à la révision. */
+function FaceApercu({ titre, contenu }: { titre: string; contenu: string }) {
+  return (
+    <div className="flex flex-col gap-1.5">
+      <span className="text-[11px] tracking-[0.14em] text-tres-doux uppercase">
+        {titre}
+      </span>
+      <div className="rounded-xl border border-bordure bg-fond p-3">
+        {contenu.split("\n\n").map((bloc, rang) => (
+          <p
+            key={rang}
+            dir={/[\u0600-\u06ff]/.test(bloc) ? "rtl" : "ltr"}
+            className={
+              bloc.startsWith("**")
+                ? "text-[13.5px] leading-relaxed text-texte"
+                : bloc.startsWith("*")
+                  ? "text-[12px] leading-relaxed text-tres-doux italic"
+                  : "text-[15px] leading-relaxed text-doux"
+            }
+          >
+            {bloc.replace(/\*\*/g, "").replace(/^\*|\*$/g, "")}
+          </p>
+        ))}
       </div>
     </div>
   );
@@ -1071,6 +1379,304 @@ function BarreLecture({
         <span className="shrink-0 text-[12px] text-tres-doux tabular-nums">
           {lu} / {objectif}
         </span>
+      </div>
+    </div>
+  );
+}
+
+/* ─────────────────────────── La barre de lecture ─────────────────────────── */
+
+const LIBELLES_MODE: Record<ModeEcoute, string> = {
+  enchainement: "Enchaînement",
+  verset_boucle: "Verset en boucle",
+  passage_boucle: "Passage en boucle",
+};
+
+const AIDES_MODE: Record<ModeEcoute, string> = {
+  enchainement: "Verset après verset, en passant à la sourate suivante.",
+  verset_boucle: "Le même verset répété, avec un silence pour réciter.",
+  passage_boucle: "Un intervalle répété, pour enchaîner un groupe.",
+};
+
+/** Répétitions proposées. 0 vaut « sans fin ». */
+const REPETITIONS = [3, 5, 10, 0];
+
+/**
+ * La barre de lecture.
+ *
+ * Fixe en bas, au-dessus de la barre de navigation, et jamais ailleurs : les
+ * commandes ancrées en haut du texte disparaissaient au premier défilement, ce
+ * qui les rendait inatteignables dès qu'on lisait vraiment — a fortiori depuis
+ * que les sourates s'enchaînent.
+ *
+ * Réduite à une ligne quand rien ne joue. Un appui sur cette ligne ouvre les
+ * réglages complets, qui se referment aussitôt le choix fait.
+ */
+function BarreEcoute({
+  versetActif,
+  joue,
+  mode,
+  tour,
+  repetitions,
+  pauseDs,
+  vitesse,
+  passage,
+  ouvert,
+  versets,
+  surOuverture,
+  surBascule,
+  surMode,
+  surRepetitions,
+  surPause,
+  surVitesse,
+  surPassage,
+}: {
+  versetActif: VersetAffiche | null;
+  joue: boolean;
+  mode: ModeEcoute;
+  tour: number;
+  repetitions: number;
+  pauseDs: number;
+  vitesse: number;
+  passage: { debut: number; fin: number } | null;
+  ouvert: boolean;
+  versets: VersetAffiche[];
+  surOuverture: () => void;
+  surBascule: () => void;
+  surMode: (mode: ModeEcoute) => void;
+  surRepetitions: (n: number) => void;
+  surPause: (ds: number) => void;
+  surVitesse: (cent: number) => void;
+  surPassage: (bornes: { debut: number; fin: number } | null) => void;
+}) {
+  const reference = (numero: number): string => {
+    const v = versets.find((x) => x.numero === numero);
+    return v ? `${v.sourate}:${v.numeroDansSourate}` : "—";
+  };
+
+  const compteur =
+    mode === "enchainement" || !joue
+      ? null
+      : repetitions === 0
+        ? `répétition ${tour}`
+        : `répétition ${tour} sur ${repetitions}`;
+
+  return (
+    <div className="barre-ecoute fixed inset-x-0 z-30 border-t border-bordure bg-fond/95 backdrop-blur-sm">
+      <div className="mx-auto w-full max-w-md px-3 lg:max-w-2xl">
+        {ouvert && (
+          <div className="flex flex-col gap-4 border-b border-bordure py-4">
+            <div className="flex flex-col gap-2">
+              <span className="text-[11px] tracking-[0.14em] text-tres-doux uppercase">
+                Mode
+              </span>
+              {(Object.keys(LIBELLES_MODE) as ModeEcoute[]).map((m) => (
+                <button
+                  key={m}
+                  type="button"
+                  onClick={() => surMode(m)}
+                  aria-pressed={mode === m}
+                  className="flex min-h-12 flex-col justify-center gap-0.5 rounded-xl border px-3.5 text-left transition-colors duration-200"
+                  style={{
+                    borderColor:
+                      mode === m ? "var(--color-bordure-vive)" : "var(--color-bordure)",
+                    backgroundColor:
+                      mode === m ? "var(--color-surface-haut)" : "transparent",
+                  }}
+                >
+                  <span className="text-[14px] text-texte">{LIBELLES_MODE[m]}</span>
+                  <span className="text-[11.5px] leading-snug text-tres-doux">
+                    {AIDES_MODE[m]}
+                  </span>
+                </button>
+              ))}
+            </div>
+
+            {mode !== "enchainement" && (
+              <>
+                <div className="flex flex-col gap-2">
+                  <span className="text-[11px] tracking-[0.14em] text-tres-doux uppercase">
+                    Répétitions
+                  </span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {REPETITIONS.map((n) => (
+                      <button
+                        key={n}
+                        type="button"
+                        onClick={() => surRepetitions(n)}
+                        aria-pressed={repetitions === n}
+                        className="min-h-10 min-w-14 rounded-lg border px-3 text-[13px] transition-colors duration-200"
+                        style={{
+                          borderColor:
+                            repetitions === n
+                              ? "var(--color-bordure-vive)"
+                              : "var(--color-bordure)",
+                          backgroundColor:
+                            repetitions === n ? "var(--color-surface-haut)" : "transparent",
+                          color:
+                            repetitions === n
+                              ? "var(--color-texte)"
+                              : "var(--color-tres-doux)",
+                        }}
+                      >
+                        {n === 0 ? "sans fin" : n}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="flex flex-col gap-2">
+                  <div className="flex items-baseline justify-between gap-3">
+                    <span className="text-[11px] tracking-[0.14em] text-tres-doux uppercase">
+                      Silence entre deux
+                    </span>
+                    <span className="text-[13px] text-doux tabular-nums">
+                      {(pauseDs / 10).toFixed(1)} s
+                    </span>
+                  </div>
+                  <input
+                    type="range"
+                    min={0}
+                    max={50}
+                    step={5}
+                    value={pauseDs}
+                    onChange={(e) => surPause(Number(e.target.value))}
+                    aria-label="Silence entre deux répétitions"
+                    className="h-11 w-full accent-[#c0996a]"
+                  />
+                  <span className="text-[11.5px] leading-relaxed text-tres-doux">
+                    C'est pendant ce silence qu'on récite à voix haute. Le verset reste
+                    surligné tant qu'il dure.
+                  </span>
+                </div>
+              </>
+            )}
+
+            {mode === "passage_boucle" && (
+              <div className="flex flex-col gap-2">
+                <span className="text-[11px] tracking-[0.14em] text-tres-doux uppercase">
+                  Passage
+                </span>
+                <div className="flex items-center gap-2">
+                  <select
+                    value={passage?.debut ?? versets[0]?.numero ?? 0}
+                    onChange={(e) =>
+                      surPassage({
+                        debut: Number(e.target.value),
+                        fin: Math.max(Number(e.target.value), passage?.fin ?? 0),
+                      })
+                    }
+                    aria-label="Premier verset du passage"
+                    className="min-h-11 flex-1 rounded-lg border border-bordure bg-surface px-2 text-[13px] text-texte outline-none"
+                  >
+                    {versets.map((v) => (
+                      <option key={v.numero} value={v.numero}>
+                        {v.sourate}:{v.numeroDansSourate}
+                      </option>
+                    ))}
+                  </select>
+                  <span className="text-[12px] text-tres-doux">à</span>
+                  <select
+                    value={passage?.fin ?? versets[0]?.numero ?? 0}
+                    onChange={(e) =>
+                      surPassage({
+                        debut: Math.min(passage?.debut ?? 0, Number(e.target.value)),
+                        fin: Number(e.target.value),
+                      })
+                    }
+                    aria-label="Dernier verset du passage"
+                    className="min-h-11 flex-1 rounded-lg border border-bordure bg-surface px-2 text-[13px] text-texte outline-none"
+                  >
+                    {versets
+                      .filter((v) => v.numero >= (passage?.debut ?? 0))
+                      .map((v) => (
+                        <option key={v.numero} value={v.numero}>
+                          {v.sourate}:{v.numeroDansSourate}
+                        </option>
+                      ))}
+                  </select>
+                </div>
+              </div>
+            )}
+
+            <div className="flex flex-col gap-2">
+              <span className="text-[11px] tracking-[0.14em] text-tres-doux uppercase">
+                Vitesse
+              </span>
+              <div className="flex gap-1.5">
+                {[75, 100].map((cent) => (
+                  <button
+                    key={cent}
+                    type="button"
+                    onClick={() => surVitesse(cent)}
+                    aria-pressed={vitesse === cent}
+                    className="min-h-10 flex-1 rounded-lg border text-[13px] transition-colors duration-200"
+                    style={{
+                      borderColor:
+                        vitesse === cent
+                          ? "var(--color-bordure-vive)"
+                          : "var(--color-bordure)",
+                      backgroundColor:
+                        vitesse === cent ? "var(--color-surface-haut)" : "transparent",
+                      color:
+                        vitesse === cent ? "var(--color-texte)" : "var(--color-tres-doux)",
+                    }}
+                  >
+                    {cent === 75 ? "0,75×" : "1×"}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        <div className="flex min-h-14 items-center gap-2">
+          <button
+            type="button"
+            onClick={surBascule}
+            aria-label={joue ? "Arrêter la récitation" : "Lancer la récitation"}
+            className="-ml-1 flex size-11 shrink-0 items-center justify-center rounded-full border border-bordure-vive bg-surface-haut text-texte"
+          >
+            {joue ? (
+              <svg viewBox="0 0 24 24" className="size-[15px]" fill="currentColor" aria-hidden>
+                <rect x="6" y="5" width="4" height="14" rx="1" />
+                <rect x="14" y="5" width="4" height="14" rx="1" />
+              </svg>
+            ) : (
+              <svg viewBox="0 0 24 24" className="size-[15px] translate-x-[1px]" fill="currentColor" aria-hidden>
+                <path d="M7 4.5v15l13-7.5z" />
+              </svg>
+            )}
+          </button>
+
+          <button
+            type="button"
+            onClick={surOuverture}
+            aria-expanded={ouvert}
+            className="flex min-w-0 flex-1 flex-col justify-center py-1 text-left"
+          >
+            <span className="truncate text-[13.5px] text-texte tabular-nums">
+              {versetActif
+                ? `${versetActif.sourate}:${versetActif.numeroDansSourate}`
+                : "Récitation"}
+              {passage && mode === "passage_boucle" && (
+                <span className="text-tres-doux">
+                  {" "}
+                  · {reference(passage.debut)} → {reference(passage.fin)}
+                </span>
+              )}
+            </span>
+            <span className="truncate text-[11.5px] text-tres-doux">
+              {LIBELLES_MODE[mode]}
+              {compteur ? ` · ${compteur}` : ""}
+              {vitesse !== 100 ? " · 0,75×" : ""}
+            </span>
+          </button>
+
+          <span aria-hidden className="shrink-0 pr-1 text-[15px] text-tres-doux">
+            {ouvert ? "▾" : "▴"}
+          </span>
+        </div>
       </div>
     </div>
   );

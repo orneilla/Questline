@@ -411,6 +411,45 @@ arrière-plan à mesure que les versets passent au centre de l'écran, et l'écr
 d'accueil rouvre là où la lecture s'est arrêtée. Marque-pages nommés, sans
 limite.
 
+### Les deux barres du lecteur
+
+**En haut, fixe :** la sortie. Flèche de retour vers l'accueil du Coran, numéro
+et nom de la sourate en cours, compte du jour. Quitter Al-Baqara demandait
+sinon de remonter deux cent quatre-vingt-six versets.
+
+**En bas, fixe aussi :** la récitation. Les commandes étaient ancrées en haut du
+texte et disparaissaient au premier défilement — inatteignables dès qu'on lisait
+vraiment, a fortiori depuis que les sourates s'enchaînent. La barre se pose
+**au-dessus** de la barre de navigation et ne la couvre pas ; en paysage sur
+tablette, où la navigation est une colonne à gauche, elle descend au ras du bas
+et se décale d'autant. Réduite à une ligne quand rien ne joue : verset en cours,
+mode actif, compteur de répétitions. Un appui l'ouvre sur les réglages complets.
+
+Mesuré à 390, 430, 820 et 1180 px : barre de lecture, barre de navigation et
+texte ne se chevauchent jamais, et rien ne déborde horizontalement.
+
+### Les trois modes d'écoute
+
+Deux usages distincts — lire, et mémoriser — donc trois modes, retenus d'une
+session à l'autre.
+
+| Mode | Ce qu'il fait |
+| --- | --- |
+| **Enchaînement** | Verset après verset, en passant à la sourate suivante |
+| **Verset en boucle** | Le même verset répété |
+| **Passage en boucle** | Un intervalle choisi, répété |
+
+Pour les deux modes en boucle : répétitions réglables (3, 5, 10, sans fin) et
+**silence entre deux répétitions**, de zéro à cinq secondes. Ce silence n'est pas
+un détail d'implémentation : c'est pendant lui qu'on récite à voix haute. Il est
+donc respecté avant *chaque* reprise, le verset restant surligné tout du long —
+on sait ce qu'on est en train de réciter. Zéro reste un choix valable : enchaîner
+sans pause sert à imprégner l'oreille.
+
+Le compteur dit « répétition 3 sur 5 », ou « répétition 3 » quand le nombre est
+sans fin. La vitesse se règle à 0,75× ou 1×, pour imiter précisément. Le
+surlignage du verset en cours reste actif dans les trois modes.
+
 ### La barre du lecteur
 
 Fixe en haut de l'écran, elle répond à trois besoins d'un coup et c'est pour
@@ -514,9 +553,25 @@ Un verset mis en carte devient une note du module cartes, dans un espace
 d'apprentissage. Le module Coran ne tient aucun état de mémorisation — il lit
 les étiquettes `coran:<sourate>:<verset>` quand il veut compter.
 
-Trois formats, tous en arabe — on ne mémorise pas depuis le français : le verset
-suivant depuis le précédent, la fin du verset masquée, ou le verset entier à
-réciter (référence et verset précédent au recto). Chaque face porte l'arabe et
+Trois formats, tous en arabe — on ne mémorise pas depuis le français. Chacun
+porte sous son nom la phrase qui dit ce qu'il fait : « On te montre un verset,
+tu récites celui d'après », « Le verset avec des mots cachés à compléter », « La
+référence et le verset précédent, tu récites le verset entier ».
+
+**Chaque verset affiché porte son propre numéro.** Le recto d'une carte
+« Réciter » annonçait la référence du verset à réciter au-dessus du texte du
+*précédent* : on croyait lire le verset annoncé. Il porte désormais « Réciter
+Al-Baqara 2:12 » en titre, puis « verset précédent — 2:11 » en discret au-dessus
+du texte qu'on lit. Même chose pour « Verset suivant », dont les deux faces sont
+numérotées.
+
+**Rien n'est créé sans confirmation.** Un appui sur un format ouvre un aperçu du
+recto et du verso tels qu'ils seront — composés par le même code que la carte
+finale, pour que l'aperçu ne puisse pas mentir — avec le choix du paquet, celui
+de la sourate par défaut. Si une carte du même verset et du même format existe
+déjà, l'écran le dit et propose de créer quand même plutôt que d'empiler un
+doublon en silence. Le bloc marque-page est encadré séparément : accolé aux
+formats, son champ « Un nom, pour le retrouver » passait pour un nom de carte. Chaque face porte l'arabe et
 sa translittération, celle-ci en italique sur sa propre ligne. Sur ce dernier, le découpage se fait sur
 les blancs en conservant chaque séparateur — recoller les morceaux redonne le
 verset à l'octet près — et les marques de trou sont posées *autour* d'une

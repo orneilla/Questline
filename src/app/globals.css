@@ -221,3 +221,25 @@
   hyphens: none;
   word-break: keep-all;
 }
+
+/*
+ * La barre de lecture du Coran se pose *au-dessus* de la barre de navigation,
+ * elle ne la couvre pas : les onglets restent atteignables pendant la
+ * récitation. En paysage sur tablette, la navigation est une colonne à gauche —
+ * la barre descend alors au ras du bas et se décale de la largeur de la
+ * colonne.
+ *
+ * La règle vit ici plutôt que dans le composant : c'est une règle de mise en
+ * page permanente, et une balise `style` rendue conditionnellement ne
+ * s'applique que lorsque son composant est monté.
+ */
+.barre-ecoute {
+  bottom: calc(3.5rem + env(safe-area-inset-bottom));
+}
+
+@media (min-width: 1024px) and (orientation: landscape) {
+  .barre-ecoute {
+    bottom: 0;
+    left: 13rem;
+  }
+}

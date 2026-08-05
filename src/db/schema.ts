@@ -31,6 +31,18 @@ export const categorieCreneauEnum = pgEnum("categorie_creneau", [
   "autre",
 ]);
 
+/**
+ * Comment la récitation s'enchaîne.
+ *
+ * Trois usages distincts, et non trois variantes d'un même : on lit, on
+ * mémorise un verset, on enchaîne un passage.
+ */
+export const modeEcouteEnum = pgEnum("mode_ecoute", [
+  "enchainement",
+  "verset_boucle",
+  "passage_boucle",
+]);
+
 /** Charge de la journée, déduite du temps disponible. */
 export const typeJourEnum = pgEnum("type_jour", ["libre", "chargee", "pleine"]);
 
@@ -703,6 +715,20 @@ export const reglagesCoran = pgTable("reglages_coran", {
   afficherArabe: boolean("afficher_arabe").notNull().default(true),
   uniteObjectif: uniteObjectifEnum("unite_objectif").notNull().default("versets"),
   objectifQuotidien: integer("objectif_quotidien").notNull().default(20),
+  /** Mode d'écoute, retenu d'une session à l'autre. */
+  modeEcoute: modeEcouteEnum("mode_ecoute").notNull().default("enchainement"),
+  /** Répétitions par verset ou par passage. 0 = sans fin. */
+  repetitions: integer("repetitions").notNull().default(3),
+  /**
+   * Silence entre deux répétitions, en dixièmes de seconde.
+   *
+   * C'est le cœur de la mémorisation : c'est pendant ce silence qu'on récite à
+   * voix haute. Il se règle de zéro à cinq secondes, et zéro reste un choix
+   * valable — enchaîner sans pause sert à imprégner l'oreille.
+   */
+  pauseRepetitionDs: integer("pause_repetition_ds").notNull().default(20),
+  /** Vitesse de récitation, en centièmes : 75 ou 100. */
+  vitesseCent: integer("vitesse_cent").notNull().default(100),
 });
 
 export type Sourate = typeof sourates.$inferSelect;
@@ -778,3 +804,4 @@ export type AbonnementPush = typeof abonnementsPush.$inferSelect;
 export type ReglagesNotifications = typeof reglagesNotifications.$inferSelect;
 export type Canal = (typeof canalEnum.enumValues)[number];
 export type Sauvegarde = typeof sauvegardes.$inferSelect;
+export type ModeEcoute = (typeof modeEcouteEnum.enumValues)[number];

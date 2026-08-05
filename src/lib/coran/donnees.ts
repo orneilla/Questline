@@ -16,6 +16,7 @@ import {
   sourates,
   textesVersets,
   versets,
+  type ModeEcoute,
   type Sourate,
   type UniteObjectif,
 } from "@/db/schema";
@@ -47,6 +48,10 @@ export type ReglagesCoranComplets = {
   afficherTraduction: boolean;
   uniteObjectif: UniteObjectif;
   objectifQuotidien: number;
+  modeEcoute: ModeEcoute;
+  repetitions: number;
+  pauseRepetitionDs: number;
+  vitesseCent: number;
 };
 
 const DEFAUTS: ReglagesCoranComplets = {
@@ -64,6 +69,10 @@ const DEFAUTS: ReglagesCoranComplets = {
   afficherTraduction: true,
   uniteObjectif: "versets",
   objectifQuotidien: 20,
+  modeEcoute: "enchainement",
+  repetitions: 3,
+  pauseRepetitionDs: 20,
+  vitesseCent: 100,
 };
 
 export async function chargerReglagesCoran(): Promise<ReglagesCoranComplets> {
@@ -84,6 +93,10 @@ export async function chargerReglagesCoran(): Promise<ReglagesCoranComplets> {
     afficherTraduction: ligne.afficherTraduction,
     uniteObjectif: ligne.uniteObjectif,
     objectifQuotidien: ligne.objectifQuotidien,
+    modeEcoute: ligne.modeEcoute,
+    repetitions: ligne.repetitions,
+    pauseRepetitionDs: ligne.pauseRepetitionDs,
+    vitesseCent: ligne.vitesseCent,
   };
 }
 

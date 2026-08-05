@@ -179,6 +179,10 @@ export default async function PageLecture({
             afficherArabe: reglages.afficherArabe,
             afficherTranslitteration: reglages.afficherTranslitteration,
             afficherTraduction: reglages.afficherTraduction,
+            modeEcoute: reglages.modeEcoute,
+            repetitions: reglages.repetitions,
+            pauseRepetitionDs: reglages.pauseRepetitionDs,
+            vitesseCent: reglages.vitesseCent,
           }}
           sources={sources}
           versetInitial={versetInitial}

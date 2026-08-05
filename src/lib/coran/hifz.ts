@@ -1,9 +1,9 @@
 import "server-only";
 
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, eq, sql } from "drizzle-orm";
 
 import { db } from "@/db";
-import { espaces, paquets, sourates, textesVersets, versets } from "@/db/schema";
+import { cartes, espaces, paquets, sourates, textesVersets, versets } from "@/db/schema";
 import { creerNote } from "@/lib/cartes/edition";
 import { analyserMot, chargerReglagesCoran } from "./donnees";
 import { face, masquerLaFin, type FormatHifz } from "./formats";
@@ -78,7 +78,31 @@ export type ResultatHifz = {
   message: string;
 };
 
-export async function memoriserVerset(demande: DemandeHifz): Promise<ResultatHifz> {
+/**
+ * Ce qu'une carte contiendra, avant qu'elle n'existe.
+ *
+ * La composition est séparée de l'écriture : le même code produit l'aperçu
+ * qu'on regarde et la carte qu'on crée. Deux chemins distincts finiraient par
+ * diverger, et l'aperçu mentirait le jour où ça compte.
+ */
+export type ApercuCarte = {
+  recto: string;
+  verso: string;
+  type: "recto_verso" | "trous";
+  notes: string;
+  tags: string[];
+  repere: string;
+  paquetParDefaut: { id: number; nom: string };
+  /** Une carte de ce verset et de ce format existe déjà. */
+  doublon: boolean;
+};
+
+/** Étiquette du format, pour reconnaître un doublon sans deviner. */
+function etiquetteFormat(format: FormatHifz): string {
+  return `format:${format}`;
+}
+
+async function composer(demande: DemandeHifz): Promise<ApercuCarte> {
   const [verset] = await db
     .select({
       numero: versets.numero,
@@ -99,7 +123,11 @@ export async function memoriserVerset(demande: DemandeHifz): Promise<ResultatHif
   const reglages = await chargerReglagesCoran();
   const paquetId = await paquetSourate(verset.sourate, verset.nomSourate);
   const repere = `${verset.nomSourate} ${verset.sourate}:${verset.numeroDansSourate}`;
-  const tags = ["coran", `coran:${verset.sourate}:${verset.numeroDansSourate}`];
+  const tags = [
+    "coran",
+    `coran:${verset.sourate}:${verset.numeroDansSourate}`,
+    etiquetteFormat(demande.format),
+  ];
 
   // Toutes les faces portent l'arabe et sa translittération : c'est cette
   // dernière qui se lit quand on ne lit pas l'arabe couramment.
@@ -119,13 +147,17 @@ export async function memoriserVerset(demande: DemandeHifz): Promise<ResultatHif
   };
 
   const faceVerset = face(verset.texte, await translittere(verset.numero));
+  const commun = {
+    repere,
+    tags,
+    paquetParDefaut: { id: paquetId, nom: `${verset.sourate}. ${verset.nomSourate}` },
+    doublon: await existeDeja(verset.sourate, verset.numeroDansSourate, demande.format),
+  };
 
   if (demande.format === "enchainement") {
     const dernier = verset.premierVerset + verset.versetsSourate - 1;
     if (verset.numero >= dernier) {
-      throw new Error(
-        "Ce verset clôt sa sourate : il n'a pas de suivant à enchaîner.",
-      );
+      throw new Error("Ce verset clôt sa sourate : il n'a pas de suivant à enchaîner.");
     }
     const [suivant] = await db
       .select({ texte: versets.texte, numeroDansSourate: versets.numeroDansSourate })
@@ -134,18 +166,21 @@ export async function memoriserVerset(demande: DemandeHifz): Promise<ResultatHif
       .limit(1);
     if (!suivant) throw new Error("Le verset suivant n'est pas importé.");
 
-    const { creees } = await creerNote({
-      paquetId,
-      recto: faceVerset,
-      verso: face(suivant.texte, await translittere(verset.numero + 1)),
+    // Chaque verset affiché porte son propre numéro : sans cela on ne sait pas
+    // lequel on regarde ni lequel on doit produire.
+    return {
+      ...commun,
+      recto: [
+        `*${verset.sourate}:${verset.numeroDansSourate}*`,
+        faceVerset,
+        "**Récite le verset suivant.**",
+      ].join("\n\n"),
+      verso: [
+        `*${verset.sourate}:${suivant.numeroDansSourate}*`,
+        face(suivant.texte, await translittere(verset.numero + 1)),
+      ].join("\n\n"),
       type: "recto_verso",
       notes: `${repere} → verset ${suivant.numeroDansSourate}`,
-      tags,
-    });
-    return {
-      cartes: creees,
-      paquet: `${verset.sourate}. ${verset.nomSourate}`,
-      message: `Enchaînement ${repere} → verset ${suivant.numeroDansSourate} créé.`,
     };
   }
 
@@ -162,41 +197,105 @@ export async function memoriserVerset(demande: DemandeHifz): Promise<ResultatHif
             .limit(1)
         : [];
 
+    // Le recto doit dire deux choses sans ambiguïté : ce qu'on doit produire,
+    // et ce qu'on est en train de lire. Annoncer la référence du verset à
+    // réciter au-dessus du texte du *précédent* faisait croire que le texte
+    // affiché était celui de la référence.
     const amorce = precedent
-      ? face(precedent.texte, await translittere(verset.numero - 1))
-      : "Début de la sourate.";
+      ? [
+          `*verset précédent — ${verset.sourate}:${precedent.numeroDansSourate}*`,
+          face(precedent.texte, await translittere(verset.numero - 1)),
+        ].join("\n\n")
+      : "*Début de la sourate — rien avant.*";
 
-    const { creees } = await creerNote({
-      paquetId,
-      recto: `**${repere}**\n\n${amorce}`,
+    return {
+      ...commun,
+      recto: `**Réciter ${repere}**\n\n${amorce}`,
       verso: faceVerset,
       type: "recto_verso",
       notes: `${repere} — à réciter`,
-      tags,
-    });
-    return {
-      cartes: creees,
-      paquet: `${verset.sourate}. ${verset.nomSourate}`,
-      message: `Carte de récitation créée pour ${repere}.`,
     };
   }
 
   // Le texte à trous porte les marques sur l'arabe ; la translittération suit,
   // entière, pour qu'on puisse toujours lire ce qu'on cherche à retrouver.
-  const { creees } = await creerNote({
-    paquetId,
+  return {
+    ...commun,
     recto: face(masquerLaFin(verset.texte), await translittere(verset.numero)),
     // Le verso porte le verset entier, verbatim.
     verso: faceVerset,
     type: "trous",
-    notes: `${repere}`,
-    tags,
+    notes: repere,
+  };
+}
+
+/**
+ * Une carte de ce verset et de ce format existe-t-elle déjà ?
+ *
+ * La question se pose sur les étiquettes, pas sur le contenu : deux cartes du
+ * même verset et du même format sont un doublon même si un réglage
+ * d'affichage a changé le texte entre-temps.
+ */
+async function existeDeja(
+  sourate: number,
+  versetDansSourate: number,
+  format: FormatHifz,
+): Promise<boolean> {
+  const [ligne] = await db
+    .select({ id: cartes.id })
+    .from(cartes)
+    .where(
+      and(
+        sql`${cartes.tags} @> ARRAY[${`coran:${sourate}:${versetDansSourate}`}]::text[]`,
+        sql`${cartes.tags} @> ARRAY[${etiquetteFormat(format)}]::text[]`,
+      ),
+    )
+    .limit(1);
+  return Boolean(ligne);
+}
+
+/** L'aperçu d'une carte, sans rien écrire. */
+export async function apercuCarte(demande: DemandeHifz): Promise<ApercuCarte> {
+  return composer(demande);
+}
+
+/** Les paquets où une carte du Coran peut atterrir. */
+export async function paquetsDisponibles(): Promise<{ id: number; nom: string }[]> {
+  const espaceId = await espaceCoran();
+  return db
+    .select({ id: paquets.id, nom: paquets.nom })
+    .from(paquets)
+    .where(eq(paquets.espaceId, espaceId))
+    .orderBy(asc(paquets.ordre), asc(paquets.id));
+}
+
+/** Crée la carte, une fois l'aperçu confirmé. */
+export async function memoriserVerset(
+  demande: DemandeHifz & { paquetId?: number },
+): Promise<ResultatHifz> {
+  const apercu = await composer(demande);
+  const paquetId = demande.paquetId ?? apercu.paquetParDefaut.id;
+
+  const [paquet] = await db
+    .select({ nom: paquets.nom })
+    .from(paquets)
+    .where(eq(paquets.id, paquetId))
+    .limit(1);
+  const nomPaquet = paquet?.nom ?? apercu.paquetParDefaut.nom;
+
+  const { creees } = await creerNote({
+    paquetId,
+    recto: apercu.recto,
+    verso: apercu.verso,
+    type: apercu.type,
+    notes: apercu.notes,
+    tags: apercu.tags,
   });
 
   return {
     cartes: creees,
-    paquet: `${verset.sourate}. ${verset.nomSourate}`,
-    message: `Carte à trous créée pour ${repere}.`,
+    paquet: nomPaquet,
+    message: `Carte ajoutée au paquet ${nomPaquet}.`,
   };
 }
 

@@ -14,11 +14,17 @@ import {
   type MotAffiche,
   type TrancheSourate,
 } from "@/lib/coran/donnees";
-import { apprendreMotDuCoran, memoriserVerset } from "@/lib/coran/hifz";
+import {
+  apercuCarte,
+  apprendreMotDuCoran,
+  memoriserVerset,
+  paquetsDisponibles,
+  type ApercuCarte,
+} from "@/lib/coran/hifz";
 import type { FormatHifz } from "@/lib/coran/formats";
 import { retirerEdition } from "@/lib/coran/import";
 import { EDITIONS_PROPOSEES, POLICES, RECITEURS } from "@/lib/coran/sources";
-import type { UniteObjectif } from "@/db/schema";
+import type { ModeEcoute, UniteObjectif } from "@/db/schema";
 
 /**
  * Actions du module Coran.
@@ -68,9 +74,32 @@ export async function supprimerMarquePage(id: number): Promise<void> {
 
 const FORMATS: FormatHifz[] = ["enchainement", "fin_masquee", "reciter"];
 
+/**
+ * L'aperçu d'une carte, avant qu'elle n'existe.
+ *
+ * Rien n'est écrit ici. C'est ce même code qui composera la carte une fois
+ * l'aperçu confirmé : deux chemins distincts finiraient par diverger.
+ */
+export async function apercuMemorisation(
+  versetNumero: number,
+  format: string,
+): Promise<{ erreur?: string; apercu?: ApercuCarte; paquets?: { id: number; nom: string }[] }> {
+  if (!(FORMATS as string[]).includes(format)) return { erreur: "Format inconnu." };
+  try {
+    const [apercu, liste] = await Promise.all([
+      apercuCarte({ versetNumero, format: format as FormatHifz }),
+      paquetsDisponibles(),
+    ]);
+    return { apercu, paquets: liste };
+  } catch (erreur) {
+    return { erreur: message(erreur) };
+  }
+}
+
 export async function memoriser(
   versetNumero: number,
   format: string,
+  paquetId?: number,
 ): Promise<Retour> {
   if (!(FORMATS as string[]).includes(format)) return { erreur: "Format inconnu." };
 
@@ -78,10 +107,11 @@ export async function memoriser(
     const resultat = await memoriserVerset({
       versetNumero,
       format: format as FormatHifz,
+      paquetId,
     });
     revalidatePath("/coran/hifz");
     revalidatePath("/cartes");
-    return { message: `${resultat.message} Paquet « ${resultat.paquet} ».` };
+    return { message: resultat.message };
   } catch (erreur) {
     return { erreur: message(erreur) };
   }
@@ -234,4 +264,40 @@ export async function chargerSourateVoisine(
   numeroSourate: number,
 ): Promise<TrancheSourate | null> {
   return chargerTrancheSourate(numeroSourate);
+}
+
+/* ─────────────────────────── Modes d'écoute ─────────────────────────── */
+
+/**
+ * Enregistre le mode d'écoute et ses réglages.
+ *
+ * Appelée depuis la barre de lecture, à chaque changement : le mode doit être
+ * retrouvé tel quel à la session suivante. Aucune revalidation — rafraîchir la
+ * route courante rechargerait le lecteur et perdrait la place.
+ */
+export async function sauverEcoute(valeurs: {
+  modeEcoute?: ModeEcoute;
+  repetitions?: number;
+  pauseRepetitionDs?: number;
+  vitesseCent?: number;
+}): Promise<void> {
+  const modes: ModeEcoute[] = ["enchainement", "verset_boucle", "passage_boucle"];
+  const propre: Parameters<typeof enregistrerReglagesCoran>[0] = {};
+
+  if (valeurs.modeEcoute && modes.includes(valeurs.modeEcoute)) {
+    propre.modeEcoute = valeurs.modeEcoute;
+  }
+  // 0 vaut « sans fin » ; au-delà de 99 on ne compte plus, on boucle.
+  if (Number.isInteger(valeurs.repetitions)) {
+    propre.repetitions = Math.min(99, Math.max(0, valeurs.repetitions!));
+  }
+  // De zéro à cinq secondes : c'est dans ce silence qu'on récite à voix haute.
+  if (Number.isInteger(valeurs.pauseRepetitionDs)) {
+    propre.pauseRepetitionDs = Math.min(50, Math.max(0, valeurs.pauseRepetitionDs!));
+  }
+  if (Number.isInteger(valeurs.vitesseCent)) {
+    propre.vitesseCent = valeurs.vitesseCent === 75 ? 75 : 100;
+  }
+
+  if (Object.keys(propre).length > 0) await enregistrerReglagesCoran(propre);
 }

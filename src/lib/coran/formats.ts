@@ -13,17 +13,17 @@ export const FORMATS: { valeur: FormatHifz; libelle: string; aide: string }[] = 
   {
     valeur: "enchainement",
     libelle: "Verset suivant",
-    aide: "Le verset au recto, celui qui le suit au verso.",
+    aide: "On te montre un verset, tu récites celui d'après.",
   },
   {
     valeur: "fin_masquee",
     libelle: "Fin masquée",
-    aide: "Le verset avec ses derniers mots cachés. Aucun caractère n'est modifié.",
+    aide: "Le verset avec des mots cachés à compléter.",
   },
   {
     valeur: "reciter",
     libelle: "Réciter",
-    aide: "La référence et le verset précédent au recto ; le verset à réciter au verso.",
+    aide: "La référence et le verset précédent, tu récites le verset entier.",
   },
 ];
 
