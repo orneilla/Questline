@@ -54,6 +54,18 @@ function Avancement({ etat }: { etat: Progression }) {
         {" "}
         {etat.versetsParcourus} versets parcourus sur le moushaf, soit {etat.partMoushaf} %.
       </p>
+
+      {/*
+        Les relectures sont dites à part, et jamais mêlées au compte du jour :
+        relire vingt fois un verset pour le mémoriser, c'est un verset lu.
+      */}
+      {etat.relectures > 0 && (
+        <p className="text-[12.5px] leading-relaxed text-tres-doux">
+          {etat.relectures} relecture{etat.relectures > 1 ? "s" : ""} aujourd'hui, en
+          plus du premier passage. Elles ne comptent pas dans le total : un verset
+          relu reste un verset.
+        </p>
+      )}
     </section>
   );
 }

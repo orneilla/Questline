@@ -14,6 +14,7 @@ import {
   texteBasmala,
   compterMots,
   positionDansSourate,
+  versetsLusLeJour,
 } from "@/lib/coran/donnees";
 import { CORPUS_MORPHOLOGIE, EDITION_ARABE, editionProposee } from "@/lib/coran/sources";
 import { diagnostiquer } from "@/lib/erreurs";
@@ -92,12 +93,13 @@ export default async function PageLecture({
 
     // L'enchaînement continu n'a de sens que sur une sourate entière : un juz'
     // ou une plage n'ont pas de « suivante » évidente.
-    const [trancheOuverte, basmala, avancement] = await Promise.all([
+    const [trancheOuverte, basmala, avancement, dejaLus] = await Promise.all([
       sourateOuverte !== null && tranche >= fin
         ? chargerTrancheSourate(sourateOuverte)
         : Promise.resolve(null),
       texteBasmala(),
       progression(),
+      versetsLusLeJour(),
     ]);
 
     if (versets.length === 0) {
@@ -200,6 +202,8 @@ export default async function PageLecture({
           }
           motAMotDisponible={motsAnalyses > 0}
           luAujourdhui={avancement.aujourdhui}
+          versetsDejaLus={dejaLus}
+          uniteObjectif={avancement.unite}
           objectifJour={avancement.objectif}
         />
 

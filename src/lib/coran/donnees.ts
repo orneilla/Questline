@@ -423,7 +423,37 @@ export type Progression = {
   /** Versets distincts déjà lus au moins une fois, sur 6236. */
   versetsParcourus: number;
   partMoushaf: number;
+  /**
+   * Passages en plus du premier, aujourd'hui.
+   *
+   * Mémoriser, c'est relire vingt fois le même verset. Ces relectures ne
+   * gonflent aucun compteur de lecture — elles sont tenues à part, ici, parce
+   * qu'elles disent quelque chose de vrai sur la journée.
+   */
+  relectures: number;
 };
+
+/**
+ * Les versets distincts lus un jour donné.
+ *
+ * Une même journée compte plusieurs séances, et un verset relu apparaît dans
+ * plusieurs d'entre elles. Additionner les séances compterait des passages ;
+ * ce qui est demandé, ce sont des versets.
+ */
+const VERSETS_DISTINCTS_DU_JOUR = (date: string) => sql<number>`(
+  select count(distinct n)
+  from ${seancesLecture} s, unnest(s.numeros) as n
+  where s.date = ${date})`;
+
+/** Les numéros eux-mêmes, pour que le lecteur sache ce qui est déjà compté. */
+export async function versetsLusLeJour(date = aujourdhui()): Promise<number[]> {
+  const lignes = await db
+    .select({ numeros: seancesLecture.numeros })
+    .from(seancesLecture)
+    .where(eq(seancesLecture.date, date));
+
+  return [...new Set(lignes.flatMap((l) => l.numeros))].sort((a, b) => a - b);
+}
 
 /** Ce qu'une séance vaut dans l'unité choisie. */
 async function totalDuJour(unite: UniteObjectif, date: string): Promise<number> {
@@ -449,15 +479,28 @@ async function totalDuJour(unite: UniteObjectif, date: string): Promise<number> 
   }
 
   const [ligne] = await db
-    .select({ total: sql<number>`coalesce(sum(${seancesLecture.versets}), 0)` })
+    .select({ total: VERSETS_DISTINCTS_DU_JOUR(date) })
+    .from(seancesLecture)
+    .limit(1);
+  return Number(ligne?.total ?? 0);
+}
+
+/** Passages au-delà du premier, aujourd'hui : la mesure des relectures. */
+async function relecturesDuJour(date: string): Promise<number> {
+  const [ligne] = await db
+    .select({
+      passages: sql<number>`coalesce(sum(${seancesLecture.versets}), 0)`,
+      distincts: VERSETS_DISTINCTS_DU_JOUR(date),
+    })
     .from(seancesLecture)
     .where(eq(seancesLecture.date, date));
-  return Number(ligne?.total ?? 0);
+
+  return Math.max(0, Number(ligne?.passages ?? 0) - Number(ligne?.distincts ?? 0));
 }
 
 export async function progression(date = aujourdhui()): Promise<Progression> {
   const reglages = await chargerReglagesCoran();
-  const [total, parcourus] = await Promise.all([
+  const [total, parcourus, relectures] = await Promise.all([
     totalDuJour(reglages.uniteObjectif, date),
     db
       .select({
@@ -467,6 +510,7 @@ export async function progression(date = aujourdhui()): Promise<Progression> {
       })
       .from(seancesLecture)
       .limit(1),
+    relecturesDuJour(date),
   ]);
 
   const versetsParcourus = Number(parcourus[0]?.combien ?? 0);
@@ -478,21 +522,29 @@ export async function progression(date = aujourdhui()): Promise<Progression> {
     atteint: total >= reglages.objectifQuotidien,
     versetsParcourus,
     partMoushaf: Math.round((1000 * versetsParcourus) / TOTAL_VERSETS) / 10,
+    relectures,
   };
 }
 
-/** Jours de lecture, pour le calendrier — même forme que celui des cartes. */
+/**
+ * Jours de lecture, pour le calendrier — même forme que celui des cartes.
+ *
+ * Un verset relu dix fois dans la journée y compte une fois, comme partout
+ * ailleurs : la moyenne quotidienne affichée sous le calendrier se calcule à
+ * partir de ces nombres, et compter les relectures la rendrait fausse.
+ */
 export async function joursDeLecture(): Promise<{ date: string; combien: number }[]> {
-  const lignes = await db
-    .select({
-      jour: seancesLecture.date,
-      combien: sql<number>`coalesce(sum(${seancesLecture.versets}), 0)`,
-    })
-    .from(seancesLecture)
-    .groupBy(seancesLecture.date)
-    .orderBy(asc(seancesLecture.date));
+  const resultat = await db.execute(
+    sql`select s.date as jour, count(distinct n) as combien
+        from ${seancesLecture} s, unnest(s.numeros) as n
+        group by s.date
+        order by s.date asc`,
+  );
 
-  return lignes.map((l) => ({ date: l.jour, combien: Number(l.combien) }));
+  const brut = (resultat as unknown as { rows?: unknown[] }).rows ?? resultat;
+  const lignes = Array.isArray(brut) ? (brut as { jour: unknown; combien: unknown }[]) : [];
+
+  return lignes.map((l) => ({ date: String(l.jour), combien: Number(l.combien) }));
 }
 
 /**

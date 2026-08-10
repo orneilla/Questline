@@ -181,15 +181,29 @@ async function dernieresRevisions(
 
 export type Notation1a4 = Notation;
 
+/** De quoi écrire : la base elle-même, ou une transaction ouverte sur elle. */
+type Executeur = Pick<typeof db, "insert" | "update">;
+
+/**
+ * Le pilote HTTP de Neon expose bien `transaction`, mais elle lève au premier
+ * appel, avant même d'exécuter quoi que ce soit. Tester `typeof` ne dit donc
+ * rien : il faut essayer et reconnaître ce refus-là — et seulement celui-là,
+ * pour ne jamais rejouer hors transaction une écriture qui a échoué pour une
+ * autre raison.
+ */
+function sansTransaction(erreur: unknown): boolean {
+  return erreur instanceof Error && /no transactions? support/i.test(erreur.message);
+}
+
 /**
  * Enregistre une notation.
  *
  * L'insertion dans l'historique et la mise à jour de la carte forment un tout :
  * une carte dont l'état avancerait sans trace, ou l'inverse, corromprait le
- * calcul FSRS des années plus tard. Le pilote HTTP de Neon ne gère pas les
- * transactions ; on retombe alors sur une écriture ordonnée — historique
- * d'abord, puis carte — de sorte qu'une coupure laisse au pire une révision
- * enregistrée dont l'état n'a pas encore été reporté, ce qui reste réparable.
+ * calcul FSRS des années plus tard. Là où le pilote refuse les transactions, on
+ * retombe sur une écriture ordonnée — historique d'abord, puis carte — de sorte
+ * qu'une coupure laisse au pire une révision enregistrée dont l'état n'a pas
+ * encore été reporté, ce qui reste réparable.
  */
 export async function enregistrerNotation(entree: {
   carteId: number;
@@ -240,8 +254,8 @@ export async function enregistrerNotation(entree: {
 
   const prochaineDate = aujourdhui(plan.echeance);
 
-  const ecrire = async () => {
-    await db.insert(revisions).values({
+  const ecrire = async (executeur: Executeur) => {
+    await executeur.insert(revisions).values({
       carteId: carte.id,
       date,
       vueLe: maintenant.toISOString(),
@@ -254,7 +268,7 @@ export async function enregistrerNotation(entree: {
       duree: Math.min(entree.dureeMs, 3_600_000),
     });
 
-    await db
+    await executeur
       .update(cartes)
       .set({
         stabilite: plan.stabilite,
@@ -267,14 +281,13 @@ export async function enregistrerNotation(entree: {
       .where(eq(cartes.id, carte.id));
   };
 
-  // `transaction` n'existe pas sur le pilote HTTP ; on s'en sert quand il est là.
-  const avecTransaction = db as unknown as {
-    transaction?: (f: (tx: unknown) => Promise<void>) => Promise<void>;
-  };
-  if (typeof avecTransaction.transaction === "function") {
-    await avecTransaction.transaction(async () => ecrire());
-  } else {
-    await ecrire();
+  try {
+    await db.transaction(async (tx) => {
+      await ecrire(tx);
+    });
+  } catch (erreur) {
+    if (!sansTransaction(erreur)) throw erreur;
+    await ecrire(db);
   }
 
   return { intervalle: plan.intervalle, etat: plan.etat };

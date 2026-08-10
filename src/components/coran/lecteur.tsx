@@ -16,7 +16,7 @@ import {
 } from "@/app/(app)/coran/actions";
 import { FORMATS, type FormatHifz } from "@/lib/coran/formats";
 import type { MotAffiche, TrancheSourate, VersetAffiche } from "@/lib/coran/donnees";
-import type { ModeEcoute } from "@/db/schema";
+import type { ModeEcoute, UniteObjectif } from "@/db/schema";
 import type { ApercuCarte } from "@/lib/coran/hifz";
 import { GLOSE_DEPOSEE, nomReciteur, pilePolice, urlAudio } from "@/lib/coran/sources";
 
@@ -127,6 +127,8 @@ export function Lecteur({
   repriseSuggeree,
   motAMotDisponible,
   luAujourdhui,
+  versetsDejaLus,
+  uniteObjectif,
   objectifJour,
 }: {
   versets: VersetAffiche[];
@@ -145,6 +147,15 @@ export function Lecteur({
   motAMotDisponible: boolean;
   /** Ce qui a déjà été lu aujourd'hui, au chargement de l'écran. */
   luAujourdhui: number;
+  /**
+   * Les versets déjà comptés aujourd'hui, avant d'ouvrir cet écran.
+   *
+   * Sans eux, revenir dans une sourate déjà lue ferait remonter le compteur à
+   * chaque verset retraversé, alors que la base, elle, ne compte qu'une fois.
+   */
+  versetsDejaLus: number[];
+  /** L'unité de l'objectif : seul « versets » se compte verset par verset. */
+  uniteObjectif: UniteObjectif;
   objectifJour: number;
 }) {
   const router = useRouter();
@@ -163,11 +174,13 @@ export function Lecteur({
   /**
    * Le compte du jour, tenu à jour sur place.
    *
-   * Le serveur donne le point de départ ; chaque verset crédité l'incrémente
+   * Le serveur donne le point de départ ; chaque verset *nouveau* l'incrémente
    * aussitôt. Attendre l'aller-retour rendrait le compteur inerte pendant toute
    * la lecture — c'est ce qui obligeait à quitter l'écran pour le voir bouger.
+   * Dès qu'une séance est enregistrée, la valeur du serveur reprend la main.
    */
   const [luDuJour, setLuDuJour] = useState(luAujourdhui);
+  useEffect(() => setLuDuJour(luAujourdhui), [luAujourdhui]);
   const chargement = useRef<Set<number>>(new Set());
   const zoneBas = useRef<HTMLDivElement | null>(null);
 
@@ -207,6 +220,15 @@ export function Lecteur({
   const minuteries = useRef(new Map<number, ReturnType<typeof setTimeout>>());
   /** Les versets restés sous les yeux assez longtemps depuis le dernier envoi. */
   const lus = useRef(new Set<number>());
+  /**
+   * Tous les versets déjà comptés aujourd'hui, relectures comprises.
+   *
+   * Jamais vidé, contrairement au tampon d'envoi : c'est lui qui garantit qu'un
+   * verset relu vingt fois pour le mémoriser ne fait avancer le compteur
+   * qu'une seule fois. Les relectures continuent d'être envoyées — elles sont
+   * comptées à part, côté serveur.
+   */
+  const comptesDuJour = useRef(new Set<number>(versetsDejaLus));
 
   const echelle = tailles({ ...reglages, modeMemorisation: memorisation });
 
@@ -381,7 +403,14 @@ export function Lecteur({
             setTimeout(() => {
               minuteries.current.delete(numero);
               lus.current.add(numero);
-              setLuDuJour((compte) => compte + 1);
+              // Un verset déjà compté aujourd'hui ne fait pas monter le
+              // compteur une seconde fois : c'est une relecture, pas un verset
+              // lu de plus. L'unité « pages » ou « minutes » ne se déduit pas
+              // d'un verset — pour elles, seul le serveur tranche.
+              if (uniteObjectif === "versets" && !comptesDuJour.current.has(numero)) {
+                setLuDuJour((compte) => compte + 1);
+              }
+              comptesDuJour.current.add(numero);
               if (numero > dernierLu.current) {
                 dernierLu.current = numero;
                 void sauverPosition(numero);
@@ -405,7 +434,7 @@ export function Lecteur({
       for (const minuterie of enAttente.values()) clearTimeout(minuterie);
       enAttente.clear();
     };
-  }, [versets, journaliser]);
+  }, [versets, journaliser, uniteObjectif]);
 
   /**
    * Amène un verset en haut de l'écran, entier et visible.
