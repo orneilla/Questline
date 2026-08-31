@@ -294,6 +294,48 @@ export async function chercher(
     );
   }
 
+  if (veut("journal")) {
+    // Les phrases du soir et les réponses de fin de saison : deux tables, un
+    // seul geste d'écriture pour qui les a écrites. Elles se cherchent ensemble.
+    const ouPhrase = correspond(["j.phrase"], mots);
+    const ouSaison = correspond(["s.reponse"], mots);
+    const lignes = await interroger(sql.raw(`
+      select * from (
+        select j.date as quand, j.phrase as texte, 'phrase' as origine, null::int as numero
+          from journees j
+         where ${ouPhrase} and btrim(j.phrase) <> ''
+        union all
+        select s.fin as quand, s.reponse as texte, 'saison' as origine, s.numero
+          from saisons s
+         where ${ouSaison} and btrim(s.reponse) <> ''
+      ) tout
+      order by quand desc
+      limit ${PAR_GROUPE}
+    `));
+    // Le total exact demande son propre compte : `count(*) over ()` porterait
+    // sur l'union déjà tronquée par la limite.
+    const [compte] = await interroger(sql.raw(`
+      select
+        (select count(*) from journees j where ${ouPhrase} and btrim(j.phrase) <> '')
+      + (select count(*) from saisons s where ${ouSaison} and btrim(s.reponse) <> '')
+        as total
+    `));
+    groupes.push({
+      type: "journal",
+      libelle: LIBELLES_TYPES.journal,
+      total: Number(compte?.total ?? 0),
+      resultats: lignes.map((l) => ({
+        type: "journal" as const,
+        titre: extrait(l.texte),
+        detail:
+          texte(l.origine) === "saison"
+            ? `fin de la saison ${texte(l.numero)}`
+            : `phrase du soir · ${texte(l.quand)}`,
+        lien: "/parcours",
+      })),
+    });
+  }
+
   return groupes.filter((g) => g.total > 0);
 }
 

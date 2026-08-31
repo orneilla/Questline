@@ -5,11 +5,39 @@ import { EcranInstallation } from "@/components/ecran-installation";
 import { COULEURS_PILIERS, LIBELLES_PILIERS, MOIS } from "@/lib/constantes";
 import { formaterDateLongue } from "@/lib/dates";
 import { diagnostiquer } from "@/lib/erreurs";
+import { chargerPhrases, type PhraseJournal } from "@/lib/journal";
 import { chargerSaisonsArchivees, type SaisonArchivee } from "@/lib/saisons";
 import { chargerParcours, type LigneParcours } from "@/lib/seuils";
 
 export const metadata: Metadata = { title: "Questline — Parcours" };
 export const dynamic = "force-dynamic";
+
+/**
+ * Les phrases rangées par mois, le plus récent d'abord.
+ *
+ * Une longue liste de dates nues se lit mal ; les mois donnent des paliers à
+ * l'œil sans rien ajouter au texte.
+ */
+function parMois(phrases: PhraseJournal[]) {
+  const groupes: { cle: string; libelle: string; phrases: PhraseJournal[] }[] = [];
+
+  for (const phrase of phrases) {
+    const [annee, mois] = phrase.date.split("-");
+    const cle = `${annee}-${mois}`;
+    const dernier = groupes[groupes.length - 1];
+    if (dernier?.cle === cle) {
+      dernier.phrases.push(phrase);
+      continue;
+    }
+    groupes.push({
+      cle,
+      libelle: `${MOIS[Number(mois) - 1]} ${annee}`,
+      phrases: [phrase],
+    });
+  }
+
+  return groupes;
+}
 
 function intervalle(debut: string, fin: string): string {
   const [, moisD, jourD] = debut.split("-").map(Number);
@@ -22,11 +50,13 @@ function intervalle(debut: string, fin: string): string {
 export default async function PageParcours() {
   let seuils: LigneParcours[];
   let saisons: SaisonArchivee[];
+  let phrases: PhraseJournal[];
 
   try {
-    [seuils, saisons] = await Promise.all([
+    [seuils, saisons, phrases] = await Promise.all([
       chargerParcours(),
       chargerSaisonsArchivees(),
+      chargerPhrases(),
     ]);
   } catch (erreur) {
     const probleme = diagnostiquer(erreur);
@@ -40,10 +70,46 @@ export default async function PageParcours() {
         <Retour vers="/bilan" libelle="Bilan" />
         <h1 className="police-titre text-[34px] leading-none">Parcours</h1>
         <p className="text-[13.5px] leading-relaxed text-doux">
-          La seule page qui regarde loin en arrière. Les seuils franchis et les
-          saisons closes, dans l'ordre où ils sont arrivés.
+          La seule page qui regarde loin en arrière. Les phrases du soir, les seuils
+          franchis et les saisons closes, dans l'ordre où ils sont arrivés.
         </p>
       </header>
+
+      <section className="flex flex-col gap-4">
+        <h2 className="text-[13px] tracking-[0.14em] text-doux uppercase">
+          Phrases du soir
+        </h2>
+
+        {phrases.length === 0 ? (
+          <p className="rounded-2xl border border-bordure/60 px-5 py-6 text-center text-[14px] leading-relaxed text-doux">
+            Aucune phrase pour l'instant. Celles écrites le soir se retrouvent ici,
+            de la plus récente à la plus ancienne.
+          </p>
+        ) : (
+          <ul className="flex flex-col gap-6">
+            {parMois(phrases).map((mois) => (
+              <li key={mois.cle} className="flex flex-col gap-3">
+                <span className="text-[11.5px] tracking-[0.14em] text-tres-doux uppercase">
+                  {mois.libelle}
+                </span>
+                <ul className="flex flex-col gap-4">
+                  {mois.phrases.map((phrase) => (
+                    <li key={phrase.date} className="flex flex-col gap-1">
+                      <span className="text-[11.5px] text-tres-doux">
+                        {formaterDateLongue(phrase.date)}
+                      </span>
+                      {/* Le texte tel qu'il a été écrit, retours à la ligne compris. */}
+                      <p className="border-l border-bordure-vive pl-4 text-[15px] leading-relaxed whitespace-pre-wrap text-texte">
+                        {phrase.texte}
+                      </p>
+                    </li>
+                  ))}
+                </ul>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
 
       <section className="flex flex-col gap-4">
         <h2 className="text-[13px] tracking-[0.14em] text-doux uppercase">

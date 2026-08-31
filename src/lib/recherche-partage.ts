@@ -14,7 +14,8 @@ export type TypeResultat =
   | "vocabulaire"
   | "quete"
   | "arc"
-  | "tache";
+  | "tache"
+  | "journal";
 
 export const LIBELLES_TYPES: Record<TypeResultat, string> = {
   carte: "Cartes",
@@ -23,6 +24,7 @@ export const LIBELLES_TYPES: Record<TypeResultat, string> = {
   quete: "Quêtes",
   arc: "Arcs",
   tache: "Tâches",
+  journal: "Journal",
 };
 
 export type Resultat = {

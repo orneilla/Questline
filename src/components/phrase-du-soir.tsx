@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { actionPhrase } from "@/app/(app)/jour/actions";
@@ -61,17 +62,29 @@ export function PhraseDuSoir({ valeurInitiale }: Props) {
 
   return (
     <section className="flex flex-col gap-3">
-      <div className="flex items-baseline justify-between">
+      <div className="flex items-baseline justify-between gap-3">
         <h2 className="text-[13px] tracking-[0.14em] text-doux uppercase">
           Phrase du soir
         </h2>
-        <span
-          aria-live="polite"
-          className="text-[11.5px] text-tres-doux transition-opacity duration-700"
-          style={{ opacity: etat === "enregistre" ? 1 : 0 }}
-        >
-          enregistré
-        </span>
+        <div className="flex shrink-0 items-baseline gap-3">
+          <span
+            aria-live="polite"
+            className="text-[11.5px] text-tres-doux transition-opacity duration-700"
+            style={{ opacity: etat === "enregistre" ? 1 : 0 }}
+          >
+            enregistré
+          </span>
+          {/*
+            Sans ce lien, on écrivait sans jamais relire : la page qui garde les
+            phrases passées n'était atteignable que par le bas du bilan.
+          */}
+          <Link
+            href="/parcours"
+            className="text-[11.5px] text-tres-doux underline decoration-bordure-vive underline-offset-4 transition-colors duration-300 active:text-doux"
+          >
+            les relire
+          </Link>
+        </div>
       </div>
 
       <textarea
