@@ -11,7 +11,10 @@ import {
   franchirEtape,
   modifierArc,
   modifierEtape,
+  perteALaSuppression,
+  supprimerArc,
   supprimerEtape,
+  type PerteArc,
   type SaisieArc,
 } from "@/lib/arcs";
 import { PILIERS } from "@/lib/constantes";
@@ -79,6 +82,41 @@ export async function actionAccomplirArc(id: number, accompli: boolean): Promise
   revalidatePath("/arcs");
   revalidatePath("/arcs/accomplis");
   revalidatePath(`/arcs/${id}`);
+}
+
+/** Ce qu'une suppression emporterait. Rien n'est touché ici. */
+export async function actionPerteArc(id: number): Promise<PerteArc | null> {
+  if (!Number.isInteger(id)) return null;
+  return perteALaSuppression(id);
+}
+
+/**
+ * Supprime l'arc pour de bon.
+ *
+ * Volontairement sans redirection côté serveur : c'est l'écran qui décide où
+ * aller après, et une redirection lancée depuis une action se propagerait mal
+ * à travers la transition en cours.
+ */
+export async function actionSupprimerArc(id: number): Promise<Retour> {
+  if (!Number.isInteger(id)) return { erreur: "Arc introuvable." };
+
+  try {
+    const parti = await supprimerArc(id);
+    if (!parti) return { erreur: "Cet arc n'existe plus." };
+
+    revalidatePath("/arcs");
+    revalidatePath("/arcs/accomplis");
+    revalidatePath("/jour");
+    revalidatePath("/semaine");
+    revalidatePath("/bilan");
+    revalidatePath("/parcours");
+    revalidatePath("/reglages");
+    return { message: "Arc supprimé." };
+  } catch (erreur) {
+    return {
+      erreur: `Suppression interrompue : ${erreur instanceof Error ? erreur.message : String(erreur)}`,
+    };
+  }
 }
 
 export async function actionAjouterEtape(arcId: number, titre: string): Promise<void> {

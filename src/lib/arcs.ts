@@ -3,7 +3,14 @@ import "server-only";
 import { and, asc, desc, eq, sql } from "drizzle-orm";
 
 import { db } from "@/db";
-import { arcs, etapesArc, quetes, validations, type Pilier } from "@/db/schema";
+import {
+  arcs,
+  etapesArc,
+  quetes,
+  seuilsArcs,
+  validations,
+  type Pilier,
+} from "@/db/schema";
 import { aujourdhui } from "@/lib/dates";
 
 /**
@@ -285,6 +292,76 @@ export async function reordonnerArcs(ids: number[]): Promise<void> {
   for (const [rang, id] of ids.entries()) {
     await db.update(arcs).set({ ordre: rang + 1 }).where(eq(arcs.id, id));
   }
+}
+
+/* ─────────────────────── Suppression d'un arc ─────────────────────── */
+
+export type PerteArc = {
+  nom: string;
+  quetes: number;
+  validations: number;
+  etapes: number;
+  seuils: number;
+};
+
+/**
+ * Ce qu'une suppression emporterait, compté avant de demander confirmation.
+ *
+ * Supprimer n'est pas archiver : archiver garde tout, supprimer ne garde rien.
+ * L'écran doit donc pouvoir dire, en nombres, ce qui va réellement disparaître
+ * — c'est la seule façon de choisir entre les deux en connaissance de cause.
+ */
+export async function perteALaSuppression(id: number): Promise<PerteArc | null> {
+  const [arc] = await db
+    .select({ nom: arcs.nom })
+    .from(arcs)
+    .where(eq(arcs.id, id))
+    .limit(1);
+  if (!arc) return null;
+
+  const [nbQuetes, nbValidations, nbEtapes, nbSeuils] = await Promise.all([
+    db
+      .select({ combien: sql<number>`count(*)::int` })
+      .from(quetes)
+      .where(eq(quetes.arcId, id))
+      .then((r) => Number(r[0]?.combien ?? 0)),
+    db
+      .select({ combien: sql<number>`count(*)::int` })
+      .from(validations)
+      .innerJoin(quetes, eq(validations.queteId, quetes.id))
+      .where(eq(quetes.arcId, id))
+      .then((r) => Number(r[0]?.combien ?? 0)),
+    db
+      .select({ combien: sql<number>`count(*)::int` })
+      .from(etapesArc)
+      .where(eq(etapesArc.arcId, id))
+      .then((r) => Number(r[0]?.combien ?? 0)),
+    db
+      .select({ combien: sql<number>`count(*)::int` })
+      .from(seuilsArcs)
+      .where(eq(seuilsArcs.arcId, id))
+      .then((r) => Number(r[0]?.combien ?? 0)),
+  ]);
+
+  return {
+    nom: arc.nom,
+    quetes: nbQuetes,
+    validations: nbValidations,
+    etapes: nbEtapes,
+    seuils: nbSeuils,
+  };
+}
+
+/**
+ * Supprime un arc et tout ce qui n'existe que par lui.
+ *
+ * Les quêtes, leurs validations, les étapes et les seuils franchis partent avec
+ * lui — les clés étrangères s'en chargent en cascade. L'élan déjà versé aux
+ * piliers, lui, reste : il a été vécu, et le retirer réécrirait le passé.
+ */
+export async function supprimerArc(id: number): Promise<boolean> {
+  const lignes = await db.delete(arcs).where(eq(arcs.id, id)).returning({ id: arcs.id });
+  return lignes.length > 0;
 }
 
 /* ───────────────────────────── Étapes ───────────────────────────── */

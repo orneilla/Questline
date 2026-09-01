@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 
 import {
   actionAccomplirArc,
@@ -11,6 +12,8 @@ import {
   actionFranchirEtape,
   actionModifierArc,
   actionModifierEtape,
+  actionPerteArc,
+  actionSupprimerArc,
   actionSupprimerEtape,
   type Retour,
 } from "@/app/(app)/arcs/actions";
@@ -18,7 +21,7 @@ import { Envoyer, Retourner, champ, etiquette } from "@/components/reglages/briq
 import { COULEURS_PILIERS, LIBELLES_PILIERS, PILIERS } from "@/lib/constantes";
 import { formaterDateLongue } from "@/lib/dates";
 import type { Pilier } from "@/db/schema";
-import type { EtapeAffichee } from "@/lib/arcs";
+import type { EtapeAffichee, PerteArc } from "@/lib/arcs";
 
 /**
  * Création et édition d'un arc.
@@ -397,6 +400,95 @@ export function EtatDeLArc({
           </button>
         )}
       </div>
+
+      <SuppressionArc id={id} />
     </section>
+  );
+}
+
+/**
+ * Suppression définitive d'un arc.
+ *
+ * Deux temps, comme partout ailleurs où quelque chose disparaît : on demande,
+ * on lit en nombres réels ce qui va partir, puis on confirme. La différence
+ * avec l'archivage est écrite noir sur blanc — c'est précisément le choix qu'on
+ * est en train de faire.
+ */
+function SuppressionArc({ id }: { id: number }) {
+  const router = useRouter();
+  const [perte, setPerte] = useState<PerteArc | null>(null);
+  const [erreur, setErreur] = useState<string | null>(null);
+  const [enAttente, demarrer] = useTransition();
+
+  return (
+    <div className="mt-1 flex flex-col gap-2 border-t border-bordure pt-3">
+      {perte === null ? (
+        <button
+          type="button"
+          disabled={enAttente}
+          onClick={() =>
+            demarrer(async () => {
+              const compte = await actionPerteArc(id);
+              if (!compte) setErreur("Cet arc n'existe plus.");
+              else setPerte(compte);
+            })
+          }
+          className="min-h-11 self-start text-left text-[12.5px] text-tres-doux transition-colors duration-300 active:text-doux disabled:opacity-40"
+        >
+          {enAttente ? "…" : "Le supprimer définitivement"}
+        </button>
+      ) : (
+        <div className="flex flex-col gap-2 rounded-xl border border-bordure-vive p-3">
+          <p className="text-[12.5px] leading-relaxed text-doux">
+            « {perte.nom} » et tout ce qui n'existe que par lui :
+          </p>
+          <dl className="grid grid-cols-[1fr_auto] gap-x-4 gap-y-1 text-[12.5px]">
+            <dt className="text-tres-doux">Quêtes</dt>
+            <dd className="text-right text-doux tabular-nums">{perte.quetes}</dd>
+            <dt className="text-tres-doux">Validations</dt>
+            <dd className="text-right text-doux tabular-nums">{perte.validations}</dd>
+            <dt className="text-tres-doux">Étapes</dt>
+            <dd className="text-right text-doux tabular-nums">{perte.etapes}</dd>
+            <dt className="text-tres-doux">Seuils franchis</dt>
+            <dd className="text-right text-doux tabular-nums">{perte.seuils}</dd>
+          </dl>
+          <p className="text-[12.5px] leading-relaxed text-tres-doux">
+            Rien de tout cela ne se récupère. Si tu veux seulement qu'il cesse de
+            sortir, archive-le : il garde tout. L'élan déjà versé aux piliers reste
+            dans les deux cas — il a été vécu.
+          </p>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => setPerte(null)}
+              className="min-h-12 flex-1 rounded-xl border border-bordure text-[13.5px] text-doux"
+            >
+              Annuler
+            </button>
+            <button
+              type="button"
+              disabled={enAttente}
+              onClick={() =>
+                demarrer(async () => {
+                  const retour = await actionSupprimerArc(id);
+                  if (retour.erreur) {
+                    setErreur(retour.erreur);
+                    setPerte(null);
+                    return;
+                  }
+                  router.replace("/arcs");
+                  router.refresh();
+                })
+              }
+              className="min-h-12 flex-1 rounded-xl border border-bordure-vive bg-surface-haut text-[13.5px] text-texte disabled:opacity-50"
+            >
+              {enAttente ? "…" : "Supprimer"}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {erreur && <p className="text-[12.5px] text-doux">{erreur}</p>}
+    </div>
   );
 }
