@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 
 import { Retour } from "@/components/retour";
 import { EcranInstallation } from "@/components/ecran-installation";
+import { EntreeJournal } from "@/components/parcours/entree-journal";
 import { COULEURS_PILIERS, LIBELLES_PILIERS, MOIS } from "@/lib/constantes";
 import { formaterDateLongue } from "@/lib/dates";
 import { diagnostiquer } from "@/lib/erreurs";
@@ -83,7 +84,7 @@ export default async function PageParcours() {
         {phrases.length === 0 ? (
           <p className="rounded-2xl border border-bordure/60 px-5 py-6 text-center text-[14px] leading-relaxed text-doux">
             Aucune phrase pour l'instant. Celles écrites le soir se retrouvent ici,
-            de la plus récente à la plus ancienne.
+            de la plus récente à la plus ancienne, et se corrigent sur place.
           </p>
         ) : (
           <ul className="flex flex-col gap-6">
@@ -99,9 +100,11 @@ export default async function PageParcours() {
                         {formaterDateLongue(phrase.date)}
                       </span>
                       {/* Le texte tel qu'il a été écrit, retours à la ligne compris. */}
-                      <p className="border-l border-bordure-vive pl-4 text-[15px] leading-relaxed whitespace-pre-wrap text-texte">
-                        {phrase.texte}
-                      </p>
+                      <EntreeJournal
+                        texte={phrase.texte}
+                        cle={{ type: "phrase", date: phrase.date }}
+                        limite={2000}
+                      />
                     </li>
                   ))}
                 </ul>
@@ -188,9 +191,11 @@ export default async function PageParcours() {
                   {saison.question}
                 </p>
                 {saison.reponse ? (
-                  <p className="border-l border-bordure-vive pl-4 text-[15px] leading-relaxed text-texte">
-                    {saison.reponse}
-                  </p>
+                  <EntreeJournal
+                    texte={saison.reponse}
+                    cle={{ type: "saison", numero: saison.numero }}
+                    limite={4000}
+                  />
                 ) : (
                   <p className="text-[13px] text-tres-doux">Sans réponse.</p>
                 )}

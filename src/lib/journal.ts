@@ -1,9 +1,9 @@
 import "server-only";
 
-import { and, desc, ne, sql } from "drizzle-orm";
+import { and, desc, eq, ne, sql } from "drizzle-orm";
 
 import { db } from "@/db";
-import { journees } from "@/db/schema";
+import { journees, saisons } from "@/db/schema";
 
 /**
  * Les phrases du soir, relues.
@@ -29,4 +29,45 @@ export async function chargerPhrases(): Promise<PhraseJournal[]> {
     .orderBy(desc(journees.date));
 
   return lignes.map((l) => ({ date: l.date, texte: l.phrase }));
+}
+
+/* ─────────────────────────── Correction ─────────────────────────── */
+
+/**
+ * Corrige une phrase déjà écrite.
+ *
+ * Une journée absente n'est jamais créée : on corrige ce qui a été vécu, on
+ * n'invente pas un jour. Vider entièrement le texte retire simplement la
+ * phrase du journal — c'est la même chose que d'effacer le champ du soir.
+ */
+export async function corrigerPhrase(date: string, texte: string): Promise<boolean> {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return false;
+
+  const lignes = await db
+    .update(journees)
+    .set({ phrase: texte.slice(0, 2000) })
+    .where(eq(journees.date, date))
+    .returning({ date: journees.date });
+
+  return lignes.length > 0;
+}
+
+/**
+ * Corrige la réponse de fin d'une saison close.
+ *
+ * La question, elle, ne bouge pas : c'est celle qui a été posée ce jour-là.
+ */
+export async function corrigerReponseSaison(
+  numero: number,
+  texte: string,
+): Promise<boolean> {
+  if (!Number.isInteger(numero) || numero < 1) return false;
+
+  const lignes = await db
+    .update(saisons)
+    .set({ reponse: texte.slice(0, 4000) })
+    .where(eq(saisons.numero, numero))
+    .returning({ numero: saisons.numero });
+
+  return lignes.length > 0;
 }
