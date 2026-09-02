@@ -10,6 +10,7 @@ import {
   supprimerPilier,
   type PertePilier,
 } from "@/lib/piliers";
+import { diagnostiquer } from "@/lib/erreurs";
 
 /**
  * Écriture des piliers.
@@ -20,6 +21,25 @@ import {
  */
 
 export type Retour = { erreur?: string; message?: string };
+
+/**
+ * Aucune de ces actions ne laisse filer une erreur.
+ *
+ * Une exception levée dans une action serveur remonte jusqu'à l'écran
+ * « Quelque chose a cédé », qui ne dit rien de ce qui s'est passé. Or le cas
+ * de loin le plus probable est prévisible : la migration n'a pas encore été
+ * appliquée, la table des piliers n'existe pas. Autant le dire.
+ */
+const INSTALLATION =
+  "La base n'est pas à jour : la table des piliers n'existe pas encore. " +
+  "Ouvre l'adresse d'installation une fois, puis reviens ici.";
+
+function expliquer(erreur: unknown): Retour {
+  if (diagnostiquer(erreur) !== null) return { erreur: INSTALLATION };
+  return {
+    erreur: `Interrompu : ${erreur instanceof Error ? erreur.message : String(erreur)}`,
+  };
+}
 
 function rafraichir() {
   for (const route of [
@@ -45,8 +65,12 @@ export async function actionCreerPilier(
 
   if (nom.length === 0) return { erreur: "Un pilier a besoin d'un nom." };
 
-  const cle = await creerPilier({ nom, couleur });
-  if (!cle) return { erreur: "Nom ou couleur invalide." };
+  try {
+    const cle = await creerPilier({ nom, couleur });
+    if (!cle) return { erreur: "Nom ou couleur invalide." };
+  } catch (erreur) {
+    return expliquer(erreur);
+  }
 
   rafraichir();
   return { message: `« ${nom} » ajouté.` };
@@ -61,8 +85,13 @@ export async function actionModifierPilier(
   const couleur = String(donnees.get("couleur") ?? "");
 
   if (nom.length === 0) return { erreur: "Un pilier a besoin d'un nom." };
-  if (!(await modifierPilier(cle, { nom, couleur }))) {
-    return { erreur: "Nom ou couleur invalide." };
+
+  try {
+    if (!(await modifierPilier(cle, { nom, couleur }))) {
+      return { erreur: "Nom ou couleur invalide." };
+    }
+  } catch (erreur) {
+    return expliquer(erreur);
   }
 
   rafraichir();
@@ -73,24 +102,50 @@ export async function actionDeplacerPilier(
   cles: string[],
   cle: string,
   sens: -1 | 1,
-): Promise<void> {
+): Promise<Retour> {
   const rang = cles.indexOf(cle);
   const cible = rang + sens;
-  if (rang < 0 || cible < 0 || cible >= cles.length) return;
+  if (rang < 0 || cible < 0 || cible >= cles.length) return {};
 
   const suivant = [...cles];
   [suivant[rang], suivant[cible]] = [suivant[cible], suivant[rang]];
-  await reordonnerPiliers(suivant);
+
+  try {
+    await reordonnerPiliers(suivant);
+  } catch (erreur) {
+    return expliquer(erreur);
+  }
+
   rafraichir();
+  return {};
 }
 
-/** Ce qu'une suppression emporterait. Rien n'est touché ici. */
-export async function actionPertePilier(cle: string): Promise<PertePilier | null> {
-  return pertePilier(cle);
+/**
+ * Ce qu'une suppression emporterait. Rien n'est touché ici.
+ *
+ * Rend un `Retour` plutôt que de lever : c'est ce premier appel qui échouait
+ * quand la table n'existait pas, et l'écran d'erreur générique prenait la main
+ * sans rien expliquer.
+ */
+export async function actionPertePilier(
+  cle: string,
+): Promise<{ perte?: PertePilier; erreur?: string }> {
+  try {
+    const perte = await pertePilier(cle);
+    if (!perte) return { erreur: "Ce pilier n'existe plus." };
+    return { perte };
+  } catch (erreur) {
+    return expliquer(erreur);
+  }
 }
 
 export async function actionSupprimerPilier(cle: string): Promise<Retour> {
-  const issue = await supprimerPilier(cle);
+  let issue: Awaited<ReturnType<typeof supprimerPilier>>;
+  try {
+    issue = await supprimerPilier(cle);
+  } catch (erreur) {
+    return expliquer(erreur);
+  }
 
   if (issue === "absent") return { erreur: "Ce pilier n'existe plus." };
   if (issue === "dernier") {

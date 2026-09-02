@@ -5,6 +5,7 @@ import { asc, eq, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { arcs, momentum, piliers, quetes, quetesRaresFaites, taches, validations } from "@/db/schema";
 import { aujourdhui } from "@/lib/dates";
+import { diagnostiquer } from "@/lib/erreurs";
 import {
   clePropre,
   couleurValide,
@@ -29,15 +30,39 @@ import {
  * diagnostiquer le problème le diront eux-mêmes.
  */
 export async function chargerPiliers(): Promise<PilierAffiche[]> {
+  return (await etatPiliers()).liste;
+}
+
+/**
+ * La liste, et si elle vient vraiment de la base.
+ *
+ * Le repli sur les piliers d'origine évite un écran vide, mais il ne doit pas
+ * faire croire que tout va bien : tant que la table n'existe pas, les piliers
+ * affichés ne sont modifiables ni supprimables, et l'écran doit le dire au
+ * lieu de laisser un bouton échouer en silence.
+ */
+export type EtatPiliers = {
+  liste: PilierAffiche[];
+  /** Vrai tant que la migration n'a pas été appliquée. */
+  tableAbsente: boolean;
+};
+
+export async function etatPiliers(): Promise<EtatPiliers> {
   try {
     const lignes = await db
       .select()
       .from(piliers)
       .orderBy(asc(piliers.ordre), asc(piliers.cle));
 
-    return lignes.length > 0 ? lignes : PILIERS_ORIGINE;
-  } catch {
-    return PILIERS_ORIGINE;
+    return {
+      liste: lignes.length > 0 ? lignes : PILIERS_ORIGINE,
+      tableAbsente: false,
+    };
+  } catch (erreur) {
+    // Une table manquante est un défaut d'installation, pas une panne : on le
+    // signale. Toute autre erreur remonte, elle n'a rien à faire ici.
+    if (diagnostiquer(erreur) === null) throw erreur;
+    return { liste: PILIERS_ORIGINE, tableAbsente: true };
   }
 }
 

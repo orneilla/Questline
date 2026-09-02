@@ -72,6 +72,7 @@ function EditeurPilier({
     {},
   );
   const [couleur, setCouleur] = useState(pilier.couleur);
+  const [retour, setRetour] = useState<Retour>({});
   const [enAttente, demarrer] = useTransition();
 
   return (
@@ -98,7 +99,9 @@ function EditeurPilier({
         <button
           type="button"
           disabled={premier || enAttente}
-          onClick={() => demarrer(async () => actionDeplacerPilier(cles, pilier.cle, -1))}
+          onClick={() =>
+            demarrer(async () => setRetour(await actionDeplacerPilier(cles, pilier.cle, -1)))
+          }
           className="min-h-11 flex-1 rounded-xl border border-bordure text-[13px] text-doux disabled:opacity-30"
         >
           Monter
@@ -106,12 +109,16 @@ function EditeurPilier({
         <button
           type="button"
           disabled={dernier || enAttente}
-          onClick={() => demarrer(async () => actionDeplacerPilier(cles, pilier.cle, 1))}
+          onClick={() =>
+            demarrer(async () => setRetour(await actionDeplacerPilier(cles, pilier.cle, 1)))
+          }
           className="min-h-11 flex-1 rounded-xl border border-bordure text-[13px] text-doux disabled:opacity-30"
         >
           Descendre
         </button>
       </div>
+
+      <Retourner etat={retour} />
 
       <SuppressionPilier cle={pilier.cle} />
     </Depliant>
@@ -138,9 +145,9 @@ function SuppressionPilier({ cle }: { cle: string }) {
           disabled={enAttente}
           onClick={() =>
             demarrer(async () => {
-              const compte = await actionPertePilier(cle);
-              if (!compte) setRetour({ erreur: "Ce pilier n'existe plus." });
-              else setPerte(compte);
+              const retour = await actionPertePilier(cle);
+              if (retour.perte) setPerte(retour.perte);
+              else setRetour({ erreur: retour.erreur });
             })
           }
           className="min-h-11 self-start text-left text-[12.5px] text-tres-doux transition-colors duration-300 active:text-doux disabled:opacity-40"
@@ -227,8 +234,45 @@ function AjoutPilier() {
   );
 }
 
-export function Piliers({ liste }: { liste: PilierAffiche[] }) {
+export function Piliers({
+  liste,
+  tableAbsente,
+}: {
+  liste: PilierAffiche[];
+  /** La migration n'a pas encore été appliquée : rien n'est modifiable. */
+  tableAbsente: boolean;
+}) {
   const cles = liste.map((p) => p.cle);
+
+  if (tableAbsente) {
+    return (
+      <div className="flex flex-col gap-2 rounded-2xl border border-bordure-vive p-4">
+        <p className="text-[13.5px] leading-relaxed text-doux">
+          La base n'est pas encore à jour : la table des piliers n'existe pas. Les six
+          piliers ci-dessous fonctionnent, mais ils ne peuvent être ni renommés, ni
+          réordonnés, ni supprimés tant que la migration n'a pas tourné.
+        </p>
+        <p className="text-[12.5px] leading-relaxed text-tres-doux">
+          Ouvre l'adresse d'installation une fois, dans un onglet, puis reviens ici.
+          Rien n'est réécrit : tes arcs, ton élan et ton historique restent en place.
+        </p>
+        <p className="rounded-xl border border-bordure bg-surface px-4 py-3 text-[12.5px] break-all text-tres-doux">
+          /api/setup?key=…
+        </p>
+        <ul className="mt-1 flex flex-wrap gap-2">
+          {liste.map((pilier) => (
+            <li
+              key={pilier.cle}
+              className="rounded-full border px-3 py-1 text-[12.5px]"
+              style={{ borderColor: pilier.couleur, color: "var(--color-doux)" }}
+            >
+              {pilier.nom}
+            </li>
+          ))}
+        </ul>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col gap-2">

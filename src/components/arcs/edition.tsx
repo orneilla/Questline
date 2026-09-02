@@ -418,8 +418,19 @@ export function EtatDeLArc({
  * on lit en nombres réels ce qui va partir, puis on confirme. La différence
  * avec l'archivage est écrite noir sur blanc — c'est précisément le choix qu'on
  * est en train de faire.
+ *
+ * Exportée : l'écran des réglages gère les arcs à côté des piliers, et la même
+ * suppression doit s'y trouver — sans quitter la page, puisqu'on y règle
+ * plusieurs arcs à la suite.
  */
-function SuppressionArc({ id }: { id: number }) {
+export function SuppressionArc({
+  id,
+  quitter = true,
+}: {
+  id: number;
+  /** Vrai sur la page de l'arc : elle n'existe plus après. */
+  quitter?: boolean;
+}) {
   const router = useRouter();
   const [perte, setPerte] = useState<PerteArc | null>(null);
   const [erreur, setErreur] = useState<string | null>(null);
@@ -433,9 +444,9 @@ function SuppressionArc({ id }: { id: number }) {
           disabled={enAttente}
           onClick={() =>
             demarrer(async () => {
-              const compte = await actionPerteArc(id);
-              if (!compte) setErreur("Cet arc n'existe plus.");
-              else setPerte(compte);
+              const retour = await actionPerteArc(id);
+              if (retour.perte) setPerte(retour.perte);
+              else setErreur(retour.erreur ?? "Cet arc n'existe plus.");
             })
           }
           className="min-h-11 self-start text-left text-[12.5px] text-tres-doux transition-colors duration-300 active:text-doux disabled:opacity-40"
@@ -481,7 +492,7 @@ function SuppressionArc({ id }: { id: number }) {
                     setPerte(null);
                     return;
                   }
-                  router.replace("/arcs");
+                  if (quitter) router.replace("/arcs");
                   router.refresh();
                 })
               }

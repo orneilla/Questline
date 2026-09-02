@@ -86,10 +86,26 @@ export async function actionAccomplirArc(id: number, accompli: boolean): Promise
   revalidatePath(`/arcs/${id}`);
 }
 
-/** Ce qu'une suppression emporterait. Rien n'est touché ici. */
-export async function actionPerteArc(id: number): Promise<PerteArc | null> {
-  if (!Number.isInteger(id)) return null;
-  return perteALaSuppression(id);
+/**
+ * Ce qu'une suppression emporterait. Rien n'est touché ici.
+ *
+ * Rend l'échec plutôt que de lever : une exception dans une action serveur
+ * remonte jusqu'à l'écran « Quelque chose a cédé », qui n'explique rien.
+ */
+export async function actionPerteArc(
+  id: number,
+): Promise<{ perte?: PerteArc; erreur?: string }> {
+  if (!Number.isInteger(id)) return { erreur: "Arc introuvable." };
+
+  try {
+    const perte = await perteALaSuppression(id);
+    if (!perte) return { erreur: "Cet arc n'existe plus." };
+    return { perte };
+  } catch (erreur) {
+    return {
+      erreur: `Interrompu : ${erreur instanceof Error ? erreur.message : String(erreur)}`,
+    };
+  }
 }
 
 /**

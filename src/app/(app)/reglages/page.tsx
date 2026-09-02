@@ -25,7 +25,7 @@ import {
   evenements as tableEvenements,
   quetes as tableQuetes,
 } from "@/db/schema";
-import { chargerPiliers } from "@/lib/piliers";
+import { etatPiliers, type EtatPiliers } from "@/lib/piliers";
 import { couleurPilier, nomPilier, type PilierAffiche } from "@/lib/piliers-partage";
 import { aujourdhui, jourDeLaSemaine } from "@/lib/dates";
 import { diagnostiquer } from "@/lib/erreurs";
@@ -53,10 +53,10 @@ function Section({
 
 export default async function PageReglages() {
   let arcs, quetes, creneaux, evenements;
-  let listePiliers: PilierAffiche[];
+  let piliers: EtatPiliers;
 
   try {
-    [arcs, quetes, creneaux, evenements, listePiliers] = await Promise.all([
+    [arcs, quetes, creneaux, evenements, piliers] = await Promise.all([
       db.select().from(tableArcs).orderBy(asc(tableArcs.id)),
       db.select().from(tableQuetes).orderBy(asc(tableQuetes.id)),
       db
@@ -67,7 +67,7 @@ export default async function PageReglages() {
         .select()
         .from(tableEvenements)
         .orderBy(asc(tableEvenements.date), asc(tableEvenements.debut)),
-      chargerPiliers(),
+      etatPiliers(),
     ]);
   } catch (erreur) {
     const probleme = diagnostiquer(erreur);
@@ -117,10 +117,10 @@ export default async function PageReglages() {
         titre="Piliers"
         aide="Le nom, la teinte et l'ordre s'ajustent. En ajouter est sans conséquence ; en supprimer un emporte ses arcs et leur histoire, et l'écran le dit avant."
       >
-        <Piliers liste={listePiliers} />
+        <Piliers liste={piliers.liste} tableAbsente={piliers.tableAbsente} />
       </Section>
 
-      {listePiliers.map((pilier) => {
+      {piliers.liste.map((pilier) => {
         const duPilier = arcs.filter((a) => a.pilier === pilier.cle);
         if (duPilier.length === 0) return null;
 

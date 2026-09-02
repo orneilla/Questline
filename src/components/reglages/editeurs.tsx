@@ -15,6 +15,7 @@ import {
   supprimerQuete,
   type Retour,
 } from "@/app/(app)/reglages/actions";
+import { SuppressionArc } from "@/components/arcs/edition";
 import type { Arc, CreneauRecurrent, Evenement, Quete } from "@/db/schema";
 import { JOURS_SEMAINE, LIBELLES_CRENEAUX } from "@/lib/constantes";
 import {
@@ -353,6 +354,13 @@ export function EditeurArc({
           action={async (suivant) => basculerArc(arc.id, suivant)}
         />
       </div>
+
+      {/*
+        La même suppression que sur la page de l'arc, mais sans quitter les
+        réglages : c'est ici qu'on règle plusieurs arcs à la suite, et c'est ici
+        qu'on la cherche quand on vient de s'occuper des piliers.
+      */}
+      <SuppressionArc id={arc.id} quitter={false} />
 
       {children && <div className="mt-4 flex flex-col gap-2">{children}</div>}
     </Depliant>
