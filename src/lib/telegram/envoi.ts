@@ -6,7 +6,9 @@ import { db } from "@/db";
 import { messagesEnvoyes } from "@/db/schema";
 import { chargerBilan } from "@/lib/bilan";
 import { libelleCharge } from "@/lib/charge";
-import { LIBELLES_PILIERS, MOIS } from "@/lib/constantes";
+import { MOIS } from "@/lib/constantes";
+import { chargerPiliers } from "@/lib/piliers";
+import { nomPilier } from "@/lib/piliers-partage";
 import { aujourdhui, formaterDateLongue } from "@/lib/dates";
 import { chargerJour } from "@/lib/jour";
 import { texteDuTitre } from "@/lib/recit";
@@ -145,7 +147,7 @@ function intervalle(debut: string, fin: string): string {
 }
 
 export async function composerBilan() {
-  const bilan = await chargerBilan();
+  const [bilan, listePiliers] = await Promise.all([chargerBilan(), chargerPiliers()]);
   const lignes: string[] = [];
 
   lignes.push(`<b>Semaine du ${intervalle(bilan.debut, bilan.fin)}</b>`);
@@ -166,7 +168,7 @@ export async function composerBilan() {
 
     for (const ligne of bilan.parPilier.filter((l) => l.validations > 0)) {
       lignes.push(
-        `${LIBELLES_PILIERS[ligne.pilier]} · ${ligne.validations} · ${ligne.points} pts`,
+        `${nomPilier(listePiliers, ligne.pilier)} · ${ligne.validations} · ${ligne.points} pts`,
       );
     }
   }
@@ -174,7 +176,7 @@ export async function composerBilan() {
   if (bilan.plusDelaisse) {
     lignes.push("");
     lignes.push(
-      `<i>${LIBELLES_PILIERS[bilan.plusDelaisse]} est resté le plus silencieux — il passera devant.</i>`,
+      `<i>${nomPilier(listePiliers, bilan.plusDelaisse)} est resté le plus silencieux — il passera devant.</i>`,
     );
   }
 

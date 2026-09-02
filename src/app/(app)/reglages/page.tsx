@@ -9,6 +9,7 @@ import {
   FormulaireRecurrent,
 } from "@/components/formulaires-semaine";
 import { Donnees } from "@/components/reglages/donnees";
+import { Piliers } from "@/components/reglages/piliers";
 import { RemiseAZeroVie } from "@/components/reglages/remise-a-zero";
 import {
   AjoutQuete,
@@ -24,7 +25,8 @@ import {
   evenements as tableEvenements,
   quetes as tableQuetes,
 } from "@/db/schema";
-import { COULEURS_PILIERS, LIBELLES_PILIERS, PILIERS } from "@/lib/constantes";
+import { chargerPiliers } from "@/lib/piliers";
+import { couleurPilier, nomPilier, type PilierAffiche } from "@/lib/piliers-partage";
 import { aujourdhui, jourDeLaSemaine } from "@/lib/dates";
 import { diagnostiquer } from "@/lib/erreurs";
 
@@ -51,9 +53,10 @@ function Section({
 
 export default async function PageReglages() {
   let arcs, quetes, creneaux, evenements;
+  let listePiliers: PilierAffiche[];
 
   try {
-    [arcs, quetes, creneaux, evenements] = await Promise.all([
+    [arcs, quetes, creneaux, evenements, listePiliers] = await Promise.all([
       db.select().from(tableArcs).orderBy(asc(tableArcs.id)),
       db.select().from(tableQuetes).orderBy(asc(tableQuetes.id)),
       db
@@ -64,6 +67,7 @@ export default async function PageReglages() {
         .select()
         .from(tableEvenements)
         .orderBy(asc(tableEvenements.date), asc(tableEvenements.debut)),
+      chargerPiliers(),
     ]);
   } catch (erreur) {
     const probleme = diagnostiquer(erreur);
@@ -109,17 +113,24 @@ export default async function PageReglages() {
         ))}
       </nav>
 
-      {PILIERS.map((pilier) => {
-        const duPilier = arcs.filter((a) => a.pilier === pilier);
+      <Section
+        titre="Piliers"
+        aide="Le nom, la teinte et l'ordre s'ajustent. En ajouter est sans conséquence ; en supprimer un emporte ses arcs et leur histoire, et l'écran le dit avant."
+      >
+        <Piliers liste={listePiliers} />
+      </Section>
+
+      {listePiliers.map((pilier) => {
+        const duPilier = arcs.filter((a) => a.pilier === pilier.cle);
         if (duPilier.length === 0) return null;
 
         return (
-          <Section key={pilier} titre={LIBELLES_PILIERS[pilier]}>
+          <Section key={pilier.cle} titre={pilier.nom}>
             <div className="-mt-2 mb-1 flex items-center gap-2">
               <span
                 aria-hidden
                 className="h-px flex-1"
-                style={{ backgroundColor: COULEURS_PILIERS[pilier], opacity: 0.35 }}
+                style={{ backgroundColor: pilier.couleur, opacity: 0.35 }}
               />
             </div>
 

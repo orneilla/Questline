@@ -1,4 +1,3 @@
-import { PILIERS } from "./constantes";
 import type { Charge } from "./charge";
 import type { Pilier, Quete } from "@/db/schema";
 
@@ -13,6 +12,12 @@ export type ContexteSelection = {
   charge: Charge;
   quetes: QueteProposable[];
   momentumParPilier: Record<Pilier, number>;
+  /**
+   * L'ordre déclaré des piliers, pour départager deux piliers à égalité — le
+   * premier jour, tout est à zéro. Il vient de la base : la liste n'est plus
+   * une constante du code.
+   */
+  ordrePiliers: Pilier[];
   /** Quêtes déjà cochées aujourd'hui : elles ne reviennent pas. */
   validesAujourdhui: ReadonlySet<number>;
   /** Piliers déjà servis aujourd'hui : on n'y revient pas non plus. */
@@ -51,7 +56,7 @@ function piliersParPriorite(ctx: ContexteSelection): Pilier[] {
   return presents.sort((a, b) => {
     const ecart = (ctx.momentumParPilier[a] ?? 0) - (ctx.momentumParPilier[b] ?? 0);
     if (ecart !== 0) return ecart;
-    return PILIERS.indexOf(a) - PILIERS.indexOf(b);
+    return ctx.ordrePiliers.indexOf(a) - ctx.ordrePiliers.indexOf(b);
   });
 }
 

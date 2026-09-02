@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 
 import { actionValiderRare } from "@/app/(app)/jour/actions";
-import { COULEURS_PILIERS, LIBELLES_PILIERS } from "@/lib/constantes";
+import { usePiliers } from "@/components/piliers-contexte";
 import type { QueteRare as Donnees } from "@/lib/recit";
 
 /**
@@ -12,11 +12,12 @@ import type { QueteRare as Donnees } from "@/lib/recit";
  * obligatoire — le libellé le dit — et disparaît à minuit sans rien laisser.
  */
 export function QueteRare({ quete, faite }: { quete: Donnees; faite: boolean }) {
+  const piliers = usePiliers();
   const [valide, setValide] = useState(faite);
   const [enCours, setEnCours] = useState(false);
   const [, demarrer] = useTransition();
 
-  const couleur = COULEURS_PILIERS[quete.pilier];
+  const couleur = piliers.couleur(quete.pilier);
 
   function valider() {
     if (valide || enCours) return;
@@ -67,7 +68,7 @@ export function QueteRare({ quete, faite }: { quete: Donnees; faite: boolean }) 
             {quete.texte}
           </span>
           <span className="mt-1.5 block text-[12px] text-tres-doux">
-            {LIBELLES_PILIERS[quete.pilier]} ·{" "}
+            {piliers.nom(quete.pilier)} ·{" "}
             {quete.dureeMin > 0 ? `${quete.dureeMin} min` : "au fil du jour"} · compte
             double
           </span>

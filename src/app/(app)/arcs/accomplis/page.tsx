@@ -4,7 +4,8 @@ import Link from "next/link";
 import { EcranInstallation } from "@/components/ecran-installation";
 import { Retour } from "@/components/retour";
 import { chargerArcs, type ResumeArc } from "@/lib/arcs";
-import { COULEURS_PILIERS, LIBELLES_PILIERS } from "@/lib/constantes";
+import { chargerPiliers } from "@/lib/piliers";
+import { couleurPilier, nomPilier, type PilierAffiche } from "@/lib/piliers-partage";
 import { formaterDateLongue } from "@/lib/dates";
 import { diagnostiquer } from "@/lib/erreurs";
 
@@ -21,8 +22,9 @@ export const dynamic = "force-dynamic";
 
 export default async function PageArcsAccomplis() {
   let liste: ResumeArc[];
+  let listePiliers: PilierAffiche[];
   try {
-    liste = await chargerArcs();
+    [liste, listePiliers] = await Promise.all([chargerArcs(), chargerPiliers()]);
   } catch (erreur) {
     const probleme = diagnostiquer(erreur);
     if (!probleme) throw erreur;
@@ -56,12 +58,12 @@ export default async function PageArcsAccomplis() {
                 <span
                   aria-hidden
                   className="absolute inset-y-0 left-0 w-[2px]"
-                  style={{ backgroundColor: COULEURS_PILIERS[arc.pilier] }}
+                  style={{ backgroundColor: couleurPilier(listePiliers, arc.pilier) }}
                 />
                 <h2 className="text-[17px] leading-snug text-texte">{arc.nom}</h2>
                 <p className="text-[12.5px] leading-relaxed text-doux">{arc.vision}</p>
                 <p className="text-[12px] text-tres-doux">
-                  {LIBELLES_PILIERS[arc.pilier]} · accompli le{" "}
+                  {nomPilier(listePiliers, arc.pilier)} · accompli le{" "}
                   {formaterDateLongue(arc.accompliLe ?? "")} ·{" "}
                   {arc.nombreValidations} validation
                   {arc.nombreValidations > 1 ? "s" : ""}

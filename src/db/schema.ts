@@ -13,15 +13,36 @@ import {
   uniqueIndex,
 } from "drizzle-orm/pg-core";
 
-/** Les 6 piliers de la progression. */
-export const pilierEnum = pgEnum("pilier", [
-  "deen",
-  "corps",
-  "table",
-  "savoir",
-  "oeuvre",
-  "seve",
-]);
+/**
+ * Les piliers de la progression.
+ *
+ * Ils étaient un type énuméré : six valeurs gravées dans le schéma, donc
+ * intouchables sans migration. Ce sont maintenant des lignes — on les
+ * renomme, on les recolorie, on les réordonne, on en ajoute, on en supprime.
+ *
+ * La clé, elle, ne bouge pas une fois posée : c'est elle que portent les arcs,
+ * l'élan et les tâches.
+ */
+export const piliers = pgTable("piliers", {
+  cle: text("cle").primaryKey(),
+  nom: text("nom").notNull(),
+  couleur: text("couleur").notNull(),
+  ordre: integer("ordre").notNull().default(0),
+});
+
+/**
+ * La référence d'un pilier depuis une autre table.
+ *
+ * `cascade` à la suppression : un arc, une ligne d'élan ou une quête rare
+ * n'existent que par leur pilier. Les tâches font exception et se contentent
+ * de perdre leur étiquette — voir leur définition.
+ */
+function refPilier(colonne: string) {
+  return text(colonne).references(() => piliers.cle, {
+    onDelete: "cascade",
+    onUpdate: "cascade",
+  });
+}
 
 /** Nature d'un bloc d'emploi du temps, récurrent comme ponctuel. */
 export const categorieCreneauEnum = pgEnum("categorie_creneau", [
@@ -50,7 +71,7 @@ export const typeJourEnum = pgEnum("type_jour", ["libre", "chargee", "pleine"]);
 export const arcs = pgTable("arcs", {
   id: serial("id").primaryKey(),
   nom: text("nom").notNull(),
-  pilier: pilierEnum("pilier").notNull(),
+  pilier: refPilier("pilier").notNull(),
   vision: text("vision").notNull().default(""),
   /** La progression n'est pas stockée : elle se calcule sur les validations. */
   actif: boolean("actif").notNull().default(true),
@@ -103,7 +124,11 @@ export const taches = pgTable(
   {
     id: serial("id").primaryKey(),
     texte: text("texte").notNull(),
-    pilier: pilierEnum("pilier"),
+    /** Perd son étiquette si le pilier disparaît, mais reste une tâche. */
+    pilier: text("pilier").references(() => piliers.cle, {
+      onDelete: "set null",
+      onUpdate: "cascade",
+    }),
     creeeLe: date("creee_le").notNull(),
     /** Nulle tant que la tâche est ouverte. */
     faiteLe: date("faite_le"),
@@ -192,7 +217,7 @@ export const quetesRaresFaites = pgTable("quetes_rares_faites", {
   date: date("date").primaryKey(),
   cle: text("cle").notNull(),
   texte: text("texte").notNull(),
-  pilier: pilierEnum("pilier").notNull(),
+  pilier: refPilier("pilier").notNull(),
   poids: integer("poids").notNull(),
 });
 
@@ -332,7 +357,7 @@ export const validations = pgTable(
 
 /** L'élan courant de chaque pilier. Une ligne par pilier, jamais remise à zéro. */
 export const momentum = pgTable("momentum", {
-  pilier: pilierEnum("pilier").primaryKey(),
+  pilier: refPilier("pilier").primaryKey(),
   valeur: real("valeur").notNull().default(0),
   /** Dernier jour où la décroissance a été appliquée. */
   majLe: date("maj_le").notNull(),
@@ -544,7 +569,11 @@ export type QueteRareFaite = typeof quetesRaresFaites.$inferSelect;
 export type SeuilArc = typeof seuilsArcs.$inferSelect;
 export type Saison = typeof saisons.$inferSelect;
 export type MessageEnvoye = typeof messagesEnvoyes.$inferSelect;
-export type Pilier = (typeof pilierEnum.enumValues)[number];
+/**
+ * La clé d'un pilier. Simple chaîne : la liste n'est plus close, et rien dans
+ * le code ne doit pouvoir supposer qu'elle l'est.
+ */
+export type Pilier = string;
 export type TypeJour = (typeof typeJourEnum.enumValues)[number];
 
 /* ═══════════════════════ Module Coran ═══════════════════════ */

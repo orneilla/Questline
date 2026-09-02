@@ -18,7 +18,7 @@ import {
   type Retour,
 } from "@/app/(app)/arcs/actions";
 import { Envoyer, Retourner, champ, etiquette } from "@/components/reglages/briques";
-import { COULEURS_PILIERS, LIBELLES_PILIERS, PILIERS } from "@/lib/constantes";
+import { usePiliers } from "@/components/piliers-contexte";
 import { formaterDateLongue } from "@/lib/dates";
 import type { Pilier } from "@/db/schema";
 import type { EtapeAffichee, PerteArc } from "@/lib/arcs";
@@ -46,7 +46,12 @@ export function FormulaireArc({
       : actionCreerArc,
     {},
   );
-  const [pilier, setPilier] = useState<Pilier>(arc?.pilier ?? "deen");
+  const piliers = usePiliers();
+  // Le premier pilier de la liste, à défaut : elle n'est plus garantie
+  // contenir « deen », ni quoi que ce soit d'autre.
+  const [pilier, setPilier] = useState<Pilier>(
+    arc?.pilier ?? piliers.liste[0]?.cle ?? "",
+  );
 
   return (
     <form action={action} className="flex flex-col gap-4">
@@ -65,22 +70,22 @@ export function FormulaireArc({
         <span className={etiquette}>Pilier de rattachement</span>
         <input type="hidden" name="pilier" value={pilier} />
         <div className="flex flex-wrap gap-1.5">
-          {PILIERS.map((p) => {
-            const choisi = pilier === p;
+          {piliers.liste.map((p) => {
+            const choisi = pilier === p.cle;
             return (
               <button
-                key={p}
+                key={p.cle}
                 type="button"
-                onClick={() => setPilier(p)}
+                onClick={() => setPilier(p.cle)}
                 aria-pressed={choisi}
                 className="min-h-10 rounded-full border px-3.5 text-[12.5px] transition-colors duration-200"
                 style={{
-                  borderColor: choisi ? COULEURS_PILIERS[p] : "var(--color-bordure)",
-                  backgroundColor: choisi ? `${COULEURS_PILIERS[p]}1f` : "transparent",
+                  borderColor: choisi ? p.couleur : "var(--color-bordure)",
+                  backgroundColor: choisi ? `${p.couleur}1f` : "transparent",
                   color: choisi ? "var(--color-texte)" : "var(--color-tres-doux)",
                 }}
               >
-                {LIBELLES_PILIERS[p]}
+                {p.nom}
               </button>
             );
           })}

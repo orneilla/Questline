@@ -3,7 +3,8 @@
 import { useState, useTransition } from "react";
 
 import { actionCloreSaison } from "@/app/(app)/jour/actions";
-import { COULEURS_PILIERS, LIBELLES_PILIERS, MOIS } from "@/lib/constantes";
+import { MOIS } from "@/lib/constantes";
+import { usePiliers } from "@/components/piliers-contexte";
 import type { BilanSaison } from "@/lib/saisons";
 
 /**
@@ -23,6 +24,7 @@ function intervalle(debut: string, fin: string): string {
 }
 
 export function EcranSaison({ saison }: { saison: BilanSaison }) {
+  const piliers = usePiliers();
   const [reponse, setReponse] = useState(saison.reponse);
   const [enAttente, demarrer] = useTransition();
 
@@ -62,9 +64,9 @@ export function EcranSaison({ saison }: { saison: BilanSaison }) {
                   <span
                     aria-hidden
                     className="size-1.5 rounded-full"
-                    style={{ backgroundColor: COULEURS_PILIERS[ligne.pilier] }}
+                    style={{ backgroundColor: piliers.couleur(ligne.pilier) }}
                   />
-                  {LIBELLES_PILIERS[ligne.pilier]}
+                  {piliers.nom(ligne.pilier)}
                 </span>
                 <span className="text-[13px] tabular-nums text-tres-doux">
                   {ligne.points} points
@@ -80,7 +82,7 @@ export function EcranSaison({ saison }: { saison: BilanSaison }) {
               Ce qui est resté silencieux
             </h2>
             <p className="text-[14.5px] leading-relaxed text-doux">
-              {saison.stagnants.map((p) => LIBELLES_PILIERS[p]).join(", ")}.
+              {saison.stagnants.map((p) => piliers.nom(p)).join(", ")}.
             </p>
             <p className="text-[12.5px] leading-relaxed text-tres-doux">
               Ces piliers passeront devant dans la sélection tant qu'ils le resteront.

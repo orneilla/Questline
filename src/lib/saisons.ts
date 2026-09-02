@@ -4,7 +4,7 @@ import { and, asc, desc, eq, gte, isNull, lte, sql } from "drizzle-orm";
 
 import { db } from "@/db";
 import { arcs, journees, quetes, saisons, validations, type Pilier } from "@/db/schema";
-import { LIBELLES_PILIERS, PILIERS } from "./constantes";
+import { chargerPiliers } from "./piliers";
 import { aujourdhui, decalerJours, ecartJours } from "./dates";
 import { lundiDeLaSemaine } from "./semaine";
 
@@ -95,7 +95,7 @@ export async function assurerSaisons(date = aujourdhui()): Promise<void> {
 }
 
 async function mesurer(debut: string, fin: string) {
-  const [parPilier, jours] = await Promise.all([
+  const [parPilier, jours, listePiliers] = await Promise.all([
     db
       .select({
         pilier: arcs.pilier,
@@ -111,15 +111,17 @@ async function mesurer(debut: string, fin: string) {
       .selectDistinct({ date: validations.date })
       .from(validations)
       .where(and(gte(validations.date, debut), lte(validations.date, fin))),
+    chargerPiliers(),
   ]);
 
   const points = new Map(parPilier.map((p) => [p.pilier, Number(p.points)]));
 
   return {
-    avance: PILIERS.map((pilier) => ({ pilier, points: points.get(pilier) ?? 0 }))
+    avance: listePiliers
+      .map(({ cle }) => ({ pilier: cle, points: points.get(cle) ?? 0 }))
       .filter((p) => p.points > 0)
       .sort((a, b) => b.points - a.points),
-    stagnants: PILIERS.filter((p) => (points.get(p) ?? 0) === 0),
+    stagnants: listePiliers.filter((p) => (points.get(p.cle) ?? 0) === 0).map((p) => p.cle),
     totalValidations: parPilier.reduce((t, p) => t + Number(p.nombre), 0),
     joursActifs: jours.length,
   };
@@ -189,4 +191,3 @@ export async function chargerSaisonsArchivees(): Promise<SaisonArchivee[]> {
   }));
 }
 
-export { LIBELLES_PILIERS };

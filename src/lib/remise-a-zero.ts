@@ -13,7 +13,7 @@ import {
   validations,
   type Pilier,
 } from "@/db/schema";
-import { PILIERS } from "@/lib/constantes";
+import { clesPiliers } from "@/lib/piliers";
 import { aujourdhui } from "@/lib/dates";
 
 /**
@@ -53,13 +53,13 @@ export type Apercu = {
 
 export type Bilan = Apercu;
 
-function estPilier(valeur: string): valeur is Pilier {
-  return (PILIERS as readonly string[]).includes(valeur);
-}
-
-/** Lit la portée demandée. Toute valeur qui ne désigne pas un pilier vaut « tous ». */
-export function lirePortee(valeur: string): Portee {
-  return estPilier(valeur) ? valeur : null;
+/**
+ * Lit la portée demandée. Toute valeur qui ne désigne aucun pilier existant
+ * vaut « tous » — un pilier supprimé entre-temps ne doit pas viser au hasard.
+ */
+export async function lirePortee(valeur: string): Promise<Portee> {
+  const cles = await clesPiliers();
+  return cles.includes(valeur) ? valeur : null;
 }
 
 /** Les identifiants d'arcs concernés. Null quand la portée est « tous les piliers ». */

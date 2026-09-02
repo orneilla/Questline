@@ -9,7 +9,7 @@ import {
   actionRattacherTache,
   actionSupprimerTache,
 } from "@/app/(app)/jour/actions";
-import { COULEURS_PILIERS, LIBELLES_PILIERS, PILIERS } from "@/lib/constantes";
+import { usePiliers } from "@/components/piliers-contexte";
 import type { Pilier } from "@/db/schema";
 import type { ArcDisponible, EtatTaches, TacheOuverte } from "@/lib/taches";
 
@@ -173,6 +173,8 @@ function ChoixPilier({
   surChoix: (pilier: Pilier | null) => void;
   libelleVide: string;
 }) {
+  const piliers = usePiliers();
+
   return (
     <div className="flex flex-wrap gap-1.5">
       <button
@@ -188,22 +190,22 @@ function ChoixPilier({
         {libelleVide}
       </button>
 
-      {PILIERS.map((p) => {
-        const choisi = valeur === p;
+      {piliers.liste.map((p) => {
+        const choisi = valeur === p.cle;
         return (
           <button
-            key={p}
+            key={p.cle}
             type="button"
-            onClick={() => surChoix(choisi ? null : p)}
+            onClick={() => surChoix(choisi ? null : p.cle)}
             aria-pressed={choisi}
             className="min-h-9 rounded-full border px-3 text-[12px] transition-colors duration-200"
             style={{
-              borderColor: choisi ? COULEURS_PILIERS[p] : "var(--color-bordure)",
-              backgroundColor: choisi ? `${COULEURS_PILIERS[p]}1f` : "transparent",
+              borderColor: choisi ? p.couleur : "var(--color-bordure)",
+              backgroundColor: choisi ? `${p.couleur}1f` : "transparent",
               color: choisi ? "var(--color-texte)" : "var(--color-tres-doux)",
             }}
           >
-            {LIBELLES_PILIERS[p]}
+            {p.nom}
           </button>
         );
       })}
@@ -503,15 +505,17 @@ function Coche({ cochee }: { cochee: boolean }) {
 }
 
 function Pastille({ pilier }: { pilier: Pilier }) {
+  const piliers = usePiliers();
+
   return (
     <span
       className="shrink-0 rounded-full px-2 py-0.5 text-[10.5px] tracking-[0.06em]"
       style={{
-        backgroundColor: `${COULEURS_PILIERS[pilier]}1f`,
-        color: COULEURS_PILIERS[pilier],
+        backgroundColor: `${piliers.couleur(pilier)}1f`,
+        color: piliers.couleur(pilier),
       }}
     >
-      {LIBELLES_PILIERS[pilier]}
+      {piliers.nom(pilier)}
     </span>
   );
 }

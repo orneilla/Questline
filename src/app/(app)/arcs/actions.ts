@@ -17,7 +17,7 @@ import {
   type PerteArc,
   type SaisieArc,
 } from "@/lib/arcs";
-import { PILIERS } from "@/lib/constantes";
+import { clesPiliers } from "@/lib/piliers";
 import type { Pilier } from "@/db/schema";
 
 /**
@@ -30,26 +30,28 @@ import type { Pilier } from "@/db/schema";
 
 export type Retour = { erreur?: string; message?: string };
 
-function pilierValide(valeur: unknown): valeur is Pilier {
-  return typeof valeur === "string" && (PILIERS as readonly string[]).includes(valeur);
-}
-
-function lireSaisie(donnees: FormData): SaisieArc | string {
+/**
+ * La liste des piliers n'est plus close : la validité d'une clé se demande à
+ * la base, jamais à une constante.
+ */
+async function lireSaisie(donnees: FormData): Promise<SaisieArc | string> {
   const nom = String(donnees.get("nom") ?? "").trim();
-  const pilier = donnees.get("pilier");
+  const pilier = String(donnees.get("pilier") ?? "");
   const vision = String(donnees.get("vision") ?? "");
 
   if (nom.length === 0) return "Un arc a besoin d'un nom.";
-  if (!pilierValide(pilier)) return "Choisis un pilier de rattachement.";
+  if (!(await clesPiliers()).includes(pilier)) {
+    return "Choisis un pilier de rattachement.";
+  }
 
-  return { nom, pilier, vision };
+  return { nom, pilier: pilier as Pilier, vision };
 }
 
 export async function actionCreerArc(
   _etat: Retour,
   donnees: FormData,
 ): Promise<Retour> {
-  const saisie = lireSaisie(donnees);
+  const saisie = await lireSaisie(donnees);
   if (typeof saisie === "string") return { erreur: saisie };
 
   await creerArc(saisie);
@@ -62,7 +64,7 @@ export async function actionModifierArc(
   _etat: Retour,
   donnees: FormData,
 ): Promise<Retour> {
-  const saisie = lireSaisie(donnees);
+  const saisie = await lireSaisie(donnees);
   if (typeof saisie === "string") return { erreur: saisie };
 
   await modifierArc(id, saisie);

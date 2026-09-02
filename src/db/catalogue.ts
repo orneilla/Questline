@@ -7,7 +7,7 @@ import {
   validations,
   type Pilier,
 } from "./schema";
-import { PILIERS } from "@/lib/constantes";
+import { chargerPiliers } from "@/lib/piliers";
 import { aujourdhui } from "@/lib/dates";
 
 /**
@@ -213,7 +213,13 @@ export async function installerCatalogue(): Promise<Comptes> {
   // Départ à zéro sur chaque pilier : aucun historique inventé.
   await db
     .insert(momentum)
-    .values(PILIERS.map((pilier) => ({ pilier, valeur: 0, majLe: aujourdhui() })))
+    .values(
+      (await chargerPiliers()).map(({ cle }) => ({
+        pilier: cle,
+        valeur: 0,
+        majLe: aujourdhui(),
+      })),
+    )
     .onConflictDoNothing();
 
   return { arcs: CATALOGUE.length, quetes: nombreQuetes, creneaux: CRENEAUX.length };

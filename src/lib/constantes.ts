@@ -1,35 +1,10 @@
-import type { Pilier } from "@/db/schema";
-
-export const PILIERS: readonly Pilier[] = [
-  "deen",
-  "corps",
-  "table",
-  "savoir",
-  "oeuvre",
-  "seve",
-] as const;
-
-export const LIBELLES_PILIERS: Record<Pilier, string> = {
-  deen: "Deen",
-  corps: "Corps",
-  table: "Table",
-  savoir: "Savoir",
-  oeuvre: "Œuvre",
-  seve: "Sève",
-};
-
 /**
- * Teintes sourdes, désaturées : de quoi distinguer les piliers sans jamais
- * crier. Aucune couleur d'alerte, aucun rouge.
+ * Les piliers ne sont plus ici.
+ *
+ * Ils se renomment, se recolorient et se suppriment : les garder en constantes
+ * aurait figé ce qui doit bouger. Ils vivent en base — `chargerPiliers()` côté
+ * serveur, `usePiliers()` côté écran.
  */
-export const COULEURS_PILIERS: Record<Pilier, string> = {
-  deen: "#6fa396",
-  corps: "#8fa37e",
-  table: "#c0826c",
-  savoir: "#7e92b8",
-  oeuvre: "#c2a567",
-  seve: "#9c8fb4",
-};
 
 /** Plafond d'affichage de l'élan. */
 export const MOMENTUM_MAX = 100;

@@ -10,7 +10,8 @@ import {
   stadePour,
 } from "@/components/jardin/plante";
 import { chargerPaquets, type ResumePaquet } from "@/lib/cartes/donnees";
-import { COULEURS_PILIERS, LIBELLES_PILIERS, PILIERS } from "@/lib/constantes";
+import { chargerPiliers } from "@/lib/piliers";
+import { couleurPilier, nomPilier, type PilierAffiche } from "@/lib/piliers-partage";
 import { db } from "@/db";
 import { momentum } from "@/db/schema";
 import { aujourdhui } from "@/lib/dates";
@@ -26,6 +27,7 @@ const SOMMEIL_JOURS = 14;
 export default async function PageJardin() {
   let paquets: ResumePaquet[];
   let elans: { pilier: string; valeur: number }[];
+  let listePiliers: PilierAffiche[];
 
   try {
     // La décroissance en attente s'appliquait seulement à l'ouverture du jour :
@@ -33,9 +35,10 @@ export default async function PageJardin() {
     // c'est-à-dire une pousse qui n'existait plus. Idempotent.
     await synchroniserMomentum(aujourdhui());
 
-    [paquets, elans] = await Promise.all([
+    [paquets, elans, listePiliers] = await Promise.all([
       chargerPaquets(),
       db.select({ pilier: momentum.pilier, valeur: momentum.valeur }).from(momentum),
+      chargerPiliers(),
     ]);
   } catch (erreur) {
     const probleme = diagnostiquer(erreur);
@@ -52,7 +55,7 @@ export default async function PageJardin() {
         <div className="flex flex-col gap-2.5">
           <Retour vers="/cartes" libelle="Cartes" />
           <p className="text-[12px] tracking-[0.22em] text-tres-doux uppercase">
-            {paquets.length + PILIERS.length} plantes
+            {paquets.length + listePiliers.length} plante{paquets.length + listePiliers.length > 1 ? "s" : ""}
           </p>
           <h1 className="police-titre text-[34px] leading-none">Jardin</h1>
         </div>
@@ -111,23 +114,23 @@ export default async function PageJardin() {
 
       <section className="flex flex-col gap-4">
         <h2 className="text-[13px] tracking-[0.14em] text-doux uppercase">
-          Les six piliers
+          Les piliers
         </h2>
         <div className="grid grid-cols-3 gap-4 sm:grid-cols-6">
-          {PILIERS.map((pilier, rang) => {
-            const valeur = parPilier.get(pilier) ?? 0;
+          {listePiliers.map((pilier, rang) => {
+            const valeur = parPilier.get(pilier.cle) ?? 0;
             const stade = stadePour(Math.round(intensite(valeur) * 100));
             return (
-              <div key={pilier} className="flex flex-col items-center gap-1.5">
+              <div key={pilier.cle} className="flex flex-col items-center gap-1.5">
                 <Plante
                   stade={stade}
                   espece={especePour(rang)}
                   taille={72}
                   endormie={valeur < 1}
-                  teinte={COULEURS_PILIERS[pilier]}
-                  titre={`${LIBELLES_PILIERS[pilier]} — ${LIBELLES_STADES[stade]}`}
+                  teinte={pilier.couleur}
+                  titre={`${pilier.nom} — ${LIBELLES_STADES[stade]}`}
                 />
-                <span className="text-[11px] text-doux">{LIBELLES_PILIERS[pilier]}</span>
+                <span className="text-[11px] text-doux">{pilier.nom}</span>
               </div>
             );
           })}

@@ -8,7 +8,7 @@ import {
   type Retour,
 } from "@/app/(app)/reglages/actions";
 import type { Apercu } from "@/lib/remise-a-zero";
-import { LIBELLES_PILIERS, PILIERS } from "@/lib/constantes";
+import { usePiliers } from "@/components/piliers-contexte";
 
 /**
  * Remise à zéro de l'élan, des quêtes validées et des tâches faites.
@@ -50,6 +50,7 @@ function Case({
 }
 
 export function RemiseAZeroVie() {
+  const piliers = usePiliers();
   const [portee, setPortee] = useState("");
   const [elan, setElan] = useState(true);
   const [quetesCochees, setQuetes] = useState(false);
@@ -59,7 +60,7 @@ export function RemiseAZeroVie() {
   const [enAttente, demarrer] = useTransition();
 
   const rienDeCoche = !elan && !quetesCochees && !tachesCochees;
-  const cible = portee === "" ? "les six piliers" : LIBELLES_PILIERS[portee as never];
+  const cible = portee === "" ? "tous les piliers" : piliers.nom(portee);
 
   /** Toute modification invalide la confirmation en cours : on recompte. */
   function changer(action: () => void) {
@@ -97,9 +98,9 @@ export function RemiseAZeroVie() {
           className={champ}
         >
           <option value="">Tous les piliers</option>
-          {PILIERS.map((pilier) => (
-            <option key={pilier} value={pilier}>
-              {LIBELLES_PILIERS[pilier]}
+          {piliers.liste.map((pilier) => (
+            <option key={pilier.cle} value={pilier.cle}>
+              {pilier.nom}
             </option>
           ))}
         </select>

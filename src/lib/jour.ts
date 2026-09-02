@@ -27,7 +27,8 @@ import {
 import { calculerCharge, type Charge } from "./charge";
 import { resoudreJour, type Bloc } from "./creneaux";
 import { debordement, minutesEveillees, tempsDispo } from "./temps";
-import { FENETRE_FREQUENCE_JOURS, PILIERS } from "./constantes";
+import { FENETRE_FREQUENCE_JOURS } from "./constantes";
+import { chargerPiliers } from "./piliers";
 import {
   aujourdhui,
   decalerJours,
@@ -67,7 +68,9 @@ function vide<T>(valeur: T | undefined, defaut: T): T {
 async function assurerMomentum(date: string): Promise<void> {
   await db
     .insert(momentum)
-    .values(PILIERS.map((pilier) => ({ pilier, valeur: 0, majLe: date })))
+    .values(
+      (await chargerPiliers()).map(({ cle }) => ({ pilier: cle, valeur: 0, majLe: date })),
+    )
     .onConflictDoNothing();
 }
 
@@ -266,8 +269,12 @@ export async function chargerJour(): Promise<EtatJour> {
     .from(quetesRaresFaites)
     .where(eq(quetesRaresFaites.date, date));
 
+  const listePiliers = await chargerPiliers();
   const momentumParPilier = Object.fromEntries(
-    PILIERS.map((p) => [p, lignesMomentum.find((l) => l.pilier === p)?.valeur ?? 0]),
+    listePiliers.map(({ cle }) => [
+      cle,
+      lignesMomentum.find((l) => l.pilier === cle)?.valeur ?? 0,
+    ]),
   ) as Record<Pilier, number>;
 
   const validesAujourdhui = new Set(validationsDuJour.map((v) => v.queteId));
@@ -279,6 +286,7 @@ export async function chargerJour(): Promise<EtatJour> {
     charge,
     quetes: catalogue,
     momentumParPilier,
+    ordrePiliers: listePiliers.map(({ cle }) => cle),
     validesAujourdhui,
     piliersValidesAujourdhui,
     validationsDeLaSemaine: new Map(
@@ -291,7 +299,7 @@ export async function chargerJour(): Promise<EtatJour> {
     charge: charge.niveau,
     recuperation: charge.recuperation,
     modeBas: charge.modeBas,
-    elan: niveauElan(PILIERS.map((p) => momentumParPilier[p])),
+    elan: niveauElan(listePiliers.map(({ cle }) => momentumParPilier[cle])),
   });
 
   return {
@@ -303,9 +311,9 @@ export async function chargerJour(): Promise<EtatJour> {
     queteRareFaite: rareFaite.length > 0,
     charge,
     blocsDuJour: blocs,
-    momentums: PILIERS.map((pilier) => ({
-      pilier,
-      valeur: vide(momentumParPilier[pilier], 0),
+    momentums: listePiliers.map(({ cle }) => ({
+      pilier: cle,
+      valeur: vide(momentumParPilier[cle], 0),
     })),
     quetesDuJour,
     quetesFaites: validationsDuJour.map((v) => ({

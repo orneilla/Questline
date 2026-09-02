@@ -3,7 +3,9 @@ import type { Metadata } from "next";
 import { Retour } from "@/components/retour";
 import { EcranInstallation } from "@/components/ecran-installation";
 import { EntreeJournal } from "@/components/parcours/entree-journal";
-import { COULEURS_PILIERS, LIBELLES_PILIERS, MOIS } from "@/lib/constantes";
+import { MOIS } from "@/lib/constantes";
+import { chargerPiliers } from "@/lib/piliers";
+import { couleurPilier, nomPilier, type PilierAffiche } from "@/lib/piliers-partage";
 import { formaterDateLongue } from "@/lib/dates";
 import { diagnostiquer } from "@/lib/erreurs";
 import { chargerPhrases, type PhraseJournal } from "@/lib/journal";
@@ -52,12 +54,14 @@ export default async function PageParcours() {
   let seuils: LigneParcours[];
   let saisons: SaisonArchivee[];
   let phrases: PhraseJournal[];
+  let listePiliers: PilierAffiche[];
 
   try {
-    [seuils, saisons, phrases] = await Promise.all([
+    [seuils, saisons, phrases, listePiliers] = await Promise.all([
       chargerParcours(),
       chargerSaisonsArchivees(),
       chargerPhrases(),
+      chargerPiliers(),
     ]);
   } catch (erreur) {
     const probleme = diagnostiquer(erreur);
@@ -126,7 +130,7 @@ export default async function PageParcours() {
         ) : (
           <ol className="flex flex-col">
             {seuils.map((ligne, index) => {
-              const couleur = COULEURS_PILIERS[ligne.pilier];
+              const couleur = couleurPilier(listePiliers, ligne.pilier);
               return (
                 <li key={ligne.id} className="flex gap-4">
                   {/* Filet vertical : la trajectoire, littéralement. */}
@@ -161,7 +165,7 @@ export default async function PageParcours() {
                       {ligne.arcNom} — {ligne.seuil} %
                     </span>
                     <span className="text-[12px]" style={{ color: couleur }}>
-                      {LIBELLES_PILIERS[ligne.pilier]}
+                      {nomPilier(listePiliers, ligne.pilier)}
                     </span>
                   </div>
                 </li>

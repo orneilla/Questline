@@ -5,7 +5,9 @@ import Link from "next/link";
 import { LienReglages } from "@/components/barre-navigation";
 import { EcranInstallation } from "@/components/ecran-installation";
 import { chargerBilan, type Bilan, type LignePilier } from "@/lib/bilan";
-import { COULEURS_PILIERS, LIBELLES_PILIERS, MOIS } from "@/lib/constantes";
+import { MOIS } from "@/lib/constantes";
+import { chargerPiliers } from "@/lib/piliers";
+import { couleurPilier, nomPilier, type PilierAffiche } from "@/lib/piliers-partage";
 import { formaterDateLongue } from "@/lib/dates";
 import { diagnostiquer } from "@/lib/erreurs";
 import { etatMomentum, intensite } from "@/lib/momentum";
@@ -29,15 +31,14 @@ function ecart(actuel: number, avant: number): string {
   return `${signe} ${Math.abs(delta)} par rapport à la semaine passée`;
 }
 
-function LigneMomentum({ ligne }: { ligne: LignePilier }) {
-  const couleur = COULEURS_PILIERS[ligne.pilier];
+function LigneMomentum({ ligne, nom, couleur }: { ligne: LignePilier; nom: string; couleur: string }) {
   const part = intensite(ligne.momentum);
 
   return (
     <div className="flex flex-col gap-2">
       <div className="flex items-baseline justify-between gap-3">
         <span className="text-[13px] tracking-[0.14em] text-doux uppercase">
-          {LIBELLES_PILIERS[ligne.pilier]}
+          {nom}
         </span>
         <span className="text-[12px] tabular-nums text-tres-doux">
           {ligne.validations} validation{ligne.validations > 1 ? "s" : ""}
@@ -63,7 +64,7 @@ function LigneMomentum({ ligne }: { ligne: LignePilier }) {
   );
 }
 
-function Constat({ bilan }: { bilan: Bilan }) {
+function Constat({ bilan, listePiliers }: { bilan: Bilan; listePiliers: PilierAffiche[] }) {
   const phrases: string[] = [];
 
   phrases.push(
@@ -74,7 +75,7 @@ function Constat({ bilan }: { bilan: Bilan }) {
 
   if (bilan.plusActif) {
     phrases.push(
-      `Le pilier le plus nourri : ${LIBELLES_PILIERS[bilan.plusActif]}. Le plus silencieux : ${LIBELLES_PILIERS[bilan.plusDelaisse!]} — il passera devant dans la sélection.`,
+      `Le pilier le plus nourri : ${nomPilier(listePiliers, bilan.plusActif)}. Le plus silencieux : ${nomPilier(listePiliers, bilan.plusDelaisse!)} — il passera devant dans la sélection.`,
     );
   }
 
@@ -97,8 +98,9 @@ function Constat({ bilan }: { bilan: Bilan }) {
 
 export default async function PageBilan() {
   let bilan: Bilan;
+  let listePiliers: PilierAffiche[];
   try {
-    bilan = await chargerBilan();
+    [bilan, listePiliers] = await Promise.all([chargerBilan(), chargerPiliers()]);
   } catch (erreur) {
     const probleme = diagnostiquer(erreur);
     if (!probleme) throw erreur;
@@ -119,14 +121,19 @@ export default async function PageBilan() {
         </div>
       </header>
 
-      <Constat bilan={bilan} />
+      <Constat bilan={bilan} listePiliers={listePiliers} />
 
       <section className="flex flex-col gap-5">
         <h2 className="text-[13px] tracking-[0.14em] text-doux uppercase">
           Par pilier
         </h2>
         {bilan.parPilier.map((ligne) => (
-          <LigneMomentum key={ligne.pilier} ligne={ligne} />
+          <LigneMomentum
+            key={ligne.pilier}
+            ligne={ligne}
+            nom={nomPilier(listePiliers, ligne.pilier)}
+            couleur={couleurPilier(listePiliers, ligne.pilier)}
+          />
         ))}
       </section>
 

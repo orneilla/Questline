@@ -4,7 +4,7 @@ import { and, asc, eq, gte, lte, sql } from "drizzle-orm";
 
 import { db } from "@/db";
 import { arcs, journees, momentum, quetes, validations, type Pilier } from "@/db/schema";
-import { PILIERS } from "./constantes";
+import { chargerPiliers } from "./piliers";
 import { aujourdhui, decalerJours } from "./dates";
 import { lundiDeLaSemaine } from "./semaine";
 
@@ -84,7 +84,9 @@ export async function chargerBilan(): Promise<Bilan> {
         .where(and(gte(validations.date, debut), lte(validations.date, fin))),
     ]);
 
-  const parPilier: LignePilier[] = PILIERS.map((pilier) => ({
+  const listePiliers = await chargerPiliers();
+
+  const parPilier: LignePilier[] = listePiliers.map(({ cle: pilier }) => ({
     pilier,
     validations: semaine.get(pilier)?.nombre ?? 0,
     points: semaine.get(pilier)?.points ?? 0,

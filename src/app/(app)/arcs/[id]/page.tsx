@@ -6,7 +6,9 @@ import { EcranInstallation } from "@/components/ecran-installation";
 import { EtapesArc, EtatDeLArc, FormulaireArc } from "@/components/arcs/edition";
 import { Depliant } from "@/components/reglages/briques";
 import { chargerArc, HORIZON_SEMAINES, type DetailArc } from "@/lib/arcs";
-import { COULEURS_PILIERS, JOURS_SEMAINE, LIBELLES_PILIERS } from "@/lib/constantes";
+import { JOURS_SEMAINE } from "@/lib/constantes";
+import { chargerPiliers } from "@/lib/piliers";
+import { couleurPilier, nomPilier, type PilierAffiche } from "@/lib/piliers-partage";
 import { formaterDateLongue } from "@/lib/dates";
 import { diagnostiquer } from "@/lib/erreurs";
 
@@ -29,8 +31,9 @@ export default async function PageArc({
   if (!Number.isInteger(numero)) notFound();
 
   let arc: DetailArc | null;
+  let listePiliers: PilierAffiche[];
   try {
-    arc = await chargerArc(numero);
+    [arc, listePiliers] = await Promise.all([chargerArc(numero), chargerPiliers()]);
   } catch (erreur) {
     const probleme = diagnostiquer(erreur);
     if (!probleme) throw erreur;
@@ -38,7 +41,7 @@ export default async function PageArc({
   }
   if (!arc) notFound();
 
-  const couleur = COULEURS_PILIERS[arc.pilier];
+  const couleur = couleurPilier(listePiliers, arc.pilier);
 
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-md flex-col gap-9 px-6 pt-[calc(env(safe-area-inset-top)+2.75rem)] pb-10">
@@ -54,7 +57,7 @@ export default async function PageArc({
             className="size-1.5 rounded-full"
             style={{ backgroundColor: couleur }}
           />
-          {LIBELLES_PILIERS[arc.pilier]}
+          {nomPilier(listePiliers, arc.pilier)}
         </p>
 
         <h1 className="police-titre text-[30px] leading-tight">

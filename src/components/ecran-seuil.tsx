@@ -3,7 +3,7 @@
 import { useTransition } from "react";
 
 import { actionSeuilVu } from "@/app/(app)/jour/actions";
-import { COULEURS_PILIERS, LIBELLES_PILIERS } from "@/lib/constantes";
+import { usePiliers } from "@/components/piliers-contexte";
 import { formaterDateLongue } from "@/lib/dates";
 import type { SeuilAAnnoncer } from "@/lib/seuils";
 
@@ -24,8 +24,9 @@ const PHRASES: Record<number, string> = {
 };
 
 export function EcranSeuil({ seuil }: { seuil: SeuilAAnnoncer }) {
+  const piliers = usePiliers();
   const [enAttente, demarrer] = useTransition();
-  const couleur = COULEURS_PILIERS[seuil.pilier];
+  const couleur = piliers.couleur(seuil.pilier);
 
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-md flex-col justify-center gap-7 px-7 py-16">
@@ -40,7 +41,7 @@ export function EcranSeuil({ seuil }: { seuil: SeuilAAnnoncer }) {
             className="text-[12px] tracking-[0.22em] uppercase"
             style={{ color: couleur }}
           >
-            {LIBELLES_PILIERS[seuil.pilier]}
+            {piliers.nom(seuil.pilier)}
           </p>
         </div>
 

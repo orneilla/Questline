@@ -4,15 +4,15 @@ import Link from "next/link";
 import { EcranInstallation } from "@/components/ecran-installation";
 import { LienReglages } from "@/components/barre-navigation";
 import { chargerArcs, type ResumeArc } from "@/lib/arcs";
-import { COULEURS_PILIERS, LIBELLES_PILIERS, PILIERS } from "@/lib/constantes";
+import { chargerPiliers } from "@/lib/piliers";
+import { couleurPilier, nomPilier, type PilierAffiche } from "@/lib/piliers-partage";
 import { formaterDateLongue } from "@/lib/dates";
 import { diagnostiquer } from "@/lib/erreurs";
 
 export const metadata: Metadata = { title: "Questline — Arcs" };
 export const dynamic = "force-dynamic";
 
-function CarteArc({ arc }: { arc: ResumeArc }) {
-  const couleur = COULEURS_PILIERS[arc.pilier];
+function CarteArc({ arc, couleur }: { arc: ResumeArc; couleur: string }) {
 
   return (
     <Link
@@ -64,8 +64,9 @@ function CarteArc({ arc }: { arc: ResumeArc }) {
 
 export default async function PageArcs() {
   let liste: ResumeArc[];
+  let listePiliers: PilierAffiche[];
   try {
-    liste = await chargerArcs();
+    [liste, listePiliers] = await Promise.all([chargerArcs(), chargerPiliers()]);
   } catch (erreur) {
     const probleme = diagnostiquer(erreur);
     if (!probleme) throw erreur;
@@ -81,7 +82,7 @@ export default async function PageArcs() {
       <header className="apparait flex items-start justify-between gap-4">
         <div className="flex flex-col gap-2.5">
           <p className="text-[12px] tracking-[0.22em] text-tres-doux uppercase">
-            {enCours.length} arcs en cours
+            {enCours.length} arc{enCours.length > 1 ? "s" : ""} en cours
           </p>
           <h1 className="police-titre text-[34px] leading-none">Arcs</h1>
         </div>
@@ -105,22 +106,22 @@ export default async function PageArcs() {
         </Link>
       </div>
 
-      {PILIERS.map((pilier) => {
-        const duPilier = enCours.filter((a) => a.pilier === pilier);
+      {listePiliers.map((pilier) => {
+        const duPilier = enCours.filter((a) => a.pilier === pilier.cle);
         if (duPilier.length === 0) return null;
 
         return (
-          <section key={pilier} className="flex flex-col gap-3">
+          <section key={pilier.cle} className="flex flex-col gap-3">
             <h2 className="flex items-center gap-2.5 text-[13px] tracking-[0.14em] text-doux uppercase">
               <span
                 aria-hidden
                 className="size-1.5 rounded-full"
-                style={{ backgroundColor: COULEURS_PILIERS[pilier] }}
+                style={{ backgroundColor: pilier.couleur }}
               />
-              {LIBELLES_PILIERS[pilier]}
+              {pilier.nom}
             </h2>
             {duPilier.map((arc) => (
-              <CarteArc key={arc.id} arc={arc} />
+              <CarteArc key={arc.id} arc={arc} couleur={pilier.couleur} />
             ))}
           </section>
         );

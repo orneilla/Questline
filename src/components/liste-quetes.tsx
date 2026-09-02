@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 
 import { actionValider } from "@/app/(app)/jour/actions";
 import type { Pilier } from "@/db/schema";
-import { COULEURS_PILIERS, LIBELLES_PILIERS } from "@/lib/constantes";
+import { usePiliers } from "@/components/piliers-contexte";
 import type { QueteProposable } from "@/lib/selection";
 
 type Faite = { id: number; titre: string; pilier: Pilier };
@@ -15,6 +15,7 @@ type Props = {
 };
 
 export function ListeQuetes({ quetes, faites }: Props) {
+  const piliers = usePiliers();
   const [enCours, setEnCours] = useState<number | null>(null);
   const [validees, setValidees] = useState<number[]>([]);
   const [, demarrer] = useTransition();
@@ -44,7 +45,7 @@ export function ListeQuetes({ quetes, faites }: Props) {
   return (
     <section aria-label="Quêtes du jour" className="flex flex-col gap-3">
       {restantes.map((quete, index) => {
-        const couleur = COULEURS_PILIERS[quete.pilier];
+        const couleur = piliers.couleur(quete.pilier);
         const actif = enCours === quete.id;
 
         return (
@@ -122,13 +123,13 @@ export function ListeQuetes({ quetes, faites }: Props) {
               <span
                 aria-hidden
                 className="size-1.5 shrink-0 rounded-full"
-                style={{ backgroundColor: COULEURS_PILIERS[faite.pilier] }}
+                style={{ backgroundColor: piliers.couleur(faite.pilier) }}
               />
               <span className="text-[14px] text-tres-doux line-through decoration-tres-doux/50">
                 {faite.titre}
               </span>
               <span className="sr-only">
-                {LIBELLES_PILIERS[faite.pilier]} — validée
+                {piliers.nom(faite.pilier)} — validée
               </span>
             </li>
           ))}

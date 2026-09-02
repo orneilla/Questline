@@ -62,7 +62,7 @@ function rafraichir() {
 
 /** Ce qui serait effacé, compté avant confirmation. Rien n'est touché ici. */
 export async function compterRemise(portee: string): Promise<Apercu> {
-  return apercuRemise(lirePortee(portee));
+  return apercuRemise(await lirePortee(portee));
 }
 
 /**
@@ -80,7 +80,7 @@ export async function remettreAZeroVie(
   }
 
   try {
-    const bilan = await remettreVieAZero(lirePortee(portee), choix);
+    const bilan = await remettreVieAZero(await lirePortee(portee), choix);
     rafraichir();
     revalidatePath("/jardin");
     revalidatePath("/parcours");

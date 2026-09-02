@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 
 import type { Pilier } from "@/db/schema";
-import { COULEURS_PILIERS, LIBELLES_PILIERS } from "@/lib/constantes";
+import { usePiliers } from "@/components/piliers-contexte";
 import { etatMomentum, intensite } from "@/lib/momentum";
 
 type Props = {
@@ -15,6 +15,7 @@ type Props = {
  * l'écran, en décalé, pour donner la sensation d'un élan qui se reconstitue.
  */
 export function BarresMomentum({ momentums }: Props) {
+  const piliers = usePiliers();
   const [monte, setMonte] = useState(false);
 
   useEffect(() => {
@@ -26,13 +27,13 @@ export function BarresMomentum({ momentums }: Props) {
     <section aria-label="Momentum des piliers" className="flex flex-col gap-4">
       {momentums.map(({ pilier, valeur }, index) => {
         const part = intensite(valeur);
-        const couleur = COULEURS_PILIERS[pilier];
+        const couleur = piliers.couleur(pilier);
 
         return (
           <div key={pilier} className="flex flex-col gap-2">
             <div className="flex items-baseline justify-between">
               <span className="text-[13px] tracking-[0.14em] text-doux uppercase">
-                {LIBELLES_PILIERS[pilier]}
+                {piliers.nom(pilier)}
               </span>
               <span className="text-[12px] text-tres-doux">{etatMomentum(valeur)}</span>
             </div>
@@ -43,7 +44,7 @@ export function BarresMomentum({ momentums }: Props) {
               aria-valuenow={Math.round(valeur)}
               aria-valuemin={0}
               aria-valuemax={100}
-              aria-label={LIBELLES_PILIERS[pilier]}
+              aria-label={piliers.nom(pilier)}
             >
               <div
                 className="h-full rounded-full transition-[width] duration-[1100ms] ease-calme"
