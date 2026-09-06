@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { Retour } from "@/components/retour";
 import { EcranInstallation } from "@/components/ecran-installation";
 import { TableauNutrition } from "@/components/cuisine/bilan-nutrition";
+import { Instructions } from "@/components/cuisine/instructions";
 import {
   ApresCuisine,
   FicheRecette,
@@ -64,9 +65,7 @@ export default async function PageRecette({
           <h2 className="text-[13px] tracking-[0.14em] text-doux uppercase">
             Préparation
           </h2>
-          <p className="text-[14.5px] leading-relaxed whitespace-pre-wrap text-doux">
-            {recette.instructions}
-          </p>
+          <Instructions texte={recette.instructions} />
         </section>
       )}
 
