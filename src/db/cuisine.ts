@@ -3,6 +3,7 @@ import {
   date,
   index,
   integer,
+  jsonb,
   pgEnum,
   pgTable,
   real,
@@ -248,6 +249,29 @@ export const cuisineRepasEnum = pgEnum("cuisine_repas", [
 export const cuisinePrecisionEnum = pgEnum("cuisine_precision", ["pese", "estime"]);
 
 /**
+ * Un ingrédient tel qu'il était au moment de la saisie.
+ *
+ * Ses teneurs sont copiées, pas référencées : corriger une fiche Ciqual ou
+ * rectifier une saisie manuelle ne doit pas déplacer ce qui a déjà été mangé.
+ *
+ * `source` est du texte libre et non l'énuméré : un instantané doit rester
+ * lisible même si la liste des sources change plus tard. Un instantané qui
+ * cesserait de se relire ne serait plus un instantané.
+ */
+export type IngredientFige = {
+  alimentId: number | null;
+  nom: string;
+  source: string | null;
+  /** En poids cru, comme partout ailleurs. */
+  quantiteG: number;
+  /** Teneurs pour 100 g d'alors. null = la fiche ne la donnait pas. */
+  valeurs: Record<string, number | null>;
+};
+
+/** La part du poids couverte par une donnée non nulle, nutriment par nutriment. */
+export type Couverture = Record<string, number>;
+
+/**
  * Ce qui a été mangé.
  *
  * Les valeurs nutritionnelles sont un instantané, pas un calcul refait à
@@ -291,7 +315,20 @@ export const cuisineJournal = pgTable(
     sel: real("sel"),
     complet: boolean("complet").notNull().default(true),
 
+    /** D'où vient l'entrée : une part de recette, ou un aliment seul. */
+    origine: text("origine").notNull().default("recette"),
+    /** L'instantané, ingrédient par ingrédient : c'est lui qui fait foi. */
+    ingredients: jsonb("ingredients").$type<IngredientFige[]>().notNull().default([]),
+    /** De quoi retrouver une part sans jamais reconsulter la recette. */
+    nbPortions: integer("nb_portions").notNull().default(1),
+    poidsTotalCuitG: real("poids_total_cuit_g"),
+    /** Grammes crus équivalents de ce qui a été mangé. Pondère la couverture. */
+    poidsRetenuG: real("poids_retenu_g"),
+    couverture: jsonb("couverture").$type<Couverture>().notNull().default({}),
+
     dateSaisie: date("date_saisie").notNull(),
+    /** Renseignée dès qu'une entrée a été corrigée après coup. */
+    dateModification: date("date_modification"),
   },
   (table) => [index("cuisine_journal_date_idx").on(table.date)],
 );

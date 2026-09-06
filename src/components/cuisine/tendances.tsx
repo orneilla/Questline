@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { COUVERTURE_ENTIERE } from "@/lib/cuisine/instantane";
 import { LIBELLES, NUTRIMENTS, formater } from "@/lib/cuisine/nutrition";
 import {
   FACTEURS_ATWATER,
@@ -95,6 +96,11 @@ function Repartition({ semaine }: { semaine: Semaine }) {
     { nom: "Lipides", valeur: r.lipides, couleur: "#a8926f" },
   ];
 
+  const ecart =
+    r.energieCiqual !== null && r.energieCiqual > 0
+      ? Math.abs(r.energieAtwater - r.energieCiqual)
+      : null;
+
   return (
     <div className="flex flex-col gap-2">
       <div className="flex h-3 overflow-hidden rounded-full">
@@ -120,11 +126,26 @@ function Repartition({ semaine }: { semaine: Semaine }) {
           </li>
         ))}
       </ul>
+      <dl className="mt-1 grid grid-cols-[1fr_auto] gap-x-4 gap-y-1">
+        <dt className="text-[12.5px] text-tres-doux">Énergie Ciqual</dt>
+        <dd className="text-right text-[12.5px] text-doux tabular-nums">
+          {r.energieCiqual === null ? "—" : `${Math.round(r.energieCiqual)} kcal`}
+        </dd>
+        <dt className="text-[12.5px] text-tres-doux">Reconstituée en 4/4/9</dt>
+        <dd className="text-right text-[12.5px] text-doux tabular-nums">
+          {Math.round(r.energieAtwater)} kcal
+        </dd>
+      </dl>
+
       <p className="text-[11.5px] leading-relaxed text-tres-doux">
-        Part de l&apos;énergie, aux facteurs conventionnels d&apos;Atwater —{" "}
+        Les parts sont calculées sur le total reconstitué, pour qu&apos;elles fassent
+        exactement 100 %. Les facteurs sont ceux d&apos;Atwater —{" "}
         {FACTEURS_ATWATER.proteines} kcal par gramme de protéines,{" "}
         {FACTEURS_ATWATER.glucides} pour les glucides, {FACTEURS_ATWATER.lipides} pour
-        les lipides. Ce sont des conventions, pas des mesures.
+        les lipides : des conventions, pas des mesures.
+        {ecart !== null && ecart >= 1
+          ? ` L'énergie Ciqual reste le chiffre de référence ; l'écart de ${Math.round(ecart)} kcal entre les deux vient de sa propre convention, qui compte notamment les fibres et les polyols.`
+          : " L'énergie Ciqual reste le chiffre de référence : elle suit sa propre convention, qui compte notamment les fibres et les polyols."}
       </p>
     </div>
   );
@@ -168,25 +189,31 @@ export function Tendances({ semaine }: { semaine: Semaine }) {
               Par jour renseigné
             </h2>
             <dl className="grid grid-cols-[1fr_auto] gap-x-4 gap-y-1.5">
-              {NUTRIMENTS.map((cle) => (
-                <div key={cle} className="contents">
-                  <dt className="text-[13px] text-tres-doux">{LIBELLES[cle]}</dt>
-                  <dd className="text-right text-[13px] text-doux tabular-nums">
-                    {formater(cle, semaine.moyenne[cle])}
-                    {semaine.troues.includes(cle) && (
-                      <span className="text-tres-doux"> ·  incomplet</span>
-                    )}
-                  </dd>
-                </div>
-              ))}
+              {NUTRIMENTS.map((cle) => {
+                const part = semaine.couverture[cle] ?? 1;
+                return (
+                  <div key={cle} className="contents">
+                    <dt className="text-[13px] text-tres-doux">{LIBELLES[cle]}</dt>
+                    <dd className="text-right text-[13px] text-doux tabular-nums">
+                      {formater(cle, semaine.moyenne[cle])}
+                      {part < COUVERTURE_ENTIERE && (
+                        <span className="text-tres-doux">
+                          {" "}
+                          · {Math.round(part * 100)} % du poids couvert
+                        </span>
+                      )}
+                    </dd>
+                  </div>
+                );
+              })}
             </dl>
             <p className="text-[11.5px] leading-relaxed text-tres-doux">
               Moyenne sur les {semaine.joursRenseignes} jour
               {semaine.joursRenseignes > 1 ? "s" : ""} où quelque chose a été noté, pas
               sur les sept — diviser par sept ferait paraître basse une semaine notée à
               moitié.
-              {semaine.troues.length > 0 &&
-                " « incomplet » signale un nutriment qu'au moins une entrée ne renseigne pas : le total est alors sous-estimé."}
+              {semaine.incomplets.length > 0 &&
+                " La couverture dit quelle part du poids mangé repose sur une donnée réelle : le reste n'est pas compté, et le total est donc sous-estimé d'autant."}
             </p>
           </section>
 
@@ -207,14 +234,20 @@ export function Tendances({ semaine }: { semaine: Semaine }) {
               {semaine.nbEntrees - semaine.nbPesees} estimée
               {semaine.nbEntrees - semaine.nbPesees > 1 ? "s" : ""}
             </p>
-            {semaine.nbIncompletes > 0 && (
+            {semaine.sansFiche.length > 0 && (
               <p className="text-[12.5px] leading-relaxed text-tres-doux">
-                {semaine.nbIncompletes} entrée
-                {semaine.nbIncompletes > 1 ? "s reposent" : " repose"} sur une recette
-                dont un ingrédient n&apos;a pas de fiche : {semaine.nbIncompletes > 1
-                  ? "leurs totaux sont"
-                  : "son total est"}{" "}
-                sous-estimé{semaine.nbIncompletes > 1 ? "s" : ""}.
+                {semaine.sansFiche.length > 1 ? "Ces ingrédients n'ont" : "Cet ingrédient n'a"}{" "}
+                aucune fiche : {semaine.sansFiche.join(", ")}. Leur poids ne compte dans
+                aucun nutriment — relie-les au catalogue depuis leur recette et
+                resynchronise l&apos;entrée pour que les totaux se referment.
+              </p>
+            )}
+            {semaine.sansValeur.length > 0 && (
+              <p className="text-[12.5px] leading-relaxed text-tres-doux">
+                Fiches muettes sur{" "}
+                {semaine.sansValeur.map((cle) => LIBELLES[cle].toLowerCase()).join(", ")}{" "}
+                : l&apos;aliment est bien relié, mais sa fiche ne donne pas cette valeur.
+                C&apos;est fréquent dans Ciqual, et ça ne se voit nulle part ailleurs.
               </p>
             )}
           </section>
@@ -244,7 +277,8 @@ export function Tendances({ semaine }: { semaine: Semaine }) {
                         <li key={entree.id} className="text-[12.5px] text-tres-doux">
                           {LIBELLES_REPAS[entree.repas]} · {entree.libelle}
                           {entree.precision === "estime" ? " · estimé" : ""}
-                          {!entree.complet ? " · incomplet" : ""}
+                          {entree.sansFiche.length > 0 ? " · sans fiche" : ""}
+                          {entree.dateModification !== null ? " · corrigée" : ""}
                         </li>
                       ))}
                     </ul>

@@ -1,6 +1,11 @@
 import type { NutrimentCle } from "./ciqual";
+import {
+  couvertureCumulee,
+  couvertureIncomplete,
+  nutrimentsSansValeur,
+} from "./instantane";
 import { NUTRIMENTS, type Totaux } from "./nutrition";
-import type { PrecisionSaisie, Repas } from "@/db/cuisine";
+import type { Couverture, PrecisionSaisie, Repas } from "@/db/cuisine";
 
 /**
  * L'agrégation du journal — logique pure, sans base ni réseau.
@@ -21,14 +26,25 @@ export type EntreeJournal = {
   repas: Repas;
   libelle: string;
   precision: PrecisionSaisie;
-  /** Faux quand un ingrédient sans fiche a été ignoré : totaux sous-estimés. */
-  complet: boolean;
   /** Ce que vaut cette entrée. Une clé absente ou nulle = valeur inconnue. */
   valeurs: Partial<Record<NutrimentCle, number | null>>;
+  /** Part du poids couverte par une donnée réelle, nutriment par nutriment. */
+  couverture: Couverture;
+  /** Les ingrédients qu'aucune fiche ne couvre — nommés, pas seulement comptés. */
+  sansFiche: string[];
+  /** Grammes crus équivalents de ce qui a été mangé. Pondère la couverture. */
+  poidsRetenuG: number | null;
   /** L'origine, quand elle existe encore. */
+  origine: "recette" | "aliment";
   recetteId: number | null;
   alimentId: number | null;
-  poidsG: number | null;
+  /** Ce qui se corrige : l'assiette d'une recette, ou les grammes d'un aliment. */
+  poidsAssietteG: number | null;
+  quantiteG: number | null;
+  /** Poids total cuit figé à la saisie : dit si « pesé » est seulement possible. */
+  poidsTotalCuitG: number | null;
+  nbPortions: number;
+  dateModification: string | null;
 };
 
 export const ORDRE_REPAS: Repas[] = ["matin", "midi", "soir", "collation"];
@@ -52,24 +68,19 @@ export type Jour = {
   entrees: EntreeJournal[];
   /** Somme des valeurs connues. Une clé absente = personne ne l'a renseignée. */
   totaux: Totaux;
-  /** Nutriments qu'au moins une entrée du jour ne donne pas. */
-  troues: NutrimentCle[];
+  /** Couverture du jour, pondérée par le poids de chaque entrée. */
+  couverture: Couverture;
   nbPesees: number;
   nbEstimees: number;
-  nbIncompletes: number;
 };
 
 export function sommerJour(date: string, entrees: EntreeJournal[]): Jour {
   const totaux: Totaux = {};
-  const troues = new Set<NutrimentCle>();
 
   for (const entree of entrees) {
     for (const cle of NUTRIMENTS) {
       const valeur = entree.valeurs[cle];
-      if (valeur === null || valeur === undefined) {
-        troues.add(cle);
-        continue;
-      }
+      if (valeur === null || valeur === undefined) continue;
       totaux[cle] = (totaux[cle] ?? 0) + valeur;
     }
   }
@@ -78,10 +89,9 @@ export function sommerJour(date: string, entrees: EntreeJournal[]): Jour {
     date,
     entrees,
     totaux,
-    troues: NUTRIMENTS.filter((c) => troues.has(c)),
+    couverture: couvertureCumulee(entrees),
     nbPesees: entrees.filter((e) => e.precision === "pese").length,
     nbEstimees: entrees.filter((e) => e.precision === "estime").length,
-    nbIncompletes: entrees.filter((e) => !e.complet).length,
   };
 }
 
@@ -97,10 +107,28 @@ export function sommerJour(date: string, entrees: EntreeJournal[]): Jour {
  * et non de l'énergie déclarée : les deux diffèrent toujours un peu, et
  * afficher un total à 97 % laisserait croire à une erreur.
  */
-export type Repartition = { proteines: number; glucides: number; lipides: number };
+export type Repartition = {
+  proteines: number;
+  glucides: number;
+  lipides: number;
+  /** L'énergie reconstituée aux facteurs d'Atwater, par jour renseigné. */
+  energieAtwater: number;
+  /** L'énergie telle que Ciqual la donne, pour la même période. */
+  energieCiqual: number | null;
+};
 
 export const FACTEURS_ATWATER = { proteines: 4, glucides: 4, lipides: 9 } as const;
 
+/**
+ * Les trois parts, calculées sur le total d'Atwater et non sur l'énergie Ciqual.
+ *
+ * Les deux ne tombent pas juste, et c'est normal : Ciqual applique sa propre
+ * convention, qui compte notamment les fibres et les polyols. Rapporter des
+ * parts en 4/4/9 à une énergie Ciqual donnerait trois pourcentages sommant à
+ * 96 ou 103 %, ce qui se lit comme une erreur alors que c'est un écart de
+ * conventions. On normalise donc sur le total reconstitué, et on affiche
+ * l'énergie Ciqual à part, en la nommant.
+ */
 export function repartir(totaux: Totaux): Repartition | null {
   const p = totaux.proteines100g;
   const g = totaux.glucides100g;
@@ -117,6 +145,8 @@ export function repartir(totaux: Totaux): Repartition | null {
     proteines: (kp / somme) * 100,
     glucides: (kg / somme) * 100,
     lipides: (kl / somme) * 100,
+    energieAtwater: somme,
+    energieCiqual: totaux.kcal100g ?? null,
   };
 }
 
@@ -130,10 +160,15 @@ export type Semaine = {
   joursRenseignes: number;
   nbEntrees: number;
   nbPesees: number;
-  nbIncompletes: number;
   repartition: Repartition | null;
-  /** Nutriments qu'au moins une entrée de la semaine ne donne pas. */
-  troues: NutrimentCle[];
+  /** Couverture de la semaine, pondérée par le poids. */
+  couverture: Couverture;
+  /** Nutriments dont la couverture n'atteint pas 100 %, toutes causes. */
+  incomplets: NutrimentCle[];
+  /** Ceux dont le trou vient d'une fiche muette, et non d'un ingrédient sans fiche. */
+  sansValeur: NutrimentCle[];
+  /** Les ingrédients sans fiche croisés cette semaine, nommés une seule fois. */
+  sansFiche: string[];
 };
 
 /**
@@ -145,8 +180,8 @@ export type Semaine = {
  */
 export function assemblerSemaine(debut: string, jours: Jour[]): Semaine {
   const renseignes = jours.filter((j) => j.entrees.length > 0);
+  const entrees = jours.flatMap((j) => j.entrees);
   const totalSemaine: Totaux = {};
-  const troues = new Set<NutrimentCle>();
 
   for (const jour of renseignes) {
     for (const cle of NUTRIMENTS) {
@@ -154,7 +189,6 @@ export function assemblerSemaine(debut: string, jours: Jour[]): Semaine {
         totalSemaine[cle] = (totalSemaine[cle] ?? 0) + jour.totaux[cle]!;
       }
     }
-    for (const cle of jour.troues) troues.add(cle);
   }
 
   const moyenne: Totaux = {};
@@ -166,17 +200,25 @@ export function assemblerSemaine(debut: string, jours: Jour[]): Semaine {
     }
   }
 
+  const couverture = couvertureCumulee(entrees);
+  const moyennePourRepartition: Totaux = {};
+  for (const cle of NUTRIMENTS) {
+    if (moyenne[cle] !== undefined) moyennePourRepartition[cle] = moyenne[cle]!;
+  }
+
   return {
     debut,
     fin: jours[jours.length - 1]?.date ?? debut,
     jours,
     moyenne,
     joursRenseignes: renseignes.length,
-    nbEntrees: jours.reduce((n, j) => n + j.entrees.length, 0),
-    nbPesees: jours.reduce((n, j) => n + j.nbPesees, 0),
-    nbIncompletes: jours.reduce((n, j) => n + j.nbIncompletes, 0),
-    repartition: repartir(totalSemaine),
-    troues: NUTRIMENTS.filter((c) => troues.has(c)),
+    nbEntrees: entrees.length,
+    nbPesees: entrees.filter((e) => e.precision === "pese").length,
+    repartition: repartir(moyennePourRepartition),
+    couverture,
+    incomplets: couvertureIncomplete(couverture),
+    sansValeur: nutrimentsSansValeur(couverture),
+    sansFiche: [...new Set(entrees.flatMap((e) => e.sansFiche))],
   };
 }
 

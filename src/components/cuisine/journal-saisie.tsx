@@ -1,16 +1,19 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 
 import {
   actionChercherPourJournal,
+  actionCorrigerEntree,
   actionNoterAliment,
   actionNoterRecette,
+  actionResynchroniser,
   actionRetirerEntree,
   type Retour,
 } from "@/app/(app)/cuisine/journal/actions";
 import { champ, etiquette } from "@/components/reglages/briques";
-import { formater } from "@/lib/cuisine/nutrition";
+import { nutrimentsSansValeur, plafondFiche } from "@/lib/cuisine/instantane";
+import { LIBELLES, formater } from "@/lib/cuisine/nutrition";
 import {
   LIBELLES_PRECISION,
   LIBELLES_REPAS,
@@ -22,14 +25,16 @@ import type { PrecisionSaisie, Repas } from "@/db/cuisine";
 import { formaterDateLongue } from "@/lib/dates";
 
 /**
- * Noter un repas.
+ * Noter un repas, et corriger ce qui a été noté.
  *
- * Deux chemins seulement, ceux du modèle : une part d'une recette, ou un
+ * Deux chemins de saisie, ceux du modèle : une part d'une recette, ou un
  * aliment seul en grammes. Rien qui ressemble à un formulaire de suivi — on
  * note ce qu'on a mangé, on ne se justifie pas.
  *
- * Le choix « pesé / estimé » est demandé à chaque fois, et pas deviné : c'est
- * la seule chose qui dit après coup quels chiffres tiennent.
+ * Une entrée déjà posée reste corrigeable : ouvrir, changer le chiffre,
+ * valider. Le recalcul se fait sur son propre instantané, jamais sur la
+ * recette d'aujourd'hui — rejoindre celle-ci demande un geste explicite, le
+ * bouton de resynchronisation.
  */
 
 type Trouve = {
@@ -66,13 +71,12 @@ function Pastille({
   );
 }
 
-/** « dim 6 » — assez pour se repérer, assez court pour tenir sur deux lignes. */
+/** « dim 6 » — assez pour se repérer, assez court pour tenir sur une ligne. */
 function jourCourt(date: string): string {
   const [jour, numero] = formaterDateLongue(date).split(" ");
   return `${jour.slice(0, 3)} ${numero}`;
 }
 
-/** Les jours de la semaine affichée : on note aussi après coup. */
 function ChoixJour({
   dates,
   valeur,
@@ -99,16 +103,269 @@ function ChoixJour({
   );
 }
 
+function ChoixRepas({
+  valeur,
+  surChoix,
+}: {
+  valeur: Repas;
+  surChoix: (repas: Repas) => void;
+}) {
+  return (
+    <div className="flex flex-col gap-1.5">
+      <span className={etiquette}>Repas</span>
+      <div className="flex flex-wrap gap-1.5">
+        {ORDRE_REPAS.map((cle) => (
+          <Pastille
+            key={cle}
+            libelle={LIBELLES_REPAS[cle]}
+            choisi={valeur === cle}
+            surClic={() => surChoix(cle)}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ChoixPrecision({
+  valeur,
+  surChoix,
+  aide,
+}: {
+  valeur: PrecisionSaisie;
+  surChoix: (precision: PrecisionSaisie) => void;
+  aide: string;
+}) {
+  return (
+    <div className="flex flex-col gap-1.5">
+      <span className={etiquette}>Ce chiffre est</span>
+      <div className="flex gap-1.5">
+        {(["pese", "estime"] as PrecisionSaisie[]).map((cle) => (
+          <Pastille
+            key={cle}
+            libelle={LIBELLES_PRECISION[cle]}
+            choisi={valeur === cle}
+            surClic={() => surChoix(cle)}
+          />
+        ))}
+      </div>
+      <span className="text-[11.5px] leading-relaxed text-tres-doux">{aide}</span>
+    </div>
+  );
+}
+
+/* ────────────────────── Une entrée déjà notée ────────────────────── */
+
+/**
+ * Ce que la couverture d'une entrée mérite qu'on en dise, ou rien.
+ *
+ * Deux causes, dites séparément. Un ingrédient sans fiche retire son poids à
+ * tous les nutriments d'un coup : le nommer suffit, et répéter le même
+ * pourcentage sur les huit lignes n'apprendrait rien. Une fiche qui existe
+ * mais ne donne pas une valeur ne touche que celle-là — c'est le cas qui ne se
+ * voyait nulle part, et c'est lui qu'on détaille.
+ */
+function Couverture({ entree }: { entree: EntreeJournal }) {
+  const plafond = plafondFiche(entree.couverture);
+  const muettes = nutrimentsSansValeur(entree.couverture);
+
+  if (muettes.length === 0 && entree.sansFiche.length === 0) return null;
+
+  return (
+    <div className="flex flex-col gap-1 rounded-xl border border-bordure px-3 py-2.5">
+      {entree.sansFiche.length > 0 && (
+        <p className="text-[11.5px] leading-relaxed text-tres-doux">
+          Sans fiche : {entree.sansFiche.join(", ")}. Leur poids ne compte dans aucun
+          nutriment — tous plafonnent à {Math.round(plafond * 100)} % du poids.
+        </p>
+      )}
+      {muettes.length > 0 && (
+        <ul className="flex flex-wrap gap-x-3 gap-y-0.5">
+          {muettes.map((cle) => (
+            <li key={cle} className="text-[11.5px] text-tres-doux tabular-nums">
+              {LIBELLES[cle]} : {Math.round((entree.couverture[cle] ?? 1) * 100)} % du
+              poids couvert
+            </li>
+          ))}
+        </ul>
+      )}
+      {muettes.length > 0 && (
+        <p className="text-[11.5px] leading-relaxed text-tres-doux">
+          Ces valeurs-là manquent dans la fiche elle-même, pas faute de lien.
+        </p>
+      )}
+    </div>
+  );
+}
+
+function FicheEntree({
+  entree,
+  dates,
+}: {
+  entree: EntreeJournal;
+  dates: string[];
+}) {
+  const [ouvert, setOuvert] = useState(false);
+  const [date, setDate] = useState(entree.date);
+  const [repas, setRepas] = useState<Repas>(entree.repas);
+  const [precision, setPrecision] = useState<PrecisionSaisie>(entree.precision);
+  const [poids, setPoids] = useState(
+    entree.origine === "recette"
+      ? (entree.poidsAssietteG?.toString() ?? "")
+      : (entree.quantiteG?.toString() ?? ""),
+  );
+  const [retour, setRetour] = useState<Retour>({});
+  const [enAttente, demarrer] = useTransition();
+
+  const recette = entree.origine === "recette";
+  const peseImpossible = recette && entree.poidsTotalCuitG === null;
+
+  function enregistrer() {
+    demarrer(async () => {
+      const nombre = poids.trim() === "" ? null : Number(poids);
+      setRetour(
+        await actionCorrigerEntree(entree.id, {
+          date,
+          repas,
+          precision,
+          poidsAssietteG: recette ? nombre : undefined,
+          quantiteG: recette ? undefined : (nombre ?? undefined),
+        }),
+      );
+    });
+  }
+
+  return (
+    <li className="overflow-hidden rounded-xl border border-bordure">
+      <button
+        type="button"
+        onClick={() => setOuvert((o) => !o)}
+        aria-expanded={ouvert}
+        className="flex min-h-14 w-full items-center gap-3 px-4 py-2.5 text-left transition-colors duration-300 active:bg-surface-haut"
+      >
+        <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+          <span className="truncate text-[14px] text-texte">{entree.libelle}</span>
+          <span className="text-[11.5px] text-tres-doux">
+            {LIBELLES_REPAS[entree.repas]}
+            {entree.origine === "recette"
+              ? entree.poidsAssietteG
+                ? ` · assiette ${Math.round(entree.poidsAssietteG)} g`
+                : ` · 1 part sur ${entree.nbPortions}`
+              : entree.quantiteG
+                ? ` · ${Math.round(entree.quantiteG)} g`
+                : ""}{" "}
+            · {formater("kcal100g", entree.valeurs.kcal100g ?? undefined)} ·{" "}
+            {entree.precision === "estime" ? "estimé" : "pesé"}
+            {entree.dateModification !== null ? " · corrigée" : ""}
+          </span>
+        </span>
+        <span aria-hidden className="shrink-0 text-[16px] text-tres-doux">
+          {ouvert ? "×" : "+"}
+        </span>
+      </button>
+
+      {ouvert && (
+        <div className="flex flex-col gap-3 border-t border-bordure px-4 py-3">
+          <Couverture entree={entree} />
+
+          <label className="flex flex-col gap-1.5">
+            <span className={etiquette}>
+              {recette ? "Poids de l'assiette, en grammes" : "Quantité, en grammes"}
+            </span>
+            <input
+              type="number"
+              inputMode="decimal"
+              min={0}
+              value={poids}
+              onChange={(e) => setPoids(e.target.value)}
+              placeholder={recette ? "vide = part théorique" : ""}
+              className={champ}
+            />
+            <span className="text-[11.5px] leading-relaxed text-tres-doux">
+              {recette
+                ? entree.poidsTotalCuitG
+                  ? `Rapporté aux ${Math.round(entree.poidsTotalCuitG)} g du plat entier, tels qu'ils étaient à la saisie.`
+                  : `Aucun poids total cuit n'avait été noté : la part reste théorique — le plat divisé par ${entree.nbPortions}.`
+                : "Recalculé sur les teneurs figées à la saisie, pas sur la fiche d'aujourd'hui."}
+            </span>
+          </label>
+
+          <ChoixJour dates={dates} valeur={date} surChoix={setDate} />
+          <ChoixRepas valeur={repas} surChoix={setRepas} />
+          <ChoixPrecision
+            valeur={precision}
+            surChoix={setPrecision}
+            aide={
+              peseImpossible
+                ? "Sans poids total cuit, cette entrée restera estimée quoi qu'on choisisse ici."
+                : recette
+                  ? "« Pesé » demande le poids de l'assiette et celui du plat entier."
+                  : "Le grammage vient de la balance : « pesé » suffit. Bascule en estimé si tu as saisi au jugé."
+            }
+          />
+
+          <button
+            type="button"
+            disabled={enAttente}
+            onClick={enregistrer}
+            className="min-h-12 rounded-xl border border-bordure-vive bg-surface-haut text-[14px] text-texte transition-colors duration-300 active:bg-bordure disabled:opacity-50"
+          >
+            {enAttente ? "…" : "Enregistrer"}
+          </button>
+
+          {entree.recetteId !== null && (
+            <button
+              type="button"
+              disabled={enAttente}
+              onClick={() =>
+                demarrer(async () => setRetour(await actionResynchroniser(entree.id)))
+              }
+              className="min-h-11 rounded-xl border border-bordure text-[13px] text-doux transition-colors duration-300 active:bg-surface-haut disabled:opacity-40"
+            >
+              Resynchroniser depuis la recette
+            </button>
+          )}
+
+          <p className="text-[11.5px] leading-relaxed text-tres-doux">
+            {entree.recetteId !== null
+              ? "Resynchroniser refait l'instantané à partir de la recette telle qu'elle est aujourd'hui. C'est le seul chemin par lequel une correction de recette rejoint le journal, et il se prend entrée par entrée."
+              : entree.origine === "recette"
+                ? "La recette d'origine n'existe plus. L'entrée reste calculable : son instantané se suffit."
+                : ""}
+            {entree.dateModification !== null
+              ? ` Corrigée le ${formaterDateLongue(entree.dateModification)}.`
+              : ""}
+          </p>
+
+          <button
+            type="button"
+            disabled={enAttente}
+            onClick={() =>
+              demarrer(async () => setRetour(await actionRetirerEntree(entree.id)))
+            }
+            className="min-h-11 self-start text-left text-[12.5px] text-tres-doux transition-colors duration-300 active:text-doux disabled:opacity-40"
+          >
+            Retirer cette entrée
+          </button>
+
+          <p aria-live="polite" className="min-h-4 text-[12px] text-tres-doux">
+            {retour.erreur ?? retour.message ?? ""}
+          </p>
+        </div>
+      )}
+    </li>
+  );
+}
+
 function EntreesDuJour({
   date,
   entrees,
-  surChangement,
+  dates,
 }: {
   date: string;
   entrees: EntreeJournal[];
-  surChangement: () => void;
+  dates: string[];
 }) {
-  const [enAttente, demarrer] = useTransition();
   const duJour = entrees.filter((e) => e.date === date);
 
   if (duJour.length === 0) {
@@ -125,42 +382,14 @@ function EntreesDuJour({
         duJour
           .filter((e) => e.repas === repas)
           .map((entree) => (
-            <li
-              key={entree.id}
-              className="flex items-center gap-3 rounded-xl border border-bordure px-4 py-2.5"
-            >
-              <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-                <span className="truncate text-[14px] text-texte">{entree.libelle}</span>
-                <span className="text-[11.5px] text-tres-doux">
-                  {LIBELLES_REPAS[entree.repas]}
-                  {entree.poidsG ? ` · ${Math.round(entree.poidsG)} g` : ""} ·{" "}
-                  {formater("kcal100g", entree.valeurs.kcal100g ?? undefined)}
-                  {entree.precision === "estime" ? " · estimé" : " · pesé"}
-                  {!entree.complet ? " · incomplet" : ""}
-                </span>
-              </span>
-              <button
-                type="button"
-                disabled={enAttente}
-                onClick={() =>
-                  demarrer(async () => {
-                    await actionRetirerEntree(entree.id);
-                    surChangement();
-                  })
-                }
-                aria-label={`Retirer ${entree.libelle}`}
-                className="min-h-10 shrink-0 rounded-full border border-bordure px-3 text-[12px] text-tres-doux transition-colors duration-300 active:bg-surface-haut disabled:opacity-40"
-              >
-                retirer
-              </button>
-            </li>
+            <FicheEntree key={entree.id} entree={entree} dates={dates} />
           )),
       )}
     </ul>
   );
 }
 
-/* ────────────────────── Le formulaire ────────────────────── */
+/* ────────────────────── Le formulaire d'ajout ────────────────────── */
 
 export function Saisie({
   dates,
@@ -181,7 +410,6 @@ export function Saisie({
   const [precision, setPrecision] = useState<PrecisionSaisie>("estime");
   const [retour, setRetour] = useState<Retour>({});
   const [enAttente, demarrer] = useTransition();
-  const [version, setVersion] = useState(0);
 
   // Côté recette
   const [recetteId, setRecetteId] = useState<number | null>(null);
@@ -194,6 +422,13 @@ export function Saisie({
   const [grammes, setGrammes] = useState("");
 
   const recette = recettes.find((r) => r.id === recetteId) ?? null;
+
+  // Un aliment seul se pèse à la balance : c'est le cas ordinaire. Une part de
+  // recette suppose un rapport, qui n'existe pas toujours : l'estimé y est le
+  // point de départ honnête.
+  useEffect(() => {
+    setPrecision(mode === "aliment" ? "pese" : "estime");
+  }, [mode]);
 
   function chercher(texte: string) {
     setRecherche(texte);
@@ -241,7 +476,6 @@ export function Saisie({
         setRecherche("");
         setTrouves([]);
       }
-      setVersion((v) => v + 1);
     });
   }
 
@@ -251,20 +485,7 @@ export function Saisie({
         <h2 className="text-[13px] tracking-[0.14em] text-doux uppercase">Noter</h2>
 
         <ChoixJour dates={dates} valeur={date} surChoix={setDate} />
-
-        <div className="flex flex-col gap-1.5">
-          <span className={etiquette}>Repas</span>
-          <div className="flex flex-wrap gap-1.5">
-            {ORDRE_REPAS.map((cle) => (
-              <Pastille
-                key={cle}
-                libelle={LIBELLES_REPAS[cle]}
-                choisi={repas === cle}
-                surClic={() => setRepas(cle)}
-              />
-            ))}
-          </div>
-        </div>
+        <ChoixRepas valeur={repas} surChoix={setRepas} />
 
         <div className="flex flex-col gap-1.5">
           <span className={etiquette}>Quoi</span>
@@ -381,24 +602,15 @@ export function Saisie({
           </>
         )}
 
-        <div className="flex flex-col gap-1.5">
-          <span className={etiquette}>Ce chiffre est</span>
-          <div className="flex gap-1.5">
-            {(["pese", "estime"] as PrecisionSaisie[]).map((cle) => (
-              <Pastille
-                key={cle}
-                libelle={LIBELLES_PRECISION[cle]}
-                choisi={precision === cle}
-                surClic={() => setPrecision(cle)}
-              />
-            ))}
-          </div>
-          <span className="text-[11.5px] leading-relaxed text-tres-doux">
-            C&apos;est la seule chose qui dira, dans trois semaines, quels chiffres
-            tiennent. Rien ne t&apos;oblige à peser — mais l&apos;écrire évite de lire
-            une estimation comme une mesure.
-          </span>
-        </div>
+        <ChoixPrecision
+          valeur={precision}
+          surChoix={setPrecision}
+          aide={
+            mode === "aliment"
+              ? "Un aliment posé sur la balance est pesé, sans autre condition. Bascule en estimé si tu saisis au jugé."
+              : "Une part de recette n'est « pesée » que si le poids de l'assiette et celui du plat entier sont connus tous les deux. Sinon elle sera notée estimée, et l'écran te le dira."
+          }
+        />
 
         <button
           type="button"
@@ -418,12 +630,7 @@ export function Saisie({
         <h2 className="text-[13px] tracking-[0.14em] text-doux uppercase">
           {formaterDateLongue(date)}
         </h2>
-        <EntreesDuJour
-          key={version}
-          date={date}
-          entrees={entrees}
-          surChangement={() => setVersion((v) => v + 1)}
-        />
+        <EntreesDuJour date={date} entrees={entrees} dates={dates} />
       </section>
     </div>
   );
