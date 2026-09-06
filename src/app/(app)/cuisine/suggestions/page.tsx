@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 
 import { Retour } from "@/components/retour";
 import { EcranInstallation } from "@/components/ecran-installation";
@@ -44,6 +45,15 @@ export default async function PageSuggestions() {
         repetitionAssumee={propositions.repetitionAssumee}
         nbDisponibles={propositions.nbDisponibles}
       />
+
+      <p className="border-t border-bordure pt-5 text-[12.5px] leading-relaxed text-tres-doux">
+        Les combinaisons viennent de patrons de plat — des structures, pas des
+        recettes. Si elles ne ressemblent pas à ta cuisine,{" "}
+        <Link href="/cuisine/patrons" className="underline underline-offset-4">
+          règle les patrons
+        </Link>
+        .
+      </p>
     </main>
   );
 }

@@ -53,7 +53,9 @@ export type Propositions = {
   nbDisponibles: number;
 };
 
-async function chargerInventaireDispo(): Promise<ArticleDispo[]> {
+/** L'inventaire tel que le moteur le voit. Exporté : l'écran des patrons le
+ * confronte aux mêmes règles pour dire lesquels tiennent aujourd'hui. */
+export async function chargerInventaireDispo(): Promise<ArticleDispo[]> {
   const lignes = await db
     .select({
       id: cuisineInventaire.id,

@@ -74,6 +74,21 @@ export default async function PageCuisine() {
       </Link>
 
       <Link
+        href="/cuisine/patrons"
+        className="flex min-h-16 items-center justify-between gap-3 rounded-2xl border border-bordure bg-surface px-5 transition-colors duration-300 active:bg-surface-haut"
+      >
+        <span className="flex flex-col gap-0.5">
+          <span className="text-[16px] text-texte">Patrons de plat</span>
+          <span className="text-[12px] text-tres-doux">
+            Les structures qui fondent les combinaisons
+          </span>
+        </span>
+        <span aria-hidden className="text-tres-doux">
+          →
+        </span>
+      </Link>
+
+      <Link
         href="/cuisine/recettes"
         className="flex min-h-16 items-center justify-between gap-3 rounded-2xl border border-bordure bg-surface px-5 transition-colors duration-300 active:bg-surface-haut"
       >
