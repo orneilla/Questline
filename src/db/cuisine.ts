@@ -126,3 +126,64 @@ export type ArticleCourses = typeof cuisineCourses.$inferSelect;
 export type NiveauCuisine = (typeof cuisineNiveauEnum.enumValues)[number];
 export type EtatAliment = (typeof cuisineEtatEnum.enumValues)[number];
 export type SourceAliment = (typeof cuisineSourceEnum.enumValues)[number];
+
+/* ─────────────────────── Recettes (phase 2) ─────────────────────── */
+
+/**
+ * Le rôle d'un ingrédient dans une recette.
+ *
+ * C'est le cœur du système de suggestion : un `essentiel` manquant écarte la
+ * recette, un `optionnel` manquant la pénalise à peine, un `substituable` peut
+ * être remplacé par autre chose de sa catégorie. Trois rôles, pas deux — sans
+ * `substituable`, une recette ne survivrait jamais à un placard réel.
+ */
+export const cuisineRoleEnum = pgEnum("cuisine_role_ingredient", [
+  "essentiel",
+  "optionnel",
+  "substituable",
+]);
+
+export const cuisineRecettes = pgTable(
+  "cuisine_recettes",
+  {
+    id: serial("id").primaryKey(),
+    nom: text("nom").notNull(),
+    instructions: text("instructions").notNull().default(""),
+    tempsMinutes: integer("temps_minutes").notNull().default(0),
+    modeCuisson: text("mode_cuisson").notNull().default("poele"),
+    nbPortions: integer("nb_portions").notNull().default(1),
+    /** Pesé une fois le plat terminé : convertit une assiette en portion. */
+    poidsTotalCuitG: real("poids_total_cuit_g"),
+    jeReferai: boolean("je_referai").notNull().default(true),
+    dateCreation: date("date_creation").notNull(),
+    nbFoisCuisinee: integer("nb_fois_cuisinee").notNull().default(0),
+    derniereFois: date("derniere_fois"),
+  },
+  (table) => [index("cuisine_recettes_nom_idx").on(table.nom)],
+);
+
+export const cuisineRecetteIngredients = pgTable(
+  "cuisine_recette_ingredients",
+  {
+    id: serial("id").primaryKey(),
+    recetteId: integer("recette_id")
+      .notNull()
+      .references(() => cuisineRecettes.id, { onDelete: "cascade" }),
+    alimentId: integer("aliment_id").references(() => cuisineAliments.id, {
+      onDelete: "set null",
+    }),
+    nomLibre: text("nom_libre").notNull(),
+    /** Toujours en poids cru. */
+    quantiteG: real("quantite_g").notNull().default(0),
+    role: cuisineRoleEnum("role").notNull().default("essentiel"),
+    categorieSubstitution: text("categorie_substitution"),
+    ordre: integer("ordre").notNull().default(0),
+  },
+  (table) => [
+    index("cuisine_recette_ingredients_recette_idx").on(table.recetteId),
+  ],
+);
+
+export type Recette = typeof cuisineRecettes.$inferSelect;
+export type IngredientRecette = typeof cuisineRecetteIngredients.$inferSelect;
+export type RoleIngredient = (typeof cuisineRoleEnum.enumValues)[number];
