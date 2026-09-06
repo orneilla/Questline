@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { Retour } from "@/components/retour";
 import { notFound } from "next/navigation";
 
@@ -105,9 +106,22 @@ export default async function PageArc({
       </section>
 
       <section className="flex flex-col gap-3">
-        <h2 className="text-[13px] tracking-[0.14em] text-doux uppercase">
-          Quêtes ({arc.quetes.length})
-        </h2>
+        <div className="flex items-baseline justify-between gap-3">
+          <h2 className="text-[13px] tracking-[0.14em] text-doux uppercase">
+            Quêtes ({arc.quetes.length})
+          </h2>
+          {/*
+            Les quêtes se lisent ici et se règlent dans les réglages. Sans ce
+            lien, rien ne disait où : on voyait la quête proposée chaque jour
+            sans savoir par où la reprendre.
+          */}
+          <Link
+            href="/reglages"
+            className="shrink-0 text-[12px] text-tres-doux underline decoration-bordure-vive underline-offset-4 transition-colors duration-300 active:text-doux"
+          >
+            les régler
+          </Link>
+        </div>
 
         {arc.quetes.map((quete) => (
           <div

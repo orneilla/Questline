@@ -77,6 +77,11 @@ export default async function PageReglages() {
 
   const cejour = aujourdhui();
 
+  const arcsParPilier: Record<string, number> = {};
+  for (const arc of arcs) {
+    arcsParPilier[arc.pilier] = (arcsParPilier[arc.pilier] ?? 0) + 1;
+  }
+
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-md flex-col gap-9 px-6 pt-[calc(env(safe-area-inset-top)+2.75rem)] pb-10">
       <header className="apparait flex flex-col gap-2.5">
@@ -117,7 +122,11 @@ export default async function PageReglages() {
         titre="Piliers"
         aide="Le nom, la teinte et l'ordre s'ajustent. En ajouter est sans conséquence ; en supprimer un emporte ses arcs et leur histoire, et l'écran le dit avant."
       >
-        <Piliers liste={piliers.liste} tableAbsente={piliers.tableAbsente} />
+        <Piliers
+          liste={piliers.liste}
+          arcsParPilier={arcsParPilier}
+          tableAbsente={piliers.tableAbsente}
+        />
       </Section>
 
       {piliers.liste.map((pilier) => {

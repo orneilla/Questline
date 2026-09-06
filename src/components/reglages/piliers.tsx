@@ -58,12 +58,15 @@ function ChoixCouleur({
 function EditeurPilier({
   pilier,
   cles,
+  arcs,
   premier,
   dernier,
 }: {
   pilier: PilierAffiche;
   /** L'ordre courant, pour savoir où le déplacer. */
   cles: string[];
+  /** Nombre d'arcs rattachés : ce qu'on veut savoir avant de le supprimer. */
+  arcs: number;
   premier: boolean;
   dernier: boolean;
 }) {
@@ -76,7 +79,10 @@ function EditeurPilier({
   const [enAttente, demarrer] = useTransition();
 
   return (
-    <Depliant titre={pilier.nom} detail={pilier.cle}>
+    <Depliant
+      titre={pilier.nom}
+      detail={arcs === 0 ? "aucun arc" : `${arcs} arc${arcs > 1 ? "s" : ""}`}
+    >
       <form action={action} className="flex flex-col gap-3">
         <label className="flex flex-col gap-1.5">
           <span className={etiquette}>Nom</span>
@@ -236,9 +242,12 @@ function AjoutPilier() {
 
 export function Piliers({
   liste,
+  arcsParPilier,
   tableAbsente,
 }: {
   liste: PilierAffiche[];
+  /** Combien d'arcs chaque pilier porte, par clé. */
+  arcsParPilier: Record<string, number>;
   /** La migration n'a pas encore été appliquée : rien n'est modifiable. */
   tableAbsente: boolean;
 }) {
@@ -281,6 +290,7 @@ export function Piliers({
           key={pilier.cle}
           pilier={pilier}
           cles={cles}
+          arcs={arcsParPilier[pilier.cle] ?? 0}
           premier={rang === 0}
           dernier={rang === liste.length - 1}
         />
