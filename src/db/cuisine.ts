@@ -229,3 +229,73 @@ export const cuisineSuggestions = pgTable(
 );
 
 export type Patron = typeof cuisinePatrons.$inferSelect;
+
+/* ─────────────────────── Journal (phase 4) ─────────────────────── */
+
+export const cuisineRepasEnum = pgEnum("cuisine_repas", [
+  "matin",
+  "midi",
+  "soir",
+  "collation",
+]);
+
+/**
+ * Ce qui sépare un chiffre solide d'un chiffre plausible.
+ *
+ * Sans cette distinction, une semaine à moitié estimée se lirait comme une
+ * semaine pesée, et la tendance qu'on en tirerait n'aurait aucune valeur.
+ */
+export const cuisinePrecisionEnum = pgEnum("cuisine_precision", ["pese", "estime"]);
+
+/**
+ * Ce qui a été mangé.
+ *
+ * Les valeurs nutritionnelles sont un instantané, pas un calcul refait à
+ * l'affichage : recalculer une entrée passée à partir de la recette
+ * d'aujourd'hui réécrirait le passé à chaque correction de grammage. Ce qui a
+ * été mangé ne change pas rétroactivement.
+ *
+ * Un nutriment inconnu vaut NULL, jamais zéro — et `complet` dit à part si un
+ * ingrédient sans fiche a été purement ignoré du calcul, auquel cas les totaux
+ * sont sous-estimés sans qu'aucune colonne ne le montre.
+ */
+export const cuisineJournal = pgTable(
+  "cuisine_journal",
+  {
+    id: serial("id").primaryKey(),
+    date: date("date").notNull(),
+    repas: cuisineRepasEnum("repas").notNull(),
+
+    recetteId: integer("recette_id").references(() => cuisineRecettes.id, {
+      onDelete: "set null",
+    }),
+    alimentId: integer("aliment_id").references(() => cuisineAliments.id, {
+      onDelete: "set null",
+    }),
+    /** Instantané du nom : l'entrée reste lisible après suppression de sa source. */
+    libelle: text("libelle").notNull(),
+
+    /** Un aliment seul, en grammes. */
+    quantiteG: real("quantite_g"),
+    /** Une part de recette, pesée dans l'assiette. */
+    poidsPortionG: real("poids_portion_g"),
+    precision: cuisinePrecisionEnum("precision").notNull().default("estime"),
+
+    kcal: real("kcal"),
+    proteines: real("proteines"),
+    glucides: real("glucides"),
+    sucres: real("sucres"),
+    lipides: real("lipides"),
+    ags: real("ags"),
+    fibres: real("fibres"),
+    sel: real("sel"),
+    complet: boolean("complet").notNull().default(true),
+
+    dateSaisie: date("date_saisie").notNull(),
+  },
+  (table) => [index("cuisine_journal_date_idx").on(table.date)],
+);
+
+export type LigneJournal = typeof cuisineJournal.$inferSelect;
+export type Repas = (typeof cuisineRepasEnum.enumValues)[number];
+export type PrecisionSaisie = (typeof cuisinePrecisionEnum.enumValues)[number];

@@ -1,4 +1,5 @@
 import { migrate } from "drizzle-orm/neon-http/migrator";
+import { sql } from "drizzle-orm";
 import type { NextRequest } from "next/server";
 import path from "node:path";
 
@@ -75,6 +76,8 @@ export async function GET(requete: NextRequest): Promise<Response> {
     );
   }
 
+  const avant = await nbMigrations();
+
   try {
     // Les fichiers SQL voyagent avec la fonction grâce à outputFileTracingIncludes.
     await migrate(db, { migrationsFolder: path.join(process.cwd(), "drizzle") });
@@ -90,13 +93,16 @@ export async function GET(requete: NextRequest): Promise<Response> {
     );
   }
 
+  const posees = await nbMigrations();
+
   try {
     if (await catalogueExiste()) {
       return page(
         "Déjà installé",
         `<h1>Déjà installé</h1>
-         <p>Les tables sont à jour et le catalogue est déjà en place. Rien n'a été
-            réécrit — tes validations et ton momentum sont intacts.</p>
+         <p>${echapper(bilanMigrations(avant, posees))}</p>
+         <p>Le catalogue était déjà en place. Rien n'a été réécrit — tes
+            validations et ton momentum sont intacts.</p>
          <a href="/jour">Ouvrir Questline</a>`,
         200,
       );
@@ -126,6 +132,42 @@ export async function GET(requete: NextRequest): Promise<Response> {
       500,
     );
   }
+}
+
+/**
+ * Combien de migrations la base a déjà enregistrées.
+ *
+ * Rend null quand la table de suivi n'existe pas encore — c'est le cas au tout
+ * premier appel, et ce n'est pas une panne.
+ */
+async function nbMigrations(): Promise<number | null> {
+  try {
+    const lignes = await db.execute<{ n: number }>(
+      sql`select count(*)::int as n from drizzle.__drizzle_migrations`,
+    );
+    const premiere = Array.isArray(lignes) ? lignes[0] : lignes.rows?.[0];
+    return premiere?.n ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Ce que l'appel a réellement changé.
+ *
+ * Sans cette phrase, « Déjà installé » ne distingue pas une base à jour d'une
+ * base qui vient de recevoir trois tables — et il faudrait croire sur parole
+ * que la migration est passée.
+ */
+function bilanMigrations(avant: number | null, apres: number | null): string {
+  if (avant === null || apres === null) {
+    return "Les migrations ont été appliquées.";
+  }
+  const posees = apres - avant;
+  if (posees <= 0) {
+    return `Aucune migration à appliquer : la base en comptait déjà ${apres}, elle en compte toujours ${apres}.`;
+  }
+  return `${posees} migration${posees > 1 ? "s" : ""} appliquée${posees > 1 ? "s" : ""} — la base en compte maintenant ${apres}.`;
 }
 
 function message(erreur: unknown): string {

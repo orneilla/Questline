@@ -59,6 +59,21 @@ export default async function PageCuisine() {
       </Link>
 
       <Link
+        href="/cuisine/journal"
+        className="flex min-h-16 items-center justify-between gap-3 rounded-2xl border border-bordure bg-surface px-5 transition-colors duration-300 active:bg-surface-haut"
+      >
+        <span className="flex flex-col gap-0.5">
+          <span className="text-[16px] text-texte">Journal</span>
+          <span className="text-[12px] text-tres-doux">
+            Ce qui a été mangé, et la tendance de la semaine
+          </span>
+        </span>
+        <span aria-hidden className="text-tres-doux">
+          →
+        </span>
+      </Link>
+
+      <Link
         href="/cuisine/courses"
         className="flex min-h-16 items-center justify-between gap-3 rounded-2xl border border-bordure bg-surface px-5 transition-colors duration-300 active:bg-surface-haut"
       >
