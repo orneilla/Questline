@@ -187,3 +187,45 @@ export const cuisineRecetteIngredients = pgTable(
 export type Recette = typeof cuisineRecettes.$inferSelect;
 export type IngredientRecette = typeof cuisineRecetteIngredients.$inferSelect;
 export type RoleIngredient = (typeof cuisineRoleEnum.enumValues)[number];
+
+/* ─────────────────────── Suggestions (phase 3) ─────────────────────── */
+
+/**
+ * Un patron de plat : une structure, pas une recette.
+ *
+ * « féculent + protéine + légume, profil simple, à la poêle » ne dit pas quoi
+ * cuisiner — il dit ce qui, croisé avec l'inventaire réel, ferait un plat
+ * tenable. C'est ce mécanisme qui fait vivre le module tant qu'aucune recette
+ * n'existe.
+ *
+ * `exclut` porte la contrainte de compatibilité, dite concrètement : les mots
+ * qu'un profil ne supporte pas. Un article dont le nom en contient un ne peut
+ * pas pourvoir une place de ce patron.
+ */
+export const cuisinePatrons = pgTable("cuisine_patrons", {
+  id: serial("id").primaryKey(),
+  nom: text("nom").notNull(),
+  categories: text("categories").array().notNull().default([]),
+  profil: text("profil").notNull(),
+  modeCuisson: text("mode_cuisson").notNull(),
+  exclut: text("exclut").array().notNull().default([]),
+  actif: boolean("actif").notNull().default(true),
+  ordre: integer("ordre").notNull().default(0),
+});
+
+/** Ce qui a été proposé, et quand. Sert uniquement à ne pas se répéter. */
+export const cuisineSuggestions = pgTable(
+  "cuisine_suggestions",
+  {
+    id: serial("id").primaryKey(),
+    cle: text("cle").notNull(),
+    date: date("date").notNull(),
+    libelle: text("libelle").notNull(),
+  },
+  (table) => [
+    index("cuisine_suggestions_date_idx").on(table.date),
+    index("cuisine_suggestions_cle_idx").on(table.cle),
+  ],
+);
+
+export type Patron = typeof cuisinePatrons.$inferSelect;

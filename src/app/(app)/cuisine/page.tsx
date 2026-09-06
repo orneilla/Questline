@@ -44,8 +44,23 @@ export default async function PageCuisine() {
 
       <div className="flex flex-col gap-2">
       <Link
-        href="/cuisine/courses"
+        href="/cuisine/suggestions"
         className="flex min-h-16 items-center justify-between gap-3 rounded-2xl border border-bordure-vive bg-surface-haut px-5 transition-colors duration-300 active:bg-bordure"
+      >
+        <span className="flex flex-col gap-0.5">
+          <span className="text-[16px] text-texte">Que cuisiner</span>
+          <span className="text-[12px] text-tres-doux">
+            À partir de ce que tu as, sans rien inventer
+          </span>
+        </span>
+        <span aria-hidden className="text-tres-doux">
+          →
+        </span>
+      </Link>
+
+      <Link
+        href="/cuisine/courses"
+        className="flex min-h-16 items-center justify-between gap-3 rounded-2xl border border-bordure bg-surface px-5 transition-colors duration-300 active:bg-surface-haut"
       >
         <span className="flex flex-col gap-0.5">
           <span className="text-[16px] text-texte">Liste de courses</span>
