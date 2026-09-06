@@ -14,7 +14,8 @@
     "db:studio": "drizzle-kit studio",
     "db:seed": "node --env-file-if-exists=.env --import tsx scripts/seed.ts",
     "icones": "node scripts/generer-icones.mjs",
-    "db:seed-cartes": "node --env-file-if-exists=.env --import tsx scripts/seed-cartes.ts"
+    "db:seed-cartes": "node --env-file-if-exists=.env --import tsx scripts/seed-cartes.ts",
+    "cuisine:ciqual": "node --env-file-if-exists=.env --import tsx scripts/import-ciqual.ts"
   },
   "dependencies": {
     "@neondatabase/serverless": "^0.10.4",

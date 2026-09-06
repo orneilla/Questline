@@ -120,6 +120,13 @@
       "when": 1788400000000,
       "tag": "0016_piliers_modifiables",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1788700000000,
+      "tag": "0017_cuisine",
+      "breakpoints": true
     }
   ]
 }

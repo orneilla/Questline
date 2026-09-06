@@ -9,6 +9,7 @@ const ONGLETS = [
   { href: "/cartes", libelle: "Cartes" },
   { href: "/coran", libelle: "Coran" },
   { href: "/arcs", libelle: "Arcs" },
+  { href: "/cuisine", libelle: "Cuisine" },
 ] as const;
 
 function estActif(chemin: string, href: string): boolean {
