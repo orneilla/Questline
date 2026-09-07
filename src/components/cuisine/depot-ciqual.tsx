@@ -86,13 +86,23 @@ export function DepotCiqual({ dejaCharges }: { dejaCharges: number }) {
 
   return (
     <div className="flex flex-col gap-4">
-      <input
-        ref={champ}
-        type="file"
-        accept=".xml,.csv,.txt,text/xml,text/csv,text/plain"
-        onChange={(e) => void choisir(e.target.files?.[0])}
-        className="min-h-12 w-full rounded-xl border border-bordure bg-surface px-3 py-3 text-[13px] text-doux file:mr-3 file:rounded-lg file:border-0 file:bg-surface-haut file:px-3 file:py-2 file:text-[13px] file:text-texte"
-      />
+      {/*
+        Le champ natif est masqué derrière un libellé plutôt que stylé : sur
+        iOS il s'affiche « Choisir un fichier / Aucun fichier », dans une
+        typographie et une langue que la page ne contrôle pas. Le rendre
+        cliquable par son label donne un bouton qui ressemble aux autres, et
+        dit ce qu'il attend.
+      */}
+      <label className="flex min-h-14 cursor-pointer items-center justify-center rounded-xl border border-bordure-vive bg-surface-haut px-5 text-center text-[15px] text-texte transition-colors duration-300 active:bg-bordure">
+        <input
+          ref={champ}
+          type="file"
+          accept=".xml,.csv,.txt,text/xml,text/csv,text/plain"
+          onChange={(e) => void choisir(e.target.files?.[0])}
+          className="sr-only"
+        />
+        Choisir le fichier Ciqual
+      </label>
 
       {etape.phase === "lecture" && (
         <p className="text-[13px] text-doux">Lecture du fichier…</p>

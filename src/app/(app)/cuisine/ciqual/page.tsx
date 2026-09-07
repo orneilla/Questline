@@ -27,12 +27,48 @@ export default async function PageCiqual() {
         <h1 className="police-titre text-[30px] leading-tight">Base nutritionnelle</h1>
         <p className="text-[13.5px] leading-relaxed text-doux">
           Les valeurs viennent de la table Ciqual de l'Anses, publiée librement. Le
-          fichier se récupère à la main sur ciqual.anses.fr, en XML ou en CSV, puis se
-          dépose ici — rien n'est téléchargé automatiquement.
+          fichier se récupère à la main sur ciqual.anses.fr, puis se dépose ici — rien
+          n'est téléchargé automatiquement.
         </p>
       </header>
 
       <DepotCiqual dejaCharges={catalogue.ciqual} />
+
+      {/*
+        Ces étapes existent parce que le chemin est fait pour un ordinateur :
+        un fichier compressé, un tableur, un format que le navigateur ne
+        propose pas de lui-même. Sans elles, « déposer la table » suppose
+        qu'on sache déjà quoi déposer.
+      */}
+      <section className="flex flex-col gap-2 border-t border-bordure pt-5">
+        <h2 className="text-[13px] tracking-[0.14em] text-doux uppercase">
+          Depuis la tablette, pas à pas
+        </h2>
+        <ol className="flex list-decimal flex-col gap-1.5 pl-4 text-[12.5px] leading-relaxed text-tres-doux">
+          <li>
+            Ouvre <span className="text-doux">ciqual.anses.fr</span> et cherche la
+            rubrique de téléchargement de la table de composition.
+          </li>
+          <li>
+            Prends la version <span className="text-doux">XML</span> si elle est
+            proposée, sinon le CSV. Le fichier arrive souvent compressé.
+          </li>
+          <li>
+            Dans Fichiers, appuie sur l'archive pour l'ouvrir : elle se décompresse en
+            un dossier contenant le vrai fichier.
+          </li>
+          <li>
+            Reviens ici, appuie sur le dépôt et choisis ce fichier-là — celui qui
+            finit par <span className="text-doux">.xml</span> ou{" "}
+            <span className="text-doux">.csv</span>, pas l'archive.
+          </li>
+        </ol>
+        <p className="text-[12.5px] leading-relaxed text-tres-doux">
+          Je ne peux pas atteindre ciqual.anses.fr depuis l'endroit où je tourne : le
+          libellé exact de la rubrique peut donc différer de ce que j'écris là. Si tu ne
+          trouves pas, dis-moi ce que la page affiche et on repart de ce que tu vois.
+        </p>
+      </section>
 
       <section className="flex flex-col gap-2 border-t border-bordure pt-5">
         <h2 className="text-[13px] tracking-[0.14em] text-doux uppercase">

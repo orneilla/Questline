@@ -32,22 +32,32 @@ export function BarreNavigation() {
         aria-label="Navigation principale"
         className="fixed inset-x-0 bottom-0 z-20 border-t border-bordure bg-fond/95 backdrop-blur-sm lg:landscape:hidden"
       >
-        <ul className="mx-auto flex w-full max-w-md">
+        {/*
+          Cellules à la largeur du mot, écarts égaux, plutôt que six cellules
+          identiques. À largeur égale, « Jour » flotte au milieu de la sienne
+          et « Semaine » remplit la sienne : les blancs entre les mots vont du
+          simple au double, et la rangée penche — 16 px avant le premier mot,
+          9 après le dernier. Ici les deux bouts sont à la même distance du
+          bord et les intervalles sont identiques.
+        */}
+        <ul className="mx-auto flex w-full max-w-md justify-between px-3">
           {ONGLETS.map((onglet) => {
             const actif = estActif(chemin, onglet.href);
             return (
-              <li key={onglet.href} className="flex-1">
+              <li key={onglet.href}>
                 <Link
                   href={onglet.href}
                   aria-current={actif ? "page" : undefined}
-                  className="relative flex min-h-14 flex-col items-center justify-center gap-1 pb-[env(safe-area-inset-bottom)] text-[11.5px] tracking-[0.06em] transition-colors duration-300"
+                  className="relative flex min-h-14 flex-col items-center justify-center gap-1 px-1.5 pb-[env(safe-area-inset-bottom)] text-[11.5px] tracking-[0.06em] transition-colors duration-300"
                   style={{
                     color: actif ? "var(--color-texte)" : "var(--color-tres-doux)",
                   }}
                 >
+                  {/* Le trait couvre le mot, pas une cellule : il se cale donc
+                      sur la largeur du lien plutôt que sur une valeur fixe. */}
                   <span
                     aria-hidden
-                    className="absolute top-0 h-px w-8 transition-opacity duration-500 ease-calme"
+                    className="absolute inset-x-0 top-0 h-px transition-opacity duration-500 ease-calme"
                     style={{
                       backgroundColor: "var(--color-texte)",
                       opacity: actif ? 1 : 0,
