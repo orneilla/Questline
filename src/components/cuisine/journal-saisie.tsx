@@ -177,6 +177,9 @@ function Couverture({ entree }: { entree: EntreeJournal }) {
         <p className="text-[11.5px] leading-relaxed text-tres-doux">
           Sans fiche : {entree.sansFiche.join(", ")}. Leur poids ne compte dans aucun
           nutriment — tous plafonnent à {Math.round(plafond * 100)} % du poids.
+          {plafond < 0.01 && entree.recetteId !== null
+            ? " C'est pourquoi cette entrée n'affiche aucun chiffre : ouvre la recette, relie ses ingrédients au catalogue, puis reviens resynchroniser ici."
+            : ""}
         </p>
       )}
       {muettes.length > 0 && (

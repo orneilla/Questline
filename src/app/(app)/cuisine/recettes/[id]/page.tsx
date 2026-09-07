@@ -11,6 +11,7 @@ import {
   Ingredients,
 } from "@/components/cuisine/editeur-recette";
 import { chargerRecette, type DetailRecette } from "@/lib/cuisine/recettes";
+import { etatCatalogue, type EtatCatalogue } from "@/lib/cuisine/donnees";
 import { nomCuisson } from "@/lib/cuisine/nutrition";
 import { diagnostiquer } from "@/lib/erreurs";
 
@@ -27,8 +28,9 @@ export default async function PageRecette({
   if (!Number.isInteger(numero)) notFound();
 
   let detail: DetailRecette | null;
+  let catalogue: EtatCatalogue;
   try {
-    detail = await chargerRecette(numero);
+    [detail, catalogue] = await Promise.all([chargerRecette(numero), etatCatalogue()]);
   } catch (erreur) {
     const probleme = diagnostiquer(erreur);
     if (!probleme) throw erreur;
@@ -52,7 +54,11 @@ export default async function PageRecette({
 
       <ApresCuisine recette={recette} />
 
-      <Ingredients recetteId={recette.id} ingredients={ingredients} />
+      <Ingredients
+        recetteId={recette.id}
+        ingredients={ingredients}
+        catalogueVide={catalogue.total === 0}
+      />
 
       <TableauNutrition
         bilan={bilan}

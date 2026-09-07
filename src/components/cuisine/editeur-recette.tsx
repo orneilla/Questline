@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 import {
@@ -242,23 +243,47 @@ function LigneIngredient({
 export function Ingredients({
   recetteId,
   ingredients,
+  catalogueVide,
 }: {
   recetteId: number;
   ingredients: IngredientCalcul[];
+  /** Aucun aliment de référence : chercher ne rendrait jamais rien. */
+  catalogueVide: boolean;
 }) {
   const [nom, setNom] = useState("");
   const [grammes, setGrammes] = useState("");
+  const [trouves, setTrouves] = useState<Trouve[]>([]);
   const [enAttente, demarrer] = useTransition();
 
-  function ajouter() {
-    const propre = nom.trim();
+  const orphelins = ingredients.filter((i) => i.fiche === null && i.quantiteG > 0);
+
+  /**
+   * Le champ du nom cherche dans le catalogue en même temps qu'on écrit.
+   *
+   * C'était la marche manquante : on tapait « Oeuf », on obtenait un
+   * ingrédient sans fiche, et la recette ne chiffrait rien. Relier était
+   * possible, mais deux écrans plus loin, dans un repli qu'on n'ouvre que si
+   * on sait déjà qu'il faut l'ouvrir.
+   */
+  function saisir(texte: string) {
+    setNom(texte);
+    if (catalogueVide || texte.trim().length < 2) {
+      setTrouves([]);
+      return;
+    }
+    demarrer(async () => setTrouves((await actionChercherAliment(texte)) as Trouve[]));
+  }
+
+  function ajouter(fiche: Trouve | null) {
+    const propre = fiche ? fiche.nom : nom.trim();
     if (propre.length === 0 || enAttente) return;
     setNom("");
     setGrammes("");
+    setTrouves([]);
     demarrer(async () => {
       await actionAjouterIngredient(recetteId, {
         nomLibre: propre,
-        alimentId: null,
+        alimentId: fiche?.id ?? null,
         quantiteG: Number(grammes) || 0,
         role: "essentiel",
         categorieSubstitution: null,
@@ -275,6 +300,39 @@ export function Ingredients({
         <span className="text-[11.5px] text-tres-doux">poids crus</span>
       </div>
 
+      {/*
+        Un ingrédient sans fiche ne pèse dans aucun total. Dit ici, en tête, et
+        non sous un tableau de tirets : c'est là qu'on peut encore y remédier.
+      */}
+      {orphelins.length > 0 && (
+        <div className="flex flex-col gap-1.5 rounded-xl border border-bordure-vive px-4 py-3">
+          <p className="text-[12.5px] leading-relaxed text-doux">
+            {orphelins.length === ingredients.length
+              ? "Aucun ingrédient n'est relié au catalogue"
+              : `${orphelins.length} ingrédient${orphelins.length > 1 ? "s ne sont pas reliés" : " n'est pas relié"} au catalogue`}{" "}
+            : {orphelins.map((i) => i.nomLibre).join(", ")}. Leur poids ne compte dans
+            aucun nutriment, et cette recette ne chiffrera rien tant qu&apos;ils
+            n&apos;ont pas de fiche.
+          </p>
+          <p className="text-[11.5px] leading-relaxed text-tres-doux">
+            {catalogueVide ? (
+              <>
+                Le catalogue est vide : il n&apos;y a encore rien à quoi les relier.{" "}
+                <Link
+                  href="/cuisine/ciqual"
+                  className="underline underline-offset-4"
+                >
+                  Déposer la table Ciqual
+                </Link>
+                .
+              </>
+            ) : (
+              "Ouvre l'ingrédient, cherche son nom sous « Relier au catalogue », et choisis la fiche."
+            )}
+          </p>
+        </div>
+      )}
+
       {ingredients.length > 0 && (
         <ul className="flex flex-col gap-2">
           {ingredients.map((i) => (
@@ -283,16 +341,37 @@ export function Ingredients({
         </ul>
       )}
 
+      {trouves.length > 0 && (
+        <ul className="flex flex-col gap-1">
+          {trouves.map((t) => (
+            <li key={t.id}>
+              <button
+                type="button"
+                onClick={() => ajouter(t)}
+                className="w-full rounded-xl border border-bordure px-4 py-2.5 text-left text-[13px] text-doux transition-colors duration-200 active:bg-surface-haut"
+              >
+                {t.nom}
+                <span className="text-tres-doux">
+                  {" "}
+                  · {t.etat}
+                  {t.kcal100g !== null ? ` · ${Math.round(t.kcal100g)} kcal/100 g` : ""}
+                </span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+
       <div className="flex gap-2">
         <input
           value={nom}
-          onChange={(e) => setNom(e.target.value)}
+          onChange={(e) => saisir(e.target.value)}
           onKeyDown={(e) => {
             if (e.key !== "Enter") return;
             e.preventDefault();
-            ajouter();
+            ajouter(null);
           }}
-          placeholder="Ingrédient"
+          placeholder={catalogueVide ? "Ingrédient" : "Chercher un aliment…"}
           aria-label="Nom de l'ingrédient"
           className={`${champ} flex-1`}
         />
@@ -302,7 +381,7 @@ export function Ingredients({
           onKeyDown={(e) => {
             if (e.key !== "Enter") return;
             e.preventDefault();
-            ajouter();
+            ajouter(null);
           }}
           type="number"
           inputMode="decimal"
@@ -313,13 +392,21 @@ export function Ingredients({
         />
         <button
           type="button"
-          onClick={ajouter}
+          onClick={() => ajouter(null)}
           disabled={enAttente || nom.trim().length === 0}
           className="min-h-12 shrink-0 rounded-xl border border-bordure px-4 text-[13px] text-doux disabled:opacity-40"
         >
           +
         </button>
       </div>
+
+      {!catalogueVide && (
+        <p className="text-[11.5px] leading-relaxed text-tres-doux">
+          Choisis une fiche dans la liste pour que l&apos;ingrédient compte dans les
+          totaux. Le bouton + l&apos;ajoute sans fiche — utile pour ce que le catalogue
+          ne connaît pas, mais son poids ne sera compté nulle part.
+        </p>
+      )}
     </section>
   );
 }
