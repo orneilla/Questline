@@ -55,14 +55,23 @@ export default async function PageCiqual() {
           </li>
           <li>
             Dans Fichiers, appuie sur l'archive pour l'ouvrir : elle se décompresse en
-            un dossier contenant le vrai fichier.
+            un dossier.
           </li>
           <li>
-            Reviens ici, appuie sur le dépôt et choisis ce fichier-là — celui qui
-            finit par <span className="text-doux">.xml</span> ou{" "}
-            <span className="text-doux">.csv</span>, pas l'archive.
+            Reviens ici et choisis <span className="text-doux">tous</span> les
+            documents <span className="text-doux">.xml</span> du dossier d'un coup —
+            pas l'archive. L'export est éclaté en plusieurs tables : les aliments, les
+            teneurs, les noms des constituants. Prises séparément, aucune ne suffit.
+          </li>
+          <li>
+            S'ils ne se sélectionnent pas tous ensemble, dépose-les l'un après l'autre :
+            l'écran garde les précédents et dit ce qu'il attend encore.
           </li>
         </ol>
+        <p className="text-[12.5px] leading-relaxed text-tres-doux">
+          Un CSV, lui, se dépose seul : il porte les aliments et leurs teneurs sur la
+          même ligne.
+        </p>
         <p className="text-[12.5px] leading-relaxed text-tres-doux">
           Je ne peux pas atteindre ciqual.anses.fr depuis l'endroit où je tourne : le
           libellé exact de la rubrique peut donc différer de ce que j'écris là. Si tu ne

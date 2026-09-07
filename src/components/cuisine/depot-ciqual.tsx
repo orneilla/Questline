@@ -4,10 +4,11 @@ import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import {
-  lireCiqual,
+  lireCiqualMulti,
   LIBELLES_NUTRIMENTS,
   type DiagnosticCiqual,
   type AlimentLu,
+  type Fichier,
 } from "@/lib/cuisine/ciqual";
 
 /**
@@ -20,6 +21,11 @@ import {
  * Deux temps volontaires : on lit et on montre ce qui a été reconnu, puis on
  * écrit seulement si l'association des colonnes est juste. Un nutriment mal
  * associé fausserait tous les comptes à venir, en silence.
+ *
+ * L'export XML de l'Anses vient en plusieurs documents — aliments, teneurs,
+ * libellés de constituants. Ils se déposent donc ensemble, ou l'un après
+ * l'autre : ce qui a déjà été lu est gardé, et l'écran dit ce qu'il attend
+ * encore plutôt que de refuser le fichier officiel.
  */
 
 const LOT = 400;
@@ -30,27 +36,55 @@ type Etape =
   | { phase: "lu"; diagnostic: DiagnosticCiqual; aliments: AlimentLu[] }
   | { phase: "ecriture"; faits: number; total: number }
   | { phase: "fini"; ecrits: number }
+  | { phase: "incomplet"; message: string }
   | { phase: "erreur"; message: string };
 
 export function DepotCiqual({ dejaCharges }: { dejaCharges: number }) {
   const router = useRouter();
   const champ = useRef<HTMLInputElement>(null);
   const [etape, setEtape] = useState<Etape>({ phase: "attente" });
+  const [deposes, setDeposes] = useState<Fichier[]>([]);
 
-  async function choisir(fichier: File | undefined) {
-    if (!fichier) return;
+  async function choisir(choisis: FileList | null) {
+    if (!choisis || choisis.length === 0) return;
     setEtape({ phase: "lecture" });
 
+    let ensemble: Fichier[] = deposes;
     try {
-      const contenu = await fichier.text();
-      const { diagnostic, aliments } = lireCiqual(contenu);
-      setEtape({ phase: "lu", diagnostic, aliments });
+      const nouveaux = await Promise.all(
+        [...choisis].map(async (f) => ({ nom: f.name, contenu: await f.text() })),
+      );
+      // Redéposer le même document le remplace plutôt que de le doubler.
+      const noms = new Set(nouveaux.map((f) => f.nom));
+      ensemble = [...deposes.filter((f) => !noms.has(f.nom)), ...nouveaux];
+      setDeposes(ensemble);
     } catch (erreur) {
       setEtape({
         phase: "erreur",
-        message: erreur instanceof Error ? erreur.message : String(erreur),
+        message: `Lecture impossible : ${erreur instanceof Error ? erreur.message : String(erreur)}`,
+      });
+      return;
+    }
+
+    try {
+      const { diagnostic, aliments } = lireCiqualMulti(ensemble);
+      setEtape({ phase: "lu", diagnostic, aliments });
+    } catch (erreur) {
+      const message = erreur instanceof Error ? erreur.message : String(erreur);
+      // « Il manque … » n'est pas un échec : c'est une attente. L'écran le
+      // distingue, sinon déposer le premier des trois fichiers ressemble à une
+      // erreur et on n'ose pas déposer le suivant.
+      setEtape({
+        phase: message.startsWith("Il manque") ? "incomplet" : "erreur",
+        message,
       });
     }
+  }
+
+  function oublier() {
+    setDeposes([]);
+    setEtape({ phase: "attente" });
+    if (champ.current) champ.current.value = "";
   }
 
   async function ecrire(aliments: AlimentLu[]) {
@@ -97,15 +131,47 @@ export function DepotCiqual({ dejaCharges }: { dejaCharges: number }) {
         <input
           ref={champ}
           type="file"
+          multiple
           accept=".xml,.csv,.txt,text/xml,text/csv,text/plain"
-          onChange={(e) => void choisir(e.target.files?.[0])}
+          onChange={(e) => void choisir(e.target.files)}
           className="sr-only"
         />
-        Choisir le fichier Ciqual
+        {deposes.length === 0
+          ? "Choisir les fichiers Ciqual"
+          : "Ajouter un autre fichier"}
       </label>
 
+      {deposes.length > 0 && (
+        <div className="flex flex-col gap-1.5 rounded-xl border border-bordure p-4">
+          <span className="text-[11.5px] tracking-[0.1em] text-tres-doux uppercase">
+            Déposés
+          </span>
+          <ul className="flex flex-col gap-0.5">
+            {deposes.map((f) => (
+              <li key={f.nom} className="text-[12.5px] break-all text-doux">
+                {f.nom}
+              </li>
+            ))}
+          </ul>
+          <button
+            type="button"
+            onClick={oublier}
+            className="mt-1 min-h-10 self-start text-left text-[12.5px] text-tres-doux transition-colors duration-300 active:text-doux"
+          >
+            Tout retirer et recommencer
+          </button>
+        </div>
+      )}
+
       {etape.phase === "lecture" && (
-        <p className="text-[13px] text-doux">Lecture du fichier…</p>
+        <p className="text-[13px] text-doux">Lecture des fichiers…</p>
+      )}
+
+      {etape.phase === "incomplet" && (
+        <p className="rounded-xl border border-bordure p-4 text-[13px] leading-relaxed text-doux">
+          {etape.message} Rien n&apos;est perdu : ce qui est déjà déposé reste en
+          mémoire, ajoute simplement le document suivant.
+        </p>
       )}
 
       {etape.phase === "erreur" && (

@@ -292,43 +292,36 @@ function blocs(contenu: string, balise: string): string[] {
 }
 
 /**
- * L'export XML de l'Anses : une table ALIM (les aliments) et une table COMPO
- * (une ligne par aliment et par constituant).
+ * L'export XML de l'Anses n'est pas un fichier, c'est une famille.
  *
- * Extraction ciblée plutôt qu'un vrai analyseur XML : le fichier est plat et
- * régulier, et ajouter une dépendance pour trois balises n'en vaut pas le prix.
+ * Il vient en plusieurs documents séparés : les aliments d'un côté (ALIM), les
+ * teneurs de l'autre (COMPO — une ligne par aliment et par constituant), et
+ * souvent les libellés des constituants dans un troisième (CONST). Une table
+ * relationnelle exportée table par table, en somme.
+ *
+ * Le lecteur les prend donc ensemble, dans n'importe quel ordre, et ne se
+ * plaint que de ce qui manque vraiment. Attendre les trois dans un seul
+ * document — ce que faisait la première version — revenait à refuser le
+ * fichier officiel.
+ *
+ * Extraction ciblée plutôt qu'un vrai analyseur XML : les documents sont plats
+ * et réguliers, et ajouter une dépendance pour quatre balises n'en vaut pas le
+ * prix sur un import qui n'a lieu qu'une fois.
  */
-function lireXml(contenu: string): LectureCiqual {
-  const alims = blocs(contenu, "ALIM");
-  const compos = blocs(contenu, "COMPO");
 
-  if (alims.length === 0) {
-    throw new Error("Aucun bloc <ALIM> trouvé : ce n'est pas l'export XML Ciqual.");
-  }
-  if (compos.length === 0) {
-    throw new Error(
-      "Aucun bloc <COMPO> trouvé : le fichier ne contient pas les teneurs.",
-    );
-  }
+/** Ce qu'un document apporte, sans encore savoir ce que les autres apportent. */
+export type ApportXml = {
+  aliments: AlimentLu[];
+  /** Libellés de constituants rencontrés, par code. */
+  constituants: Map<string, string>;
+  /** Le texte, gardé pour la passe des teneurs — voir `assembler`. */
+  contenu: string;
+  nbCompo: number;
+};
 
-  // Les libellés de constituants, dédupliqués, pour l'association.
-  const libelleParCode = new Map<string, string>();
-  for (const bloc of compos) {
-    const code = contenuBalise(bloc, "const_code");
-    const nom = contenuBalise(bloc, "const_nom_fr");
-    if (code && nom && !libelleParCode.has(code)) libelleParCode.set(code, nom);
-  }
-
-  const codes = [...libelleParCode.keys()];
-  const libelles = codes.map((c) => libelleParCode.get(c) ?? "");
-  const { choix, absents } = associer(libelles);
-
-  // On repasse de « index dans la liste » à « code de constituant ».
-  const codeParNutriment = new Map<string, NutrimentCle>();
-  for (const [cle, index] of choix) codeParNutriment.set(codes[index], cle);
-
-  const parCode = new Map<string, AlimentLu>();
-  for (const bloc of alims) {
+export function lireApportXml(contenu: string): ApportXml {
+  const aliments: AlimentLu[] = [];
+  for (const bloc of blocs(contenu, "ALIM")) {
     const code = contenuBalise(bloc, "alim_code");
     const nom = contenuBalise(bloc, "alim_nom_fr");
     if (!code || !nom) continue;
@@ -339,7 +332,7 @@ function lireXml(contenu: string): LectureCiqual {
       contenuBalise(bloc, "alim_grp_nom_fr") ??
       "";
 
-    parCode.set(code, {
+    aliments.push({
       code,
       nom,
       categorie: deviner(`${groupe} ${nom}`),
@@ -348,17 +341,97 @@ function lireXml(contenu: string): LectureCiqual {
     });
   }
 
-  for (const bloc of compos) {
-    const alim = contenuBalise(bloc, "alim_code");
-    const constituant = contenuBalise(bloc, "const_code");
-    if (!alim || !constituant) continue;
+  // Les libellés viennent soit d'un document CONST, soit des lignes COMPO
+  // elles-mêmes quand l'édition les y répète. On prend les deux.
+  const constituants = new Map<string, string>();
+  const relever = (bloc: string) => {
+    const code = contenuBalise(bloc, "const_code");
+    const nom = contenuBalise(bloc, "const_nom_fr");
+    if (code && nom && !constituants.has(code)) constituants.set(code, nom);
+  };
+  for (const bloc of blocs(contenu, "CONST")) relever(bloc);
 
-    const cle = codeParNutriment.get(constituant);
-    const cible = parCode.get(alim);
-    if (!cle || !cible) continue;
+  let nbCompo = 0;
+  for (const bloc of blocs(contenu, "COMPO")) {
+    nbCompo += 1;
+    relever(bloc);
+  }
 
-    const valeur = lireTeneur(contenuBalise(bloc, "teneur"));
-    if (valeur !== null) cible.valeurs[cle] = valeur;
+  return { aliments, constituants, contenu, nbCompo };
+}
+
+/** Ce qu'il manque encore pour pouvoir écrire quoi que ce soit. */
+export type Manque = "aliments" | "teneurs" | "libelles";
+
+export const LIBELLES_MANQUE: Record<Manque, string> = {
+  aliments: "la liste des aliments (blocs <ALIM>)",
+  teneurs: "les teneurs (blocs <COMPO>)",
+  libelles: "les noms des constituants (blocs <CONST>)",
+};
+
+export function manquantsXml(apports: ApportXml[]): Manque[] {
+  const manque: Manque[] = [];
+  if (apports.every((a) => a.aliments.length === 0)) manque.push("aliments");
+  if (apports.every((a) => a.nbCompo === 0)) manque.push("teneurs");
+  if (apports.every((a) => a.constituants.size === 0)) manque.push("libelles");
+  return manque;
+}
+
+/**
+ * Recolle les documents en une lecture unique.
+ *
+ * Deux passes sur les teneurs, et c'est voulu. La première ne relève que les
+ * couples code/libellé pour savoir quels constituants nous intéressent ; la
+ * seconde ne garde que ceux-là. Tout charger d'abord pour trier ensuite
+ * demanderait de tenir en mémoire des centaines de milliers de lignes dont on
+ * jette les neuf dixièmes — sur un téléphone, ça ne passe pas.
+ */
+export function assemblerXml(apports: ApportXml[]): LectureCiqual {
+  const manque = manquantsXml(apports);
+  if (manque.length > 0) {
+    throw new Error(
+      `Il manque ${manque.map((m) => LIBELLES_MANQUE[m]).join(" et ")}. ` +
+        "L'export Ciqual est livré en plusieurs fichiers : dépose-les ensemble.",
+    );
+  }
+
+  const constituants = new Map<string, string>();
+  for (const apport of apports) {
+    for (const [code, nom] of apport.constituants) {
+      if (!constituants.has(code)) constituants.set(code, nom);
+    }
+  }
+
+  const codes = [...constituants.keys()];
+  const libelles = codes.map((c) => constituants.get(c) ?? "");
+  const { choix, absents } = associer(libelles);
+
+  const codeParNutriment = new Map<string, NutrimentCle>();
+  for (const [cle, index] of choix) codeParNutriment.set(codes[index], cle);
+
+  const parCode = new Map<string, AlimentLu>();
+  for (const apport of apports) {
+    for (const aliment of apport.aliments) {
+      if (!parCode.has(aliment.code)) parCode.set(aliment.code, aliment);
+    }
+  }
+
+  for (const apport of apports) {
+    if (apport.nbCompo === 0) continue;
+    for (const bloc of blocs(apport.contenu, "COMPO")) {
+      const constituant = contenuBalise(bloc, "const_code");
+      if (!constituant) continue;
+      const cle = codeParNutriment.get(constituant);
+      if (!cle) continue;
+
+      const alim = contenuBalise(bloc, "alim_code");
+      if (!alim) continue;
+      const cible = parCode.get(alim);
+      if (!cible) continue;
+
+      const valeur = lireTeneur(contenuBalise(bloc, "teneur"));
+      if (valeur !== null) cible.valeurs[cle] = valeur;
+    }
   }
 
   const aliments = [...parCode.values()];
@@ -394,19 +467,72 @@ function bilan(
  * import qui n'a lieu qu'une fois. Le tableur sait exporter en CSV, et le
  * message le dit plutôt que de laisser deviner.
  */
-export function lireCiqual(contenu: string): LectureCiqual {
-  const debut = contenu.slice(0, 4000);
+export type Fichier = { nom: string; contenu: string };
 
-  if (/<\?xml|<ALIM[\s>]/i.test(debut)) return lireXml(contenu);
-  if (debut.startsWith("PK") || debut.startsWith("\xd0\xcf")) {
+function estXml(contenu: string): boolean {
+  const debut = contenu.slice(0, 4000);
+  return /<\?xml|<(ALIM|COMPO|CONST)[\s>]/i.test(debut);
+}
+
+function refuserBinaire(fichier: Fichier): void {
+  const debut = fichier.contenu.slice(0, 8);
+  if (debut.startsWith("PK")) {
     throw new Error(
-      "Ce fichier est un classeur binaire (XLS/XLSX). Enregistre-le en CSV " +
-        "depuis le tableur, puis redépose-le.",
+      `« ${fichier.nom} » est une archive compressée. Ouvre-la d'abord dans ` +
+        "Fichiers, puis dépose les documents qu'elle contient.",
     );
   }
-  if (debut.includes(";") || debut.includes("\t") || debut.includes(",")) {
-    return lireCsv(contenu);
+  if (debut.startsWith("\xd0\xcf")) {
+    throw new Error(
+      `« ${fichier.nom} » est un classeur binaire (XLS/XLSX). Enregistre-le en ` +
+        "CSV depuis le tableur, puis redépose-le.",
+    );
+  }
+}
+
+/**
+ * Lit un ou plusieurs fichiers, quel que soit leur format, ou refuse en disant
+ * pourquoi.
+ *
+ * Un CSV Ciqual se suffit à lui-même : une ligne par aliment, les nutriments en
+ * colonnes. L'XML, lui, arrive éclaté en plusieurs documents et doit être
+ * recollé — d'où cette entrée qui en prend plusieurs.
+ *
+ * L'XLS binaire n'est pas lu : il demanderait une dépendance entière pour un
+ * import qui n'a lieu qu'une fois. Le tableur sait exporter en CSV, et le
+ * message le dit plutôt que de laisser deviner.
+ */
+export function lireCiqualMulti(fichiers: Fichier[]): LectureCiqual {
+  if (fichiers.length === 0) throw new Error("Aucun fichier.");
+
+  for (const fichier of fichiers) refuserBinaire(fichier);
+
+  const xml = fichiers.filter((f) => estXml(f.contenu));
+  const autres = fichiers.filter((f) => !estXml(f.contenu));
+
+  if (xml.length > 0) {
+    if (autres.length > 0) {
+      throw new Error(
+        "Mélange de formats : dépose soit les documents XML ensemble, soit le CSV seul.",
+      );
+    }
+    return assemblerXml(xml.map((f) => lireApportXml(f.contenu)));
   }
 
-  throw new Error("Format non reconnu : ni XML Ciqual, ni CSV.");
+  if (autres.length > 1) {
+    throw new Error("Un seul fichier CSV à la fois : celui-ci se suffit à lui-même.");
+  }
+
+  const seul = autres[0];
+  const debut = seul.contenu.slice(0, 4000);
+  if (debut.includes(";") || debut.includes("\t") || debut.includes(",")) {
+    return lireCsv(seul.contenu);
+  }
+
+  throw new Error(`« ${seul.nom} » n'est ni un document XML Ciqual, ni un CSV.`);
+}
+
+/** Un seul fichier — le chemin du script en ligne de commande. */
+export function lireCiqual(contenu: string): LectureCiqual {
+  return lireCiqualMulti([{ nom: "fichier", contenu }]);
 }
