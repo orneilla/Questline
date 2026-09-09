@@ -90,10 +90,13 @@ function Repartition({ semaine }: { semaine: Semaine }) {
     );
   }
 
+  // Trois familles de teintes franchement distinctes — rose, or, bleu-gris.
+  // Les lipides étaient dans un brun-doré voisin de l'or des glucides : côte à
+  // côte sur une même barre, les deux parts ne se séparaient plus.
   const parts = [
     { nom: "Protéines", valeur: r.proteines, couleur: "#b58a93" },
     { nom: "Glucides", valeur: r.glucides, couleur: "#c2a567" },
-    { nom: "Lipides", valeur: r.lipides, couleur: "#a8926f" },
+    { nom: "Lipides", valeur: r.lipides, couleur: "#7e9bb8" },
   ];
 
   const ecart =
@@ -103,7 +106,12 @@ function Repartition({ semaine }: { semaine: Semaine }) {
 
   return (
     <div className="flex flex-col gap-2">
-      <div className="flex h-3 overflow-hidden rounded-full">
+      {/* Un filet sombre entre les parts : la frontière se voit même quand deux
+          teintes voisines se touchent, et sans dépendre de la couleur seule. */}
+      <div
+        className="flex h-3 gap-[2px] overflow-hidden rounded-full"
+        style={{ backgroundColor: "var(--color-bordure)" }}
+      >
         {parts.map((part) => (
           <div
             key={part.nom}

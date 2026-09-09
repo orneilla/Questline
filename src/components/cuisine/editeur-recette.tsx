@@ -32,8 +32,18 @@ import type { Recette, RoleIngredient } from "@/db/cuisine";
  * signale.
  */
 
-const champ =
-  "min-h-12 w-full rounded-xl border border-bordure bg-surface px-3 text-[15px] text-texte placeholder:text-tres-doux";
+/**
+ * La boîte d'un champ, sans largeur.
+ *
+ * `champ` y ajoute `w-full`. Les deux existent séparément parce que poser
+ * `w-full` puis le contredire par une largeur fixe laissait la victoire à la
+ * dernière règle du fichier CSS, pas à la plus proche : dans la ligne d'ajout
+ * d'un ingrédient, le champ des grammes prenait 255 px et celui du nom se
+ * réduisait à 26. Une largeur ne se surcharge pas, elle se choisit.
+ */
+const boite =
+  "min-h-12 rounded-xl border border-bordure bg-surface px-3 text-[15px] text-texte placeholder:text-tres-doux";
+const champ = `${boite} w-full`;
 const etiquette = "text-[11.5px] tracking-[0.1em] text-tres-doux uppercase";
 
 const ROLES: RoleIngredient[] = ["essentiel", "optionnel", "substituable"];
@@ -362,7 +372,12 @@ export function Ingredients({
         </ul>
       )}
 
-      <div className="flex gap-2">
+      {/*
+        Le nom prend toute une ligne : c'est le champ où l'on écrit le plus, et
+        c'est lui qui cherche dans le catalogue. Le partager avec les grammes le
+        réduisait à la largeur de deux lettres.
+      */}
+      <div className="flex flex-col gap-2">
         <input
           value={nom}
           onChange={(e) => saisir(e.target.value)}
@@ -373,31 +388,33 @@ export function Ingredients({
           }}
           placeholder={catalogueVide ? "Ingrédient" : "Chercher un aliment…"}
           aria-label="Nom de l'ingrédient"
-          className={`${champ} flex-1`}
+          className={champ}
         />
-        <input
-          value={grammes}
-          onChange={(e) => setGrammes(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key !== "Enter") return;
-            e.preventDefault();
-            ajouter(null);
-          }}
-          type="number"
-          inputMode="decimal"
-          min={0}
-          placeholder="g"
-          aria-label="Quantité en grammes, poids cru"
-          className={`${champ} w-20`}
-        />
-        <button
-          type="button"
-          onClick={() => ajouter(null)}
-          disabled={enAttente || nom.trim().length === 0}
-          className="min-h-12 shrink-0 rounded-xl border border-bordure px-4 text-[13px] text-doux disabled:opacity-40"
-        >
-          +
-        </button>
+        <div className="flex gap-2">
+          <input
+            value={grammes}
+            onChange={(e) => setGrammes(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key !== "Enter") return;
+              e.preventDefault();
+              ajouter(null);
+            }}
+            type="number"
+            inputMode="decimal"
+            min={0}
+            placeholder="grammes, poids cru"
+            aria-label="Quantité en grammes, poids cru"
+            className={`${boite} min-w-0 flex-1`}
+          />
+          <button
+            type="button"
+            onClick={() => ajouter(null)}
+            disabled={enAttente || nom.trim().length === 0}
+            className="min-h-12 w-28 shrink-0 rounded-xl border border-bordure text-[13px] text-doux disabled:opacity-40"
+          >
+            Ajouter
+          </button>
+        </div>
       </div>
 
       {!catalogueVide && (

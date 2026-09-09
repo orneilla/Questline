@@ -40,7 +40,7 @@ export function BarreNavigation() {
           9 après le dernier. Ici les deux bouts sont à la même distance du
           bord et les intervalles sont identiques.
         */}
-        <ul className="mx-auto flex w-full max-w-md justify-between px-3">
+        <ul className="mx-auto flex w-full max-w-md justify-center gap-2 px-2">
           {ONGLETS.map((onglet) => {
             const actif = estActif(chemin, onglet.href);
             return (

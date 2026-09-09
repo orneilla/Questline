@@ -541,7 +541,10 @@ function Creneau({
           type="time"
           value={heure}
           onChange={(evenement) => surHeure(evenement.target.value)}
-          className={`${champ} w-[8.5rem]`}
+          // `champ` porte déjà `w-full` : une largeur ajoutée ici ne gagnerait
+          // pas à coup sûr, l'ordre du fichier CSS décidant à sa place. On
+          // borne donc le champ au lieu de le contredire.
+          className={`${champ} max-w-[8.5rem]`}
         />
       </label>
     </div>
