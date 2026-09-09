@@ -191,6 +191,27 @@ export default async function PageReglages() {
         aide="Efface la trace de ce qui a été fait, pas ce que tu as construit. Utile après une période de test, ou pour rouvrir un cycle. Les cartes et le Coran ont chacun la leur, dans leurs propres réglages."
       >
         <RemiseAZeroVie />
+
+        {/*
+          La remise à zéro ci-dessus ne touche ni les saisons, ni les cartes, ni
+          la lecture : c'est voulu, elle sert au quotidien. Recommencer pour de
+          bon est un autre geste, et mérite son propre écran plutôt qu'une case
+          de plus ici.
+        */}
+        <Link
+          href="/reglages/reprise"
+          className="mt-3 flex min-h-16 items-center justify-between gap-3 rounded-2xl border border-bordure-vive bg-surface px-5 transition-colors duration-300 active:bg-surface-haut"
+        >
+          <span className="flex flex-col gap-0.5">
+            <span className="text-[15px] text-texte">Repartir de zéro</span>
+            <span className="text-[12px] text-tres-doux">
+              Revenir à la saison 1, jour 1
+            </span>
+          </span>
+          <span aria-hidden className="text-tres-doux">
+            →
+          </span>
+        </Link>
       </Section>
 
       <Section titre="Données">

@@ -248,6 +248,20 @@ export const saisons = pgTable("saisons", {
 });
 
 /**
+ * Les réglages du parcours lui-même. Une seule ligne.
+ *
+ * `origineSaisons` est le jour d'où l'on compte les saisons. Il se déduisait du
+ * premier jour du journal, ce qui liait deux choses sans rapport : repartir à
+ * la saison 1 obligeait alors à effacer les phrases du soir. Posé ici, il se
+ * décide.
+ */
+export const reglagesParcours = pgTable("reglages_parcours", {
+  id: integer("id").primaryKey().default(1),
+  /** Null : on retombe sur le premier jour observé, comme avant. */
+  origineSaisons: date("origine_saisons"),
+});
+
+/**
  * Trace d'un message Telegram déjà envoyé. La clé (date, type) rend l'envoi
  * idempotent : un cron qui se déclenche deux fois n'écrit qu'une fois.
  */

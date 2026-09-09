@@ -3,7 +3,15 @@ import "server-only";
 import { and, asc, desc, eq, gte, isNull, lte, sql } from "drizzle-orm";
 
 import { db } from "@/db";
-import { arcs, journees, quetes, saisons, validations, type Pilier } from "@/db/schema";
+import {
+  arcs,
+  journees,
+  quetes,
+  reglagesParcours,
+  saisons,
+  validations,
+  type Pilier,
+} from "@/db/schema";
 import { chargerPiliers } from "./piliers";
 import { aujourdhui, decalerJours, ecartJours } from "./dates";
 import { lundiDeLaSemaine } from "./semaine";
@@ -48,8 +56,28 @@ export type BilanSaison = {
   joursActifs: number;
 };
 
-/** Premier jour observé dans le journal ; à défaut, le lundi de cette semaine. */
+/**
+ * Le jour d'où l'on compte les saisons.
+ *
+ * La date posée dans les réglages fait foi. À défaut — base pas encore migrée,
+ * ou origine jamais fixée — on retombe sur le premier jour observé dans le
+ * journal, qui était l'unique règle auparavant.
+ *
+ * Le repli couvre aussi le cas où la table n'existe pas : cette fonction est
+ * appelée depuis l'écran du jour, et une exception y remplacerait toute
+ * l'application par un écran d'erreur avant même qu'on ait pu migrer.
+ */
 async function origine(): Promise<string> {
+  try {
+    const [reglage] = await db
+      .select({ date: reglagesParcours.origineSaisons })
+      .from(reglagesParcours)
+      .limit(1);
+    if (reglage?.date) return lundiDeLaSemaine(reglage.date);
+  } catch {
+    // Table absente : on continue avec la déduction d'origine.
+  }
+
   const [premiere] = await db
     .select({ date: journees.date })
     .from(journees)
@@ -57,6 +85,14 @@ async function origine(): Promise<string> {
     .limit(1);
 
   return lundiDeLaSemaine(premiere?.date ?? aujourdhui());
+}
+
+/** Pose la date de départ. C'est ce qui fait repartir le compte à la saison 1. */
+export async function poserOrigineSaisons(date: string): Promise<void> {
+  await db
+    .insert(reglagesParcours)
+    .values({ id: 1, origineSaisons: date })
+    .onConflictDoUpdate({ target: reglagesParcours.id, set: { origineSaisons: date } });
 }
 
 export function numeroDe(origineIso: string, date: string): number {
