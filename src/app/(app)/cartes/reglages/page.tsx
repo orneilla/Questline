@@ -29,14 +29,17 @@ const ARCHIVAGE_JOURS = 365;
 function Section({
   titre,
   aide,
+  id,
   children,
 }: {
   titre: string;
   aide?: string;
+  /** Cible d'ancre, pour qu'un lien venu d'ailleurs tombe au bon endroit. */
+  id?: string;
   children: React.ReactNode;
 }) {
   return (
-    <section className="flex flex-col gap-3">
+    <section id={id} className="flex flex-col gap-3 scroll-mt-6">
       <h2 className="text-[13px] tracking-[0.14em] text-doux uppercase">{titre}</h2>
       {aide && <p className="-mt-1 text-[12px] leading-relaxed text-tres-doux">{aide}</p>}
       {children}
@@ -102,6 +105,7 @@ export default async function PageReglagesCartes() {
       </Section>
 
       <Section
+        id="place"
         titre="Place occupée"
         aide="Poste par poste, mesuré table par table. Le texte coranique est importé une fois : c'est du poids qui ne bouge plus."
       >

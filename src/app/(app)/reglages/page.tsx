@@ -218,6 +218,27 @@ export default async function PageReglages() {
       </Section>
 
       <Section titre="Données">
+        {/*
+          Le relevé de place vit dans les réglages des cartes, parce que c'est
+          de là qu'on archive l'historique. Mais la question « est-ce que ma
+          base se remplit ? » ne se pose pas en pensant aux cartes : elle se
+          pose ici, et sans ce lien elle n'a pas de réponse trouvable.
+        */}
+        <Link
+          href="/cartes/reglages#place"
+          className="flex min-h-16 items-center justify-between gap-3 rounded-2xl border border-bordure bg-surface px-5 transition-colors duration-300 active:bg-surface-haut"
+        >
+          <span className="flex flex-col gap-0.5">
+            <span className="text-[15px] text-texte">Place occupée</span>
+            <span className="text-[12px] text-tres-doux">
+              Ce que chaque module pèse, et ce qui reste
+            </span>
+          </span>
+          <span aria-hidden className="text-tres-doux">
+            →
+          </span>
+        </Link>
+
         <Donnees />
       </Section>
     </main>
