@@ -12,7 +12,6 @@ import {
   momentum,
   quetes,
   validations,
-  type CategorieCreneau,
 } from "@/db/schema";
 import {
   apercuRemise,
@@ -21,14 +20,21 @@ import {
   type Apercu,
   type Choix,
 } from "@/lib/remise-a-zero";
+import { clesCategories } from "@/lib/categories";
 
 export type Retour = { erreur?: string; message?: string };
 
-const CATEGORIES: CategorieCreneau[] = ["cours", "travail", "priere", "autre"];
-
-function categorie(valeur: FormDataEntryValue | null): CategorieCreneau {
+/**
+ * La catégorie d'un créneau, validée contre la base.
+ *
+ * Les quatre valeurs étaient écrites ici ; les figer rendrait impossible
+ * d'enregistrer un créneau dans une catégorie qu'on vient de créer. Toute
+ * valeur inconnue retombe sur « autre » plutôt que d'échouer : un créneau reste
+ * du temps occupé même mal étiqueté.
+ */
+async function categorie(valeur: FormDataEntryValue | null): Promise<string> {
   const brut = String(valeur ?? "");
-  return (CATEGORIES as string[]).includes(brut) ? (brut as CategorieCreneau) : "autre";
+  return (await clesCategories()).includes(brut) ? brut : "autre";
 }
 
 function heure(valeur: FormDataEntryValue | null): string | null {
@@ -120,7 +126,7 @@ export async function ajouterCreneauRecurrent(
 
   await db.insert(creneauxRecurrents).values({
     titre: titre.slice(0, 80),
-    type: categorie(donnees.get("type")),
+    type: await categorie(donnees.get("type")),
     jourSemaine,
     debut,
     fin,
@@ -150,7 +156,7 @@ export async function modifierCreneauRecurrent(
     .update(creneauxRecurrents)
     .set({
       titre: titre.slice(0, 80),
-      type: categorie(donnees.get("type")),
+      type: await categorie(donnees.get("type")),
       jourSemaine,
       debut,
       fin,
@@ -184,7 +190,7 @@ export async function ajouterEvenement(
 
   await db.insert(evenements).values({
     titre: titre.slice(0, 80),
-    type: categorie(donnees.get("type")),
+    type: await categorie(donnees.get("type")),
     date,
     debut,
     fin,
@@ -214,7 +220,7 @@ export async function modifierEvenement(
     .update(evenements)
     .set({
       titre: titre.slice(0, 80),
-      type: categorie(donnees.get("type")),
+      type: await categorie(donnees.get("type")),
       date,
       debut,
       fin,

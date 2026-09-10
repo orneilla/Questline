@@ -8,10 +8,8 @@ import {
   ajouterEvenement,
   type Retour,
 } from "@/app/(app)/reglages/actions";
-import { JOURS_SEMAINE, LIBELLES_CRENEAUX } from "@/lib/constantes";
-import type { CategorieCreneau } from "@/db/schema";
-
-const CATEGORIES: CategorieCreneau[] = ["cours", "travail", "priere", "autre"];
+import { JOURS_SEMAINE } from "@/lib/constantes";
+import { useCategoriesCreneau } from "@/components/piliers-contexte";
 
 const champ =
   "min-h-12 w-full rounded-xl border border-bordure bg-surface px-4 text-[15px] text-texte outline-none transition-colors duration-300 placeholder:text-tres-doux focus:border-bordure-vive";
@@ -29,29 +27,42 @@ function Envoyer({ libelle }: { libelle: string }) {
   );
 }
 
-/** Le type a une valeur par défaut : on peut l'ignorer et ne remplir que trois champs. */
-function ChoixType({ defaut }: { defaut: CategorieCreneau }) {
-  const [choisi, setChoisi] = useState<CategorieCreneau>(defaut);
+/**
+ * Le type a une valeur par défaut : on peut l'ignorer et ne remplir que trois
+ * champs. Les pastilles portent la teinte de leur catégorie — choisir une
+ * couleur sans la voir n'aurait pas de sens.
+ */
+function ChoixType({ defaut }: { defaut: string }) {
+  const { liste } = useCategoriesCreneau();
+  const [choisi, setChoisi] = useState(defaut);
+
   return (
-    <div className="flex gap-1.5">
+    <div className="flex flex-wrap gap-1.5">
       <input type="hidden" name="type" value={choisi} />
-      {CATEGORIES.map((categorie) => (
-        <button
-          key={categorie}
-          type="button"
-          onClick={() => setChoisi(categorie)}
-          aria-pressed={choisi === categorie}
-          className="min-h-9 flex-1 rounded-lg border text-[12px] transition-colors duration-300"
-          style={{
-            borderColor:
-              choisi === categorie ? "var(--color-bordure-vive)" : "var(--color-bordure)",
-            backgroundColor: choisi === categorie ? "var(--color-surface)" : "transparent",
-            color: choisi === categorie ? "var(--color-texte)" : "var(--color-tres-doux)",
-          }}
-        >
-          {LIBELLES_CRENEAUX[categorie]}
-        </button>
-      ))}
+      {liste.map((categorie) => {
+        const actif = choisi === categorie.cle;
+        return (
+          <button
+            key={categorie.cle}
+            type="button"
+            onClick={() => setChoisi(categorie.cle)}
+            aria-pressed={actif}
+            className="flex min-h-9 items-center gap-1.5 rounded-lg border px-2.5 text-[12px] transition-colors duration-300"
+            style={{
+              borderColor: actif ? categorie.couleur : "var(--color-bordure)",
+              backgroundColor: actif ? "var(--color-surface)" : "transparent",
+              color: actif ? "var(--color-texte)" : "var(--color-tres-doux)",
+            }}
+          >
+            <span
+              aria-hidden
+              className="size-2 shrink-0 rounded-full"
+              style={{ backgroundColor: categorie.couleur }}
+            />
+            {categorie.nom}
+          </button>
+        );
+      })}
     </div>
   );
 }

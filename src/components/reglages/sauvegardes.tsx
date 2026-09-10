@@ -108,8 +108,9 @@ export function Sauvegardes({
         <p className="text-[11.5px] leading-relaxed text-tres-doux">
           Une sauvegarde par semaine, {conservees} conservées, les plus anciennes
           purgées. Elle contient tes cartes et leur historique, tes quêtes, arcs,
-          étapes, momentum, tâches, emploi du temps, progression de lecture et
-          réglages. Pas le texte coranique ni les analyses : ils se réinstallent
+          étapes, momentum, tâches, emploi du temps, tes piliers et tes catégories
+          de créneau, progression de lecture et réglages. Pas le texte coranique
+          ni les analyses : ils se réinstallent
           d'une adresse, et les embarquer rendrait la sauvegarde impossible à écrire.
         </p>
       </section>

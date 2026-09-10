@@ -8,6 +8,12 @@ import {
   PILIERS_ORIGINE,
   type PilierAffiche,
 } from "@/lib/piliers-partage";
+import {
+  CATEGORIES_ORIGINE,
+  couleurCategorieBloc,
+  nomCategorieBloc,
+  type CategorieAffichee,
+} from "@/lib/categories-partage";
 
 /**
  * Les piliers, mis à disposition des composants client.
@@ -24,14 +30,42 @@ import {
 
 const Contexte = createContext<PilierAffiche[]>(PILIERS_ORIGINE);
 
+/**
+ * Les catégories de créneau passent par le même canal, et pour la même
+ * raison : leurs teintes viennent de la base, et ce sont des composants client
+ * qui dessinent les blocs de l'emploi du temps.
+ */
+const ContexteCategories = createContext<CategorieAffichee[]>(CATEGORIES_ORIGINE);
+
 export function PiliersProvider({
   valeur,
+  categories = CATEGORIES_ORIGINE,
   children,
 }: {
   valeur: PilierAffiche[];
+  categories?: CategorieAffichee[];
   children: React.ReactNode;
 }) {
-  return <Contexte.Provider value={valeur}>{children}</Contexte.Provider>;
+  return (
+    <Contexte.Provider value={valeur}>
+      <ContexteCategories.Provider value={categories}>
+        {children}
+      </ContexteCategories.Provider>
+    </Contexte.Provider>
+  );
+}
+
+export function useCategoriesCreneau() {
+  const liste = useContext(ContexteCategories);
+
+  return useMemo(
+    () => ({
+      liste,
+      nom: (cle: string | null) => nomCategorieBloc(liste, cle),
+      couleur: (cle: string | null) => couleurCategorieBloc(liste, cle),
+    }),
+    [liste],
+  );
 }
 
 export function usePiliers() {

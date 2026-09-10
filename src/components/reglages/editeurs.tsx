@@ -17,7 +17,8 @@ import {
 } from "@/app/(app)/reglages/actions";
 import { SuppressionArc } from "@/components/arcs/edition";
 import type { Arc, CreneauRecurrent, Evenement, Quete } from "@/db/schema";
-import { JOURS_SEMAINE, LIBELLES_CRENEAUX } from "@/lib/constantes";
+import { JOURS_SEMAINE } from "@/lib/constantes";
+import { useCategoriesCreneau } from "@/components/piliers-contexte";
 import {
   Bascule,
   BoutonSupprimer,
@@ -36,13 +37,14 @@ function majuscule(mot: string): string {
 }
 
 function ChoixType({ defaut }: { defaut: string }) {
+  const { liste } = useCategoriesCreneau();
   return (
     <label className="flex flex-col gap-1.5">
       <span className={etiquette}>Type</span>
       <select name="type" defaultValue={defaut} className={champ}>
-        {CATEGORIES.map((c) => (
-          <option key={c} value={c}>
-            {LIBELLES_CRENEAUX[c]}
+        {liste.map((c) => (
+          <option key={c.cle} value={c.cle}>
+            {c.nom}
           </option>
         ))}
       </select>
@@ -54,11 +56,12 @@ function ChoixType({ defaut }: { defaut: string }) {
 
 export function EditeurCreneau({ creneau }: { creneau: CreneauRecurrent }) {
   const [etat, action] = useActionState<Retour, FormData>(modifierCreneauRecurrent, {});
+  const categories = useCategoriesCreneau();
 
   return (
     <Depliant
       titre={creneau.titre}
-      detail={`${majuscule(JOURS_SEMAINE[creneau.jourSemaine])} · ${creneau.debut.slice(0, 5)} – ${creneau.fin.slice(0, 5)} · ${LIBELLES_CRENEAUX[creneau.type]}`}
+      detail={`${majuscule(JOURS_SEMAINE[creneau.jourSemaine])} · ${creneau.debut.slice(0, 5)} – ${creneau.fin.slice(0, 5)} · ${categories.nom(creneau.type)}`}
     >
       <form action={action} className="flex flex-col gap-3">
         <input type="hidden" name="id" value={creneau.id} />

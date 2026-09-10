@@ -6,6 +6,7 @@ import { db } from "@/db";
 import {
   arcs,
   cartes,
+  categoriesCreneau,
   etapesArc,
   evenements,
   journees,
@@ -25,8 +26,10 @@ import {
   espaces,
   marquePages,
   paquets,
+  piliers,
   reglagesCartes,
   reglagesCoran,
+  reglesCategorie,
   sessionsRevision,
 } from "@/db/schema";
 import {
@@ -70,8 +73,18 @@ const PERIODE_JOURS = 7;
 /**
  * Les tables sauvegardées, dans l'ordre où il faudra les réécrire : une table
  * qui en référence une autre vient après elle.
+ *
+ * Les piliers et les catégories de créneau ouvrent la liste. Ce ne sont pas des
+ * données de référence figées : elles se renomment, se recolorient et se
+ * suppriment, et les arcs comme les créneaux les désignent par une clé
+ * étrangère. Les laisser dehors avait deux défauts — un travail de réglage que
+ * la sauvegarde ne protégeait pas, et une restauration qui échouait dès qu'un
+ * fichier contenait un créneau rattaché à une catégorie supprimée depuis.
  */
 const TABLES = {
+  piliers,
+  categoriesCreneau,
+  reglesCategorie,
   espaces,
   paquets,
   cartes,

@@ -10,6 +10,8 @@ import {
   type EvenementImporte,
 } from "@/db/schema";
 import { FUSEAU, aujourdhui, decalerJours } from "@/lib/dates";
+import { chargerRegles } from "@/lib/categories";
+import { classer } from "@/lib/categories-partage";
 import { derouler_calendrier } from "./ics";
 
 /**
@@ -188,6 +190,11 @@ export async function relireCalendrier(
     );
   }
 
+  // Le classement se fait à l'écriture, pas à l'affichage : ainsi la couleur
+  // d'un bloc ne change pas sous les yeux quand on modifie une règle, et le
+  // bouton « relire » suffit à tout reclasser d'un coup.
+  const regles = await chargerRegles();
+
   await db
     .delete(evenementsImportes)
     .where(eq(evenementsImportes.calendrierId, calendrier.id));
@@ -202,6 +209,7 @@ export async function relireCalendrier(
         debut: `${o.debut}:00`,
         fin: `${o.fin}:00`,
         journeeEntiere: o.journeeEntiere,
+        categorie: classer(o.titre, regles),
       })),
     );
   }
@@ -253,6 +261,7 @@ export async function importesEntre(
       calendrierId: evenementsImportes.calendrierId,
       uid: evenementsImportes.uid,
       titre: evenementsImportes.titre,
+      categorie: evenementsImportes.categorie,
       date: evenementsImportes.date,
       debut: evenementsImportes.debut,
       fin: evenementsImportes.fin,

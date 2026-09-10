@@ -44,13 +44,37 @@ function refPilier(colonne: string) {
   });
 }
 
-/** Nature d'un bloc d'emploi du temps, récurrent comme ponctuel. */
-export const categorieCreneauEnum = pgEnum("categorie_creneau", [
-  "cours",
-  "travail",
-  "priere",
-  "autre",
-]);
+/**
+ * Nature d'un bloc d'emploi du temps, récurrent comme ponctuel.
+ *
+ * C'était un type énuméré à quatre valeurs. Une semaine réelle en distingue
+ * davantage — les cours des révisions, le job du sport — et chacune veut sa
+ * teinte. Ce sont donc des lignes : on les renomme, on les recolorie, on en
+ * ajoute. La clé, elle, ne bouge pas : les créneaux la portent.
+ */
+export const categoriesCreneau = pgTable("categories_creneau", {
+  cle: text("cle").primaryKey(),
+  nom: text("nom").notNull(),
+  couleur: text("couleur").notNull(),
+  ordre: integer("ordre").notNull().default(0),
+});
+
+/**
+ * La référence d'une catégorie depuis un créneau.
+ *
+ * `set default` à la suppression : un créneau dont la catégorie disparaît reste
+ * un créneau, il retombe simplement dans « autre ». Le supprimer avec sa
+ * couleur serait absurde — c'est du temps occupé, pas une étiquette.
+ */
+function refCategorie(colonne: string) {
+  return text(colonne)
+    .notNull()
+    .default("autre")
+    .references(() => categoriesCreneau.cle, {
+      onDelete: "set default",
+      onUpdate: "cascade",
+    });
+}
 
 /**
  * Comment la récitation s'enchaîne.
@@ -167,7 +191,7 @@ export const creneauxRecurrents = pgTable(
   {
     id: serial("id").primaryKey(),
     titre: text("titre").notNull(),
-    type: categorieCreneauEnum("type").notNull().default("autre"),
+    type: refCategorie("type"),
     /** 0 = dimanche … 6 = samedi. */
     jourSemaine: integer("jour_semaine").notNull(),
     debut: time("debut").notNull(),
@@ -190,7 +214,7 @@ export const evenements = pgTable(
   {
     id: serial("id").primaryKey(),
     titre: text("titre").notNull(),
-    type: categorieCreneauEnum("type").notNull().default("autre"),
+    type: refCategorie("type"),
     date: date("date").notNull(),
     debut: time("debut").notNull(),
     fin: time("fin").notNull(),
@@ -575,7 +599,6 @@ export type Arc = typeof arcs.$inferSelect;
 export type Quete = typeof quetes.$inferSelect;
 export type CreneauRecurrent = typeof creneauxRecurrents.$inferSelect;
 export type Evenement = typeof evenements.$inferSelect;
-export type CategorieCreneau = (typeof categorieCreneauEnum.enumValues)[number];
 export type Journee = typeof journees.$inferSelect;
 export type Validation = typeof validations.$inferSelect;
 export type Momentum = typeof momentum.$inferSelect;
@@ -895,9 +918,34 @@ export const evenementsImportes = pgTable(
     debut: time("debut").notNull(),
     fin: time("fin").notNull(),
     journeeEntiere: boolean("journee_entiere").notNull().default(false),
+    /** Attribuée par les règles ci-dessous, jamais devinée autrement. */
+    categorie: text("categorie").notNull().default("autre"),
   },
   (table) => [index("evenements_importes_date_idx").on(table.date)],
 );
+
+/**
+ * Comment un créneau importé trouve sa catégorie.
+ *
+ * Un mot cherché dans son titre, et la première règle qui correspond gagne.
+ * Déterministe et relisible : l'ordre des règles est la seule autorité, et
+ * aucune couleur n'apparaît sans qu'on puisse dire pourquoi.
+ */
+export const reglesCategorie = pgTable("regles_categorie", {
+  id: serial("id").primaryKey(),
+  motif: text("motif").notNull(),
+  categorie: text("categorie")
+    .notNull()
+    .default("autre")
+    .references(() => categoriesCreneau.cle, {
+      onDelete: "cascade",
+      onUpdate: "cascade",
+    }),
+  ordre: integer("ordre").notNull().default(0),
+});
+
+export type CategorieBloc = typeof categoriesCreneau.$inferSelect;
+export type RegleCategorie = typeof reglesCategorie.$inferSelect;
 
 export type CalendrierAbonne = typeof calendriersAbonnes.$inferSelect;
 export type EvenementImporte = typeof evenementsImportes.$inferSelect;

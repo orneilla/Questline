@@ -14,6 +14,9 @@ export const VERSION = 1;
  * en référence une autre vient après elle. La suppression suit l'ordre inverse.
  */
 export const NOMS_TABLES = [
+  "piliers",
+  "categoriesCreneau",
+  "reglesCategorie",
   "espaces",
   "paquets",
   "cartes",

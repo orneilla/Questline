@@ -3,7 +3,9 @@
 import { useEffect, useRef, useState, useTransition } from "react";
 
 import { annulerCreneau, retablirCreneau } from "@/app/(app)/semaine/actions";
-import { COULEURS_CRENEAUX, JOURS_SEMAINE } from "@/lib/constantes";
+import { JOURS_SEMAINE } from "@/lib/constantes";
+import { useCategoriesCreneau } from "@/components/piliers-contexte";
+import { fondCategorie } from "@/lib/categories-partage";
 import type { Bloc } from "@/lib/creneaux";
 import { minutesLocales } from "@/lib/dates";
 import type { JourSemaine } from "@/lib/semaine";
@@ -39,8 +41,9 @@ import { formaterDuree } from "@/lib/temps";
  * distinction qui compte quand on cherche où placer quelque chose : ce qui est
  * négociable saute aux yeux.
  *
- * Les couleurs sont celles des piliers : `cours` reprend la teinte de Savoir,
- * `travail` celle d'Œuvre, `priere` celle de Deen. Rien n'est inventé ici.
+ * La couleur d'un bloc est celle de sa catégorie, telle qu'elle est réglée dans
+ * les réglages. Rien n'est inventé ici : la teinte est lue, jamais déduite du
+ * titre au moment de dessiner.
  */
 
 /** Hauteur d'une heure, en pixels. Assez pour qu'un bloc d'une heure se lise. */
@@ -529,7 +532,7 @@ function BlocGrille({
   surAppui: () => void;
 }) {
   const { bloc, annule } = morceau;
-  const couleur = COULEURS_CRENEAUX[bloc.type] ?? COULEURS_CRENEAUX.autre;
+  const couleur = useCategoriesCreneau().couleur(bloc.type);
   const contrainte = bloc.source === "recurrent";
   const hauteur = Math.max(hauteurDe(morceau.fin - morceau.debut), 22);
 
@@ -543,13 +546,13 @@ function BlocGrille({
         height: hauteur,
         left: `calc(${(100 * colonne) / colonnes}% + 2px)`,
         width: `calc(${100 / colonnes}% - 4px)`,
-        backgroundColor: annule ? "transparent" : `${couleur}26`,
+        backgroundColor: annule ? "transparent" : fondCategorie(couleur),
         border: annule ? "1px dashed var(--color-bordure-vive)" : "none",
         borderLeft: annule ? "1px dashed var(--color-bordure-vive)" : `3px solid ${couleur}`,
         // La trame distingue une contrainte d'un choix, sans ajouter de couleur.
         backgroundImage:
           contrainte && !annule
-            ? `repeating-linear-gradient(135deg, ${couleur}1f 0 5px, transparent 5px 10px)`
+            ? `repeating-linear-gradient(135deg, ${fondCategorie(couleur, 0.5)} 0 5px, transparent 5px 10px)`
             : undefined,
         opacity: annule ? 0.6 : 1,
       }}
@@ -577,13 +580,6 @@ function BlocGrille({
 
 /* ──────────────────────── Le détail d'un bloc ──────────────────────── */
 
-const LIBELLES_TYPE: Record<string, string> = {
-  cours: "Cours",
-  travail: "Service",
-  priere: "Prière",
-  autre: "Autre",
-};
-
 function FeuilleBloc({
   morceau,
   date,
@@ -594,8 +590,16 @@ function FeuilleBloc({
   surFermeture: () => void;
 }) {
   const [enAttente, demarrer] = useTransition();
+  const categories = useCategoriesCreneau();
   const { bloc, annule } = morceau;
   const contrainte = bloc.source === "recurrent";
+
+  const origine =
+    bloc.source === "recurrent"
+      ? "contrainte"
+      : bloc.source === "importe"
+        ? "calendrier extérieur"
+        : "ponctuel";
 
   useEffect(() => {
     const auClavier = (evenement: KeyboardEvent) => {
@@ -619,9 +623,14 @@ function FeuilleBloc({
       >
         <div className="flex items-start justify-between gap-4">
           <div className="flex flex-col gap-1">
-            <span className="text-[11px] tracking-[0.14em] text-tres-doux uppercase">
-              {LIBELLES_TYPE[bloc.type] ?? bloc.type}
-              {contrainte ? " · contrainte" : " · ponctuel"}
+            <span className="flex items-center gap-1.5 text-[11px] tracking-[0.14em] text-tres-doux uppercase">
+              <span
+                aria-hidden
+                className="size-2 shrink-0 rounded-full"
+                style={{ backgroundColor: categories.couleur(bloc.type) }}
+              />
+              {categories.nom(bloc.type)}
+              {` · ${origine}`}
               {annule ? " · écarté ce jour-là" : ""}
             </span>
             <h3 className="text-[19px] leading-snug text-texte">{bloc.titre}</h3>
@@ -645,7 +654,9 @@ function FeuilleBloc({
         <p className="text-[12.5px] leading-relaxed text-tres-doux">
           {contrainte
             ? "Ce bloc revient chaque semaine. Il peut être écarté pour ce jour-là sans toucher aux autres."
-            : "Ce bloc n'existe que sur cette date. Il se déplace et se modifie depuis le formulaire des ponctuels, plus bas sur la page."}
+            : bloc.source === "importe"
+              ? "Ce bloc vient d'un calendrier extérieur. Il se modifie là-bas, pas ici. Sa couleur est donnée par les règles de classement, dans les réglages."
+              : "Ce bloc n'existe que sur cette date. Il se déplace et se modifie depuis le formulaire des ponctuels, plus bas sur la page."}
         </p>
 
         {contrainte && bloc.recurrentId !== undefined && (

@@ -1,9 +1,4 @@
-import type {
-  CategorieCreneau,
-  CreneauRecurrent,
-  Evenement,
-  EvenementImporte,
-} from "@/db/schema";
+import type { CreneauRecurrent, Evenement, EvenementImporte } from "@/db/schema";
 import { chevauchent, estInstant, plage, type Plage } from "./temps";
 
 /**
@@ -24,7 +19,8 @@ import { chevauchent, estInstant, plage, type Plage } from "./temps";
 export type Bloc = {
   cle: string;
   titre: string;
-  type: CategorieCreneau;
+  /** La clé d'une catégorie. Du texte, plus un énuméré : elles s'ajoutent. */
+  type: string;
   debut: string;
   fin: string;
   plage: Plage;
@@ -83,7 +79,7 @@ function blocImporte(e: EvenementImporte): Bloc {
   return {
     cle: `i${e.id}`,
     titre: e.titre,
-    type: "autre",
+    type: e.categorie,
     debut: e.debut,
     fin: e.fin,
     plage: plage(e.debut, e.fin),
