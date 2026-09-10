@@ -100,6 +100,18 @@ async function charger(source: Blob): Promise<ImageBitmap | HTMLImageElement> {
 /**
  * Reconnaît un schéma au trait : peu de couleurs, ou de la transparence, ou
  * une image essentiellement claire avec un tracé sombre.
+ *
+ * ── Pourquoi `monochrome` exige de la transparence
+ *
+ * L'aplatissement en noir ne garde que le canal alpha : il suppose donc que
+ * c'est l'alpha qui porte le dessin. Sur une image opaque, il repeint tout en
+ * noir — fond compris — et rend un rectangle uni. Une structure ChemDraw
+ * copiée-collée arrive justement sur fond blanc opaque, et se retrouvait
+ * détruite à l'enregistrement.
+ *
+ * On exige aussi que le tracé soit réellement sombre : un schéma blanc sur
+ * fond transparent, exporté pour un thème sombre, deviendrait invisible une
+ * fois passé au noir.
  */
 function analyser(pixels: Uint8ClampedArray): {
   trait: boolean;
@@ -109,6 +121,8 @@ function analyser(pixels: Uint8ClampedArray): {
   let transparents = 0;
   let colores = 0;
   let examines = 0;
+  let sommeClarte = 0;
+  let opaques = 0;
 
   // Un pixel sur seize suffit à juger, et reste rapide sur une grande image.
   const pas = 4 * 16;
@@ -123,6 +137,8 @@ function analyser(pixels: Uint8ClampedArray): {
       transparents += 1;
       continue;
     }
+    opaques += 1;
+    sommeClarte += 0.2126 * r + 0.7152 * v + 0.0722 * b;
     if (Math.max(r, v, b) - Math.min(r, v, b) > 24) colores += 1;
     if (teintes.size < 600) teintes.add((r >> 3) * 1024 + (v >> 3) * 32 + (b >> 3));
   }
@@ -131,12 +147,22 @@ function analyser(pixels: Uint8ClampedArray): {
 
   const partTransparente = transparents / examines;
   const partColoree = colores / Math.max(1, examines - transparents);
+  const clarteMoyenne = opaques > 0 ? sommeClarte / opaques : 255;
   const trait = partTransparente > 0.15 || teintes.size < 48;
 
-  return { trait, monochrome: trait && partColoree < 0.04 };
+  return {
+    trait,
+    monochrome:
+      trait && partTransparente > 0.15 && partColoree < 0.04 && clarteMoyenne < 140,
+  };
 }
 
-/** Ramène le tracé au noir pur en gardant l'alpha : même dessin, PNG plus léger. */
+/**
+ * Ramène le tracé au noir pur en gardant l'alpha : même dessin, PNG plus léger.
+ *
+ * À n'appeler que sur un dessin porté par l'alpha — voir `analyser`. Sur une
+ * image opaque, cela peindrait le fond en noir avec le reste.
+ */
 function aplatirEnNoir(pixels: Uint8ClampedArray): void {
   for (let i = 0; i < pixels.length; i += 4) {
     pixels[i] = 0;
