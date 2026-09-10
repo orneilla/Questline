@@ -59,9 +59,15 @@ export type BilanSaison = {
 /**
  * Le jour d'où l'on compte les saisons.
  *
- * La date posée dans les réglages fait foi. À défaut — base pas encore migrée,
- * ou origine jamais fixée — on retombe sur le premier jour observé dans le
- * journal, qui était l'unique règle auparavant.
+ * La date posée dans les réglages fait foi, telle quelle. Elle a été choisie —
+ * la recaler sur le lundi de sa semaine reviendrait à ignorer ce choix, et
+ * c'est exactement ce qui faisait afficher « jour 4 » au lendemain d'une remise
+ * à zéro.
+ *
+ * À défaut — base pas encore migrée, ou origine jamais fixée — on retombe sur
+ * le premier jour observé dans le journal, ramené à son lundi comme autrefois :
+ * là, la date n'est pas un choix mais une trace, et l'aligner sur la semaine
+ * évitait qu'une première note un dimanche soir décale tout.
  *
  * Le repli couvre aussi le cas où la table n'existe pas : cette fonction est
  * appelée depuis l'écran du jour, et une exception y remplacerait toute
@@ -73,7 +79,7 @@ async function origine(): Promise<string> {
       .select({ date: reglagesParcours.origineSaisons })
       .from(reglagesParcours)
       .limit(1);
-    if (reglage?.date) return lundiDeLaSemaine(reglage.date);
+    if (reglage?.date) return reglage.date;
   } catch {
     // Table absente : on continue avec la déduction d'origine.
   }

@@ -3,7 +3,11 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
-import { actionRepartirDeZero, type Retour } from "@/app/(app)/reglages/reprise-actions";
+import {
+  actionCalerSaison,
+  actionRepartirDeZero,
+  type Retour,
+} from "@/app/(app)/reglages/reprise-actions";
 import { champ, etiquette } from "@/components/reglages/briques";
 import type { ApercuReprise, ChoixReprise } from "@/lib/reprise";
 
@@ -84,7 +88,14 @@ function Detail({ lignes }: { lignes: { nom: string; valeur: number }[] }) {
   );
 }
 
-export function Reprise({ apercu }: { apercu: ApercuReprise }) {
+export function Reprise({
+  apercu,
+  jourDansLaSaison,
+}: {
+  apercu: ApercuReprise;
+  /** Où en est le compteur : sert à proposer le recalage quand il a dérivé. */
+  jourDansLaSaison: number;
+}) {
   const router = useRouter();
   const [choix, setChoix] = useState<ChoixReprise>({
     journal: true,
@@ -148,11 +159,6 @@ export function Reprise({ apercu }: { apercu: ApercuReprise }) {
         <p className="text-[15px] leading-relaxed text-texte">
           C&apos;est reparti. Saison 1, jour {retour.bilan.jourDansLaSaison}.
         </p>
-        <p className="text-[12.5px] leading-relaxed text-tres-doux">
-          La saison a commencé lundi, pas aujourd&apos;hui : elle fait quatre
-          semaines pleines, et la faire démarrer en milieu de semaine
-          désaxerait le bilan hebdomadaire pour toujours.
-        </p>
         {lignes.length > 0 && (
           <dl className="grid grid-cols-[1fr_auto] gap-x-4 gap-y-1 rounded-2xl border border-bordure p-4">
             {lignes.map(([nom, n]) => (
@@ -186,6 +192,38 @@ export function Reprise({ apercu }: { apercu: ApercuReprise }) {
 
   return (
     <div className="flex flex-col gap-5">
+      {/*
+        Proposé seulement quand le compteur a dérivé. Ne touche à aucune donnée :
+        remettre la saison au jour 1 ne doit pas obliger à tout ré-effacer.
+      */}
+      {jourDansLaSaison > 1 && (
+        <section className="flex flex-col gap-2 rounded-2xl border border-bordure p-4">
+          <span className={etiquette}>Recaler le départ</span>
+          <p className="text-[12.5px] leading-relaxed text-tres-doux">
+            La saison en cours a commencé il y a {jourDansLaSaison - 1} jour
+            {jourDansLaSaison > 2 ? "s" : ""}. Faire partir le compte
+            d&apos;aujourd&apos;hui le remet au jour 1, et n&apos;efface rien du
+            tout.
+          </p>
+          <button
+            type="button"
+            disabled={enAttente}
+            onClick={() =>
+              demarrer(async () => {
+                setRetour(await actionCalerSaison());
+                router.refresh();
+              })
+            }
+            className="min-h-12 rounded-xl border border-bordure text-[13.5px] text-doux transition-colors duration-300 active:bg-surface-haut disabled:opacity-40"
+          >
+            Faire commencer la saison aujourd&apos;hui
+          </button>
+          <p aria-live="polite" className="min-h-4 text-[12.5px] text-tres-doux">
+            {retour.message ?? ""}
+          </p>
+        </section>
+      )}
+
       <section className="flex flex-col gap-2 rounded-2xl border border-bordure-vive p-4">
         <span className={etiquette}>Effacé dans tous les cas</span>
         <Detail

@@ -35,8 +35,7 @@ import {
   cuisinePatrons,
   cuisineSuggestions,
 } from "@/db/cuisine";
-import { aujourdhui, ecartJours } from "@/lib/dates";
-import { lundiDeLaSemaine } from "@/lib/semaine";
+import { aujourdhui } from "@/lib/dates";
 import { poserOrigineSaisons } from "@/lib/saisons";
 
 /**
@@ -187,7 +186,7 @@ export async function apercuReprise(): Promise<ApercuReprise> {
 export type BilanReprise = {
   /** Le nombre de lignes réellement effacées, table par table. */
   efface: Record<string, number>;
-  /** La date posée comme nouveau départ : le lundi de la semaine en cours. */
+  /** La date posée comme nouveau départ : aujourd'hui. */
   origine: string;
   /** Où l'on se retrouve aussitôt après. */
   jourDansLaSaison: number;
@@ -260,17 +259,27 @@ export async function repartirDeZero(
     await vider("liste de courses", cuisineCourses);
   }
 
-  // ── Et le compteur des saisons repart de cette semaine.
+  // ── Et le compteur des saisons repart d'aujourd'hui.
   //
-  // Le lundi, pas aujourd'hui : une saison fait quatre semaines pleines, et le
-  // bilan de fin de saison compte par semaine. La faire commencer un jeudi
-  // désaxerait les deux découpages pour toujours. On se retrouve donc à la
-  // saison 1 au jour où l'on est dans la semaine — et l'écran le dit, plutôt
-  // que d'annoncer un « jour 1 » que l'en-tête contredirait aussitôt.
-  const lundi = lundiDeLaSemaine(date);
-  await poserOrigineSaisons(lundi);
+  // Le jour même, pas le lundi de la semaine. J'avais d'abord calé l'origine
+  // sur le lundi en croyant qu'une saison devait couvrir quatre semaines
+  // pleines — vérification faite, rien ne le demande : ni le bilan de la
+  // semaine ni celui de la saison ne consultent l'autre découpage. Le seul
+  // effet du calage était de faire afficher « jour 4 » à qui vient de tout
+  // remettre à zéro.
+  await poserOrigineSaisons(date);
 
-  return { efface, origine: lundi, jourDansLaSaison: ecartJours(lundi, date) + 1 };
+  return { efface, origine: date, jourDansLaSaison: 1 };
+}
+
+/**
+ * Recale le départ des saisons sans rien effacer.
+ *
+ * Sert quand l'origine a été posée un autre jour et qu'on veut simplement que
+ * le compte reparte d'ici. Aucune donnée n'est touchée : ce n'est qu'une date.
+ */
+export async function calerSaisonAujourdhui(date = aujourdhui()): Promise<void> {
+  await poserOrigineSaisons(date);
 }
 
 /** Les événements passés du calendrier, qu'on peut vouloir nettoyer à part. */

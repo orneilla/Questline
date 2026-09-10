@@ -2,7 +2,12 @@
 
 import { revalidatePath } from "next/cache";
 
-import { repartirDeZero, type BilanReprise, type ChoixReprise } from "@/lib/reprise";
+import {
+  calerSaisonAujourdhui,
+  repartirDeZero,
+  type BilanReprise,
+  type ChoixReprise,
+} from "@/lib/reprise";
 import { enregistrerSauvegarde } from "@/lib/sauvegardes";
 import { diagnostiquer } from "@/lib/erreurs";
 
@@ -78,4 +83,31 @@ export async function actionRepartirDeZero(
   }
 
   return { bilan, sauvegarde, message: "C'est reparti au premier jour." };
+}
+
+/**
+ * Recale le départ des saisons sur aujourd'hui, sans rien effacer.
+ *
+ * Existe parce que l'origine peut avoir été posée un autre jour — après une
+ * remise à zéro faite en milieu de semaine, notamment. Remettre le compteur au
+ * jour 1 ne devrait pas obliger à tout ré-effacer.
+ */
+export async function actionCalerSaison(): Promise<Retour> {
+  try {
+    await calerSaisonAujourdhui();
+  } catch (erreur) {
+    if (diagnostiquer(erreur) !== null) {
+      return {
+        erreur:
+          "La base n'est pas à jour : ouvre l'adresse d'installation une fois, puis reviens ici.",
+      };
+    }
+    return {
+      erreur: `Interrompu : ${erreur instanceof Error ? erreur.message : String(erreur)}`,
+    };
+  }
+
+  revalidatePath("/jour");
+  revalidatePath("/reglages/reprise");
+  return { message: "La saison 1 commence aujourd'hui. Jour 1." };
 }

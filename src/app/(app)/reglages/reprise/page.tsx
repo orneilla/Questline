@@ -37,7 +37,7 @@ export default async function PageReprise() {
         </p>
       </header>
 
-      <Reprise apercu={apercu} />
+      <Reprise apercu={apercu} jourDansLaSaison={saison.jourDansLaSaison} />
     </main>
   );
 }
