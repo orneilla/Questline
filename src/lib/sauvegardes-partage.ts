@@ -40,6 +40,8 @@ export const NOMS_TABLES = [
   "marquePages",
   "reglagesCartes",
   "reglagesCoran",
+  "reglagesPrieres",
+  "prieresFaites",
 ] as const;
 
 export type NomTable = (typeof NOMS_TABLES)[number];

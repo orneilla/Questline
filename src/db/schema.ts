@@ -1,6 +1,7 @@
 import {
   boolean,
   date,
+  doublePrecision,
   index,
   integer,
   pgEnum,
@@ -949,3 +950,60 @@ export type RegleCategorie = typeof reglesCategorie.$inferSelect;
 
 export type CalendrierAbonne = typeof calendriersAbonnes.$inferSelect;
 export type EvenementImporte = typeof evenementsImportes.$inferSelect;
+
+/* ═══════════════════════ Suivi des prières ═══════════════════════ */
+
+/**
+ * Les réglages du calcul des heures de prière.
+ *
+ * Une seule ligne. Le lieu est nul tant qu'il n'a pas été posé : sans lui,
+ * aucune heure n'est calculable, et l'écran doit le dire plutôt qu'afficher un
+ * horaire venu de nulle part.
+ *
+ * La convention, l'école pour l'Asr et la règle des nuits courtes sont des
+ * choix qui appartiennent à qui prie. Le code applique, il ne tranche pas.
+ */
+export const reglagesPrieres = pgTable("reglages_prieres", {
+  id: integer("id").primaryKey().default(1),
+  latitude: doublePrecision("latitude"),
+  longitude: doublePrecision("longitude"),
+  lieu: text("lieu").notNull().default(""),
+  convention: text("convention").notNull().default("uoif"),
+  ecoleAsr: text("ecole_asr").notNull().default("majorite"),
+  nuitCourte: text("nuit_courte").notNull().default("angle"),
+  decalageFajr: integer("decalage_fajr").notNull().default(0),
+  decalageDhuhr: integer("decalage_dhuhr").notNull().default(0),
+  decalageAsr: integer("decalage_asr").notNull().default(0),
+  decalageMaghrib: integer("decalage_maghrib").notNull().default(0),
+  decalageIsha: integer("decalage_isha").notNull().default(0),
+  rappelFajr: boolean("rappel_fajr").notNull().default(true),
+  rappelDhuhr: boolean("rappel_dhuhr").notNull().default(true),
+  rappelAsr: boolean("rappel_asr").notNull().default(true),
+  rappelMaghrib: boolean("rappel_maghrib").notNull().default(true),
+  rappelIsha: boolean("rappel_isha").notNull().default(true),
+  rappelsActifs: boolean("rappels_actifs").notNull().default(false),
+});
+
+/**
+ * Une prière cochée, un jour donné.
+ *
+ * La présence de la ligne est toute l'information. Son absence ne dit rien de
+ * plus que l'absence : ni manqué, ni en retard, ni à rattraper. Rien ici n'est
+ * lu par les piliers, l'élan, les quêtes ou le journal — le suivi ne
+ * communique avec aucun d'eux.
+ */
+export const prieresFaites = pgTable(
+  "prieres_faites",
+  {
+    date: date("date").notNull(),
+    priere: text("priere").notNull(),
+    cocheLe: text("coche_le").notNull(),
+  },
+  (table) => [
+    primaryKey({ name: "prieres_faites_pk", columns: [table.date, table.priere] }),
+    index("prieres_faites_date_idx").on(table.date),
+  ],
+);
+
+export type ReglagesPrieres = typeof reglagesPrieres.$inferSelect;
+export type PriereFaite = typeof prieresFaites.$inferSelect;

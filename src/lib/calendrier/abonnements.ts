@@ -234,6 +234,31 @@ export async function relireCalendrier(
   };
 }
 
+/**
+ * La relecture est-elle due ?
+ *
+ * Le déclencheur planifié peut désormais passer très souvent — les rappels de
+ * prière le demandent — et aller rechercher tous les flux à chaque passage
+ * serait du gaspillage pur : un emploi du temps ne bouge pas toutes les quinze
+ * minutes. La dernière relecture est déjà consignée sur la ligne du calendrier,
+ * il suffit de la lire.
+ */
+export async function relectureDue(heures = 6, maintenant = Date.now()): Promise<boolean> {
+  const lignes = await db
+    .select({ derniereMaj: calendriersAbonnes.derniereMaj })
+    .from(calendriersAbonnes)
+    .where(eq(calendriersAbonnes.actif, true));
+
+  if (lignes.length === 0) return false;
+
+  return lignes.some((l) => {
+    if (!l.derniereMaj) return true;
+    const quand = Date.parse(l.derniereMaj);
+    if (Number.isNaN(quand)) return true;
+    return maintenant - quand >= heures * 3600_000;
+  });
+}
+
 /** Relit tous les calendriers actifs. Appelé par le cron et par l'écran. */
 export async function relireTout(date = aujourdhui()): Promise<Relecture[]> {
   const actifs = await db

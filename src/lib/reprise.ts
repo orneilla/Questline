@@ -16,6 +16,7 @@ import {
   paquets,
   positionLecture,
   positionsSourate,
+  prieresFaites,
   quetes,
   quetesRaresFaites,
   revisions,
@@ -70,6 +71,8 @@ export type ChoixReprise = {
   coran: boolean;
   /** Recettes, patrons, inventaire, courses, journal des repas. Ciqual reste. */
   cuisine: boolean;
+  /** Les prières cochées. Le lieu et les conventions restent réglés. */
+  prieres: boolean;
 };
 
 export type ApercuReprise = {
@@ -96,6 +99,8 @@ export type ApercuReprise = {
   recettes: number;
   articles: number;
   repas: number;
+
+  prieresCochees: number;
 
   /** Ce qui reste debout, pour que l'écran puisse le dire aussi. */
   arcs: number;
@@ -127,6 +132,7 @@ export async function apercuReprise(): Promise<ApercuReprise> {
     nbRecettes,
     nbArticles,
     nbRepas,
+    nbPrieres,
     nbArcs,
     nbQuetes,
   ] = await Promise.all([
@@ -155,6 +161,7 @@ export async function apercuReprise(): Promise<ApercuReprise> {
     total(cuisineRecettes),
     total(cuisineInventaire),
     total(cuisineJournal),
+    total(prieresFaites),
     total(arcs),
     total(quetes),
   ]);
@@ -178,6 +185,7 @@ export async function apercuReprise(): Promise<ApercuReprise> {
     recettes: nbRecettes,
     articles: nbArticles,
     repas: nbRepas,
+    prieresCochees: nbPrieres,
     arcs: nbArcs,
     quetes: nbQuetes,
   };
@@ -257,6 +265,14 @@ export async function repartirDeZero(
     await vider("patrons de plat", cuisinePatrons);
     await vider("articles d'inventaire", cuisineInventaire);
     await vider("liste de courses", cuisineCourses);
+  }
+
+  // ── Les prières cochées.
+  //
+  // Le lieu et les conventions ne partent pas : ce sont des réglages, comme les
+  // piliers ou les créneaux. Seules les coches s'en vont.
+  if (choix.prieres) {
+    await vider("prières cochées", prieresFaites);
   }
 
   // ── Et le compteur des saisons repart d'aujourd'hui.

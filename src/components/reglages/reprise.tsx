@@ -102,6 +102,7 @@ export function Reprise({
     cartes: true,
     coran: true,
     cuisine: true,
+    prieres: true,
   });
   const [mot, setMot] = useState("");
   const [retour, setRetour] = useState<Retour>({});
@@ -149,6 +150,13 @@ export function Reprise({
         { nom: "Repas notés", valeur: apercu.repas },
       ],
       epargne: "La table Ciqual reste : elle ne se redépose pas d'un tap.",
+    },
+    {
+      cle: "prieres",
+      titre: "Les prières cochées",
+      lignes: [{ nom: "Prières cochées", valeur: apercu.prieresCochees }],
+      epargne:
+        "Le lieu, la convention de calcul et les corrections restent réglés : ce sont des réglages, pas une progression.",
     },
   ];
 

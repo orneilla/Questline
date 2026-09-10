@@ -100,6 +100,7 @@ export default async function PageReglages() {
             ["/reglages/sauvegardes", "Sauvegardes", "Automatiques, téléchargement, restauration"],
             ["/reglages/categories", "Catégories", "Teintes des créneaux, mots-clés de classement"],
             ["/reglages/calendrier", "Calendrier extérieur", "Lire un calendrier Apple ou Google publié"],
+            ["/prieres/reglages", "Prières", "Lieu, convention de calcul, corrections, rappels"],
             ["/cartes/reglages", "Cartes", "Révision, apparence, import et export"],
             ["/coran/reglages", "Coran", "Éditions, lecture, ressources déposées"],
           ] as const

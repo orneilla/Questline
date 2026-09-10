@@ -4,7 +4,8 @@ import { egalConstant } from "@/lib/auth";
 import { aujourdhui, jourDeLaSemaine, minutesLocales } from "@/lib/dates";
 import { envoyerCreneau, type BilanCreneau } from "@/lib/notifications/envoi";
 import { chargerReglagesRappels } from "@/lib/notifications/reglages";
-import { relireTout } from "@/lib/calendrier/abonnements";
+import { relectureDue, relireTout } from "@/lib/calendrier/abonnements";
+import { envoyerRappelsPrieres } from "@/lib/prieres/rappels";
 import { sauvegardeHebdomadaire } from "@/lib/sauvegardes";
 import { envoyerMessage } from "@/lib/telegram/envoi";
 import { bilanDu, creneauxDus } from "@/lib/telegram/planning";
@@ -58,7 +59,12 @@ export async function GET(requete: NextRequest): Promise<Response> {
 
   // Un créneau explicite court-circuite l'heure : c'est ce qui permet de
   // tester depuis le navigateur sans attendre.
-  const force = creneauDemande(requete.nextUrl.searchParams.get("type"));
+  const demande = requete.nextUrl.searchParams.get("type");
+  if (demande === "priere") {
+    return Response.json(await envoyerRappelsPrieres({ forcer: true }));
+  }
+
+  const force = creneauDemande(demande);
   if (force) {
     return Response.json(await envoyerCreneau(force, { forcer }));
   }
@@ -95,15 +101,20 @@ export async function GET(requete: NextRequest): Promise<Response> {
     };
   }
 
-  // Les calendriers extérieurs sont relus à chaque passage : deux fois par
-  // jour suffit pour un emploi du temps, et le bouton de l'écran de réglage
-  // sert quand on vient de modifier quelque chose.
+  // Les calendriers extérieurs, mais pas à chaque passage : depuis que les
+  // rappels de prière existent, cette route peut être appelée toutes les
+  // quelques minutes, et aller rechercher tous les flux à chaque fois serait du
+  // gaspillage. Un emploi du temps ne bouge pas si vite.
   let calendriers: unknown = null;
   try {
-    calendriers = await relireTout();
+    calendriers = (await relectureDue()) ? await relireTout() : "relu récemment";
   } catch (erreur) {
     calendriers = { erreur: erreur instanceof Error ? erreur.message : String(erreur) };
   }
 
-  return Response.json({ heureParis, rappels, bilan, sauvegarde, calendriers });
+  // Les prières, elles, ont besoin de la minute : c'est le seul rappel dont
+  // l'heure change tous les jours et ne se rattrape pas en fin de journée.
+  const prieres = await envoyerRappelsPrieres();
+
+  return Response.json({ heureParis, rappels, prieres, bilan, sauvegarde, calendriers });
 }

@@ -28,7 +28,9 @@ import {
   paquets,
   piliers,
   reglagesCartes,
+  prieresFaites,
   reglagesCoran,
+  reglagesPrieres,
   reglesCategorie,
   sessionsRevision,
 } from "@/db/schema";
@@ -108,6 +110,8 @@ const TABLES = {
   marquePages,
   reglagesCartes,
   reglagesCoran,
+  reglagesPrieres,
+  prieresFaites,
 } as const;
 
 /* ───────────────────────────── Production ───────────────────────────── */

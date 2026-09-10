@@ -27,6 +27,9 @@ import {
 } from "@/lib/taches";
 import { consignerSeuils, seuilAAnnoncer } from "@/lib/seuils";
 import { abonnements } from "@/lib/notifications/push";
+import { ReperePrieres } from "@/components/prieres/repere-jour";
+import { chargerReglagesPrieres, prieresDe, reperesPour } from "@/lib/prieres/donnees";
+import type { Reperes } from "@/lib/prieres/astronomie";
 import {
   anciennete,
   chargerReglagesRappels,
@@ -48,6 +51,9 @@ export default async function PageJour() {
   let taches: EtatTaches;
   let arcsDisponibles: ArcDisponible[];
   let proposerRappels = false;
+  // Le suivi des prières est indépendant : il n'entre dans aucun calcul de
+  // cette page. On n'en lit ici qu'un repère, et seulement si le lieu est posé.
+  let prieres: { reperes: Reperes; faites: string[] } | null = null;
 
   try {
     etat = await chargerJour();
@@ -66,6 +72,12 @@ export default async function PageJour() {
     proposerRappels =
       anciennete(rappels) >= JOURS_AVANT_PROPOSITION &&
       (await abonnements()).length === 0;
+
+    const reglagesPrieres = await chargerReglagesPrieres();
+    const calcul = reperesPour(etat.date, reglagesPrieres);
+    if (calcul) {
+      prieres = { reperes: calcul.reperes, faites: await prieresDe(etat.date) };
+    }
 
     seuil = await seuilAAnnoncer();
     saison = seuil ? null : await saisonAClore();
@@ -133,6 +145,10 @@ export default async function PageJour() {
             →
           </span>
         </Link>
+      )}
+
+      {prieres && (
+        <ReperePrieres reperes={prieres.reperes} faites={prieres.faites} />
       )}
 
       <ListeQuetes quetes={etat.quetesDuJour} faites={etat.quetesFaites} />
