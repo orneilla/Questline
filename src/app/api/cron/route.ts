@@ -4,6 +4,7 @@ import { egalConstant } from "@/lib/auth";
 import { aujourdhui, jourDeLaSemaine, minutesLocales } from "@/lib/dates";
 import { envoyerCreneau, type BilanCreneau } from "@/lib/notifications/envoi";
 import { chargerReglagesRappels } from "@/lib/notifications/reglages";
+import { relireTout } from "@/lib/calendrier/abonnements";
 import { sauvegardeHebdomadaire } from "@/lib/sauvegardes";
 import { envoyerMessage } from "@/lib/telegram/envoi";
 import { bilanDu, creneauxDus } from "@/lib/telegram/planning";
@@ -94,5 +95,15 @@ export async function GET(requete: NextRequest): Promise<Response> {
     };
   }
 
-  return Response.json({ heureParis, rappels, bilan, sauvegarde });
+  // Les calendriers extérieurs sont relus à chaque passage : deux fois par
+  // jour suffit pour un emploi du temps, et le bouton de l'écran de réglage
+  // sert quand on vient de modifier quelque chose.
+  let calendriers: unknown = null;
+  try {
+    calendriers = await relireTout();
+  } catch (erreur) {
+    calendriers = { erreur: erreur instanceof Error ? erreur.message : String(erreur) };
+  }
+
+  return Response.json({ heureParis, rappels, bilan, sauvegarde, calendriers });
 }

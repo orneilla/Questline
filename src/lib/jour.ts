@@ -25,7 +25,8 @@ import {
   type QueteRare,
 } from "./recit";
 import { calculerCharge, type Charge } from "./charge";
-import { resoudreJour, type Bloc } from "./creneaux";
+import { plagesOccupantes, resoudreJour, type Bloc } from "./creneaux";
+import { importesEntre } from "./calendrier/abonnements";
 import { debordement, minutesEveillees, tempsDispo } from "./temps";
 import { FENETRE_FREQUENCE_JOURS } from "./constantes";
 import { chargerPiliers } from "./piliers";
@@ -179,11 +180,21 @@ export async function calculerJournee(
       .where(inArray(evenements.date, [veille, date])),
   ]);
 
-  const jour = resoudreJour(date, jourSemaine, recurrents, ponctuels);
-  const laVeille = resoudreJour(veille, jourDeLaSemaine(veille), recurrents, ponctuels);
+  // Les calendriers extérieurs peuvent ne pas exister encore : leur absence ne
+  // doit pas priver l'écran du jour de son emploi du temps.
+  const importes = await importesEntre(veille, date).catch(() => []);
 
-  const occupe = minutesEveillees(jour.blocs.map((b) => b.plage));
-  const recuperation = debordement(laVeille.blocs.map((b) => b.plage)) > 0;
+  const jour = resoudreJour(date, jourSemaine, recurrents, ponctuels, importes);
+  const laVeille = resoudreJour(
+    veille,
+    jourDeLaSemaine(veille),
+    recurrents,
+    ponctuels,
+    importes,
+  );
+
+  const occupe = minutesEveillees(plagesOccupantes(jour.blocs));
+  const recuperation = debordement(plagesOccupantes(laVeille.blocs)) > 0;
 
   return {
     blocs: jour.blocs,

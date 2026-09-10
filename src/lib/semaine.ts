@@ -5,7 +5,8 @@ import { and, gte, lte } from "drizzle-orm";
 import { db } from "@/db";
 import { creneauxRecurrents, evenements } from "@/db/schema";
 import { calculerCharge, type Charge } from "./charge";
-import { resoudreJour, type Bloc } from "./creneaux";
+import { plagesOccupantes, resoudreJour, type Bloc } from "./creneaux";
+import { importesEntre } from "./calendrier/abonnements";
 import { aujourdhui, decalerJours, jourDeLaSemaine } from "./dates";
 import { debordement, minutesEveillees, tempsDispo } from "./temps";
 
@@ -43,13 +44,22 @@ export async function chargerSemaine(): Promise<JourSemaine[]> {
       ),
   ]);
 
+  // Absents tant que la table n'existe pas : la semaine doit rester lisible.
+  const importes = await importesEntre(decalerJours(lundi, -1), dimanche).catch(() => []);
+
   return Array.from({ length: 7 }, (_, index) => {
     const date = decalerJours(lundi, index);
     const jour = jourDeLaSemaine(date);
-    const resolu = resoudreJour(date, jour, recurrents, ponctuels);
+    const resolu = resoudreJour(date, jour, recurrents, ponctuels, importes);
 
     const veille = decalerJours(date, -1);
-    const laVeille = resoudreJour(veille, jourDeLaSemaine(veille), recurrents, ponctuels);
+    const laVeille = resoudreJour(
+      veille,
+      jourDeLaSemaine(veille),
+      recurrents,
+      ponctuels,
+      importes,
+    );
 
     return {
       date,
@@ -58,8 +68,8 @@ export async function chargerSemaine(): Promise<JourSemaine[]> {
       blocs: resolu.blocs,
       annules: resolu.annules,
       charge: calculerCharge({
-        tempsDispoMin: tempsDispo(minutesEveillees(resolu.blocs.map((b) => b.plage))),
-        recuperation: debordement(laVeille.blocs.map((b) => b.plage)) > 0,
+        tempsDispoMin: tempsDispo(minutesEveillees(plagesOccupantes(resolu.blocs))),
+        recuperation: debordement(plagesOccupantes(laVeille.blocs)) > 0,
         modeBas: false,
       }),
     };

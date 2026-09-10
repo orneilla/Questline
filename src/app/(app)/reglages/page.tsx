@@ -98,6 +98,7 @@ export default async function PageReglages() {
           [
             ["/reglages/notifications", "Rappels", "Notifications, Telegram, diagnostic"],
             ["/reglages/sauvegardes", "Sauvegardes", "Automatiques, téléchargement, restauration"],
+            ["/reglages/calendrier", "Calendrier extérieur", "Lire un calendrier Apple ou Google publié"],
             ["/cartes/reglages", "Cartes", "Révision, apparence, import et export"],
             ["/coran/reglages", "Coran", "Éditions, lecture, ressources déposées"],
           ] as const

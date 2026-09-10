@@ -848,3 +848,56 @@ export type ReglagesNotifications = typeof reglagesNotifications.$inferSelect;
 export type Canal = (typeof canalEnum.enumValues)[number];
 export type Sauvegarde = typeof sauvegardes.$inferSelect;
 export type ModeEcoute = (typeof modeEcouteEnum.enumValues)[number];
+
+/* ─────────────────── Calendriers extérieurs ─────────────────── */
+
+/**
+ * Un calendrier auquel on est abonné, en lecture seule.
+ *
+ * L'adresse est un secret : quiconque l'a peut lire le calendrier. Elle n'est
+ * donc jamais affichée en entier ailleurs que dans son propre écran de
+ * réglage, et se révoque en retirant l'abonnement.
+ */
+export const calendriersAbonnes = pgTable(
+  "calendriers_abonnes",
+  {
+    id: serial("id").primaryKey(),
+    nom: text("nom").notNull().default(""),
+    url: text("url").notNull(),
+    actif: boolean("actif").notNull().default(true),
+    ajouteLe: date("ajoute_le").notNull(),
+    /** Horodatage ISO de la dernière relecture réussie ou tentée. */
+    derniereMaj: text("derniere_maj"),
+    dernierResultat: text("dernier_resultat").notNull().default(""),
+    nbOccurrences: integer("nb_occurrences").notNull().default(0),
+    reglesIgnorees: integer("regles_ignorees").notNull().default(0),
+  },
+  (table) => [uniqueIndex("calendriers_abonnes_url_uniq").on(table.url)],
+);
+
+/**
+ * Une occurrence déroulée, prête à être lue par l'écran du jour.
+ *
+ * On stocke le résultat du déroulé plutôt que la règle : rejouer les
+ * répétitions à chaque affichage coûterait cher et ferait dépendre l'écran
+ * d'un analyseur. Ici, une journée se lit en une requête sur une date.
+ */
+export const evenementsImportes = pgTable(
+  "evenements_importes",
+  {
+    id: serial("id").primaryKey(),
+    calendrierId: integer("calendrier_id")
+      .notNull()
+      .references(() => calendriersAbonnes.id, { onDelete: "cascade" }),
+    uid: text("uid").notNull().default(""),
+    titre: text("titre").notNull(),
+    date: date("date").notNull(),
+    debut: time("debut").notNull(),
+    fin: time("fin").notNull(),
+    journeeEntiere: boolean("journee_entiere").notNull().default(false),
+  },
+  (table) => [index("evenements_importes_date_idx").on(table.date)],
+);
+
+export type CalendrierAbonne = typeof calendriersAbonnes.$inferSelect;
+export type EvenementImporte = typeof evenementsImportes.$inferSelect;
