@@ -252,6 +252,11 @@ export async function chercherAliments(requete: string, limite = 12) {
       etat: cuisineAliments.etat,
       source: cuisineAliments.source,
       kcal100g: cuisineAliments.kcal100g,
+      marque: cuisineAliments.marque,
+      // Le poids d'une portion, quand l'emballage le donne : il évite d'avoir
+      // à retrouver le grammage d'une barre à chaque fois qu'on la note.
+      poidsPortionG: cuisineAliments.poidsPortionG,
+      nomPortion: cuisineAliments.nomPortion,
     })
     .from(cuisineAliments)
     .where(and(sql`lower(${cuisineAliments.nom}) like lower(${`%${propre}%`})`))

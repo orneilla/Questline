@@ -70,6 +70,18 @@ export const cuisineAliments = pgTable(
     fibres100g: real("fibres_100g"),
     sel100g: real("sel_100g"),
 
+    /** La marque, pour un produit emballé. Vide pour un produit brut. */
+    marque: text("marque").notNull().default(""),
+    /**
+     * Le poids d'une portion, imprimé sur l'emballage.
+     *
+     * Personne ne pèse une barre encore emballée. Nul pour ce qui se pèse
+     * vraiment — une pomme, de la farine.
+     */
+    poidsPortionG: real("poids_portion_g"),
+    /** Comment cette portion s'appelle : « barre », « pot », « tranche ». */
+    nomPortion: text("nom_portion").notNull().default(""),
+
     etat: cuisineEtatEnum("etat").notNull().default("cru"),
     source: cuisineSourceEnum("source").notNull(),
     /** Code Ciqual, ou code-barres pour Open Food Facts. */

@@ -104,6 +104,21 @@ export default async function PageCuisine() {
       </Link>
 
       <Link
+        href="/cuisine/aliments"
+        className="flex min-h-16 items-center justify-between gap-3 rounded-2xl border border-bordure bg-surface px-5 transition-colors duration-300 active:bg-surface-haut"
+      >
+        <span className="flex flex-col gap-0.5">
+          <span className="text-[16px] text-texte">Produits emballés</span>
+          <span className="text-[12px] text-tres-doux">
+            Ce que Ciqual ne contient pas, recopié de l&apos;étiquette
+          </span>
+        </span>
+        <span aria-hidden className="text-tres-doux">
+          →
+        </span>
+      </Link>
+
+      <Link
         href="/cuisine/recettes"
         className="flex min-h-16 items-center justify-between gap-3 rounded-2xl border border-bordure bg-surface px-5 transition-colors duration-300 active:bg-surface-haut"
       >
@@ -150,6 +165,10 @@ export default async function PageCuisine() {
             {catalogue.manuel > 0 ? `, ${catalogue.manuel} saisis à la main` : ""}.{" "}
             <Link href="/cuisine/ciqual" className="underline underline-offset-4">
               Remettre à jour
+            </Link>
+            {" · "}
+            <Link href="/cuisine/aliments" className="underline underline-offset-4">
+              Saisir un produit emballé
             </Link>
           </p>
         )}

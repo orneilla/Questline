@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+
 import { useEffect, useState, useTransition } from "react";
 
 import {
@@ -43,6 +45,10 @@ type Trouve = {
   etat: "cru" | "cuit";
   source: "ciqual" | "off" | "manuel";
   kcal100g: number | null;
+  marque: string;
+  /** Poids d'une unité, pour les produits emballés. Nul sinon. */
+  poidsPortionG: number | null;
+  nomPortion: string;
 };
 
 function Pastille({
@@ -558,6 +564,23 @@ export function Saisie({
               />
             </label>
 
+            {/*
+              La sortie de secours. Sans elle, une recherche infructueuse était
+              une impasse : le catalogue ne contient que des produits bruts, et
+              rien ne disait comment y ajouter une barre achetée.
+            */}
+            {recherche.trim().length >= 2 && trouves.length === 0 && !aliment && !enAttente && (
+              <p className="rounded-xl border border-bordure px-4 py-3 text-[12.5px] leading-relaxed text-tres-doux">
+                Rien sous ce nom. La table Ciqual ne contient que des produits
+                bruts — une barre, un yaourt de marque, un plat préparé n'y sont
+                pas.{" "}
+                <Link href="/cuisine/aliments" className="text-doux underline underline-offset-4">
+                  Le saisir depuis son emballage
+                </Link>
+                .
+              </p>
+            )}
+
             {trouves.length > 0 && (
               <ul className="flex flex-col gap-1">
                 {trouves.map((t) => (
@@ -571,7 +594,10 @@ export function Saisie({
                       }}
                       className="flex min-h-11 w-full items-center justify-between gap-3 rounded-xl border border-bordure px-4 text-left text-[13px] text-doux transition-colors duration-300 active:bg-surface-haut"
                     >
-                      <span className="min-w-0 flex-1 truncate">{t.nom}</span>
+                      <span className="min-w-0 flex-1 truncate">
+                        {t.nom}
+                        {t.marque ? ` · ${t.marque}` : ""}
+                      </span>
                       <span className="shrink-0 text-[11.5px] text-tres-doux">
                         {t.etat === "cuit" ? "cuit · " : ""}
                         {t.source === "manuel" ? "manuel · " : ""}
@@ -581,6 +607,33 @@ export function Saisie({
                   </li>
                 ))}
               </ul>
+            )}
+
+            {aliment?.poidsPortionG != null && aliment.poidsPortionG > 0 && (
+              <div className="flex flex-col gap-1.5">
+                <span className={etiquette}>
+                  Combien de {aliment.nomPortion || "portions"}
+                </span>
+                <div className="flex flex-wrap gap-1.5">
+                  {[0.5, 1, 2, 3].map((n) => (
+                    <button
+                      key={n}
+                      type="button"
+                      onClick={() =>
+                        setGrammes(String(Math.round(n * (aliment.poidsPortionG ?? 0) * 10) / 10))
+                      }
+                      className="min-h-11 rounded-xl border border-bordure px-3.5 text-[13px] text-doux transition-colors duration-300 active:bg-surface-haut"
+                    >
+                      {n === 0.5 ? "½" : n}
+                    </button>
+                  ))}
+                </div>
+                <span className="text-[11.5px] leading-relaxed text-tres-doux">
+                  Une {aliment.nomPortion || "portion"} pèse {aliment.poidsPortionG} g
+                  d'après l'emballage. Le bouton remplit les grammes ci-dessous —
+                  ils restent modifiables.
+                </span>
+              </div>
             )}
 
             {aliment && (
