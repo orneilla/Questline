@@ -299,8 +299,9 @@ stabilité que le fascicule ne donne pas, une orthogonalité) est marqué
 leurs cartes.
 
 **Mécanismes et explications** — ils viennent de P. J. Kocienski,
-*Protecting Groups*, Thieme, 1994, et de lui seul : aucune explication n'est
-écrite qui ne soit dans l'une des trois sources, et chacune cite sa page. Les
+*Protecting Groups*, Thieme, 1994, et du Clayden (*Organic Chemistry*, 2ᵉ éd.,
+2012) : aucune explication n'est écrite qui ne soit dans l'une des quatre
+sources, et chacune cite sa page. Les
 dix mécanismes que l'ouvrage dessine pour des groupes du fascicule sont
 redessinés, flèches comprises, au verso de la carte « Retirer » concernée —
 rupture acide des groupes tert-butyle (schéma 1.3), hydrolyse des acétals
@@ -312,11 +313,24 @@ pour le Boc, un ester trichloroéthylique pour le Troc), le dessin est gardé te
 quel et la note le dit. Les autres groupes n'ont pas de mécanisme dessiné dans
 l'ouvrage : ils n'en ont pas sur leur carte.
 
+Le Clayden en ajoute dix, sur les cartes « Poser » comme « Retirer » :
+- pose et retrait du THP (p. 551 et 550) ;
+- retrait des éthers silylés par l'acide ou le fluorure (p. 550) ;
+- formation d'un ester tert-butylique (p. 556) ;
+- retrait du Boc (p. 558) et du Cbz (p. 557) ;
+- formation d'un acétal (p. 226) ;
+- catalyse nucléophile de la pyridine pour poser Ac, Bz, Piv (p. 200) ;
+- hydrolyse basique d'un ester (p. 210) ;
+- hydrolyse acide d'un amide (p. 212).
+
+**Contrôle des dessins** — le script vérifie chaque molécule avant de
+l'écrire : atomes superposés, liaisons qui se croisent, étiquette posée sur
+une liaison, longueurs de liaison inégales. Il signale toute anomalie.
+
 **Place occupée** — mesurée sur Postgres 16 après installation : 222 cartes
-(≈ 290 Ko avec les index), 76 images dont les dix mécanismes (436 Ko de SVG,
-≈ 385 Ko en base avec l'index), et ≈ 25 Ko de plus par sauvegarde
-hebdomadaire, soit ≈ 200 Ko pour les huit gardées : **≈ 0,9 Mo en tout,
-moins de 0,2 % des 512 Mo**. Cinq
+(≈ 290 Ko avec les index), 86 images dont les vingt mécanismes (≈ 490 Ko en
+base avec l'index), et ≈ 25 Ko de plus par sauvegarde hebdomadaire, soit
+≈ 200 Ko pour les huit gardées : **≈ 1 Mo en tout, 0,2 % des 512 Mo**. Cinq
 ans de révisions (≈ 15 par carte) ajoutent ≈ 0,6 Mo. Les images ne sont pas
 dans les sauvegardes, ce qui compte ici : les copier huit fois coûterait plus
 que tout le reste.
