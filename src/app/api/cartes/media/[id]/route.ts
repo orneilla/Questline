@@ -31,6 +31,8 @@ export async function GET(
     headers: {
       "content-type": media.typeMime,
       "cache-control": "private, max-age=31536000, immutable",
+      // Un SVG ouvert seul est un document : on lui interdit tout script.
+      "content-security-policy": "default-src 'none'; style-src 'unsafe-inline'",
     },
   });
 }

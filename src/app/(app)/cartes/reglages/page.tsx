@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 
 import { Retour } from "@/components/retour";
+import { Catalogues } from "@/components/cartes/catalogues";
 import { CourbeRetention } from "@/components/cartes/courbe-retention";
 import { EcranInstallation } from "@/components/ecran-installation";
 import type { PaquetChoix } from "@/components/cartes/editeur-carte";
@@ -16,6 +17,7 @@ import {
   QUOTA_NEON_OCTETS,
   type EtatBase,
 } from "@/lib/cartes/edition";
+import { etatCatalogues, type EtatCatalogue } from "@/lib/cartes/catalogues/installation";
 import { repartitionBase, type Repartition } from "@/lib/place";
 import { aujourdhui, decalerJours } from "@/lib/dates";
 import { diagnostiquer } from "@/lib/erreurs";
@@ -53,15 +55,18 @@ export default async function PageReglagesCartes() {
   let base: EtatBase;
   let repartition: Repartition;
   let paquets: PaquetChoix[];
+  let catalogues: EtatCatalogue[];
 
   try {
-    const [lus, jours, etat, parts, arbre] = await Promise.all([
+    const [lus, jours, etat, parts, arbre, cours] = await Promise.all([
       chargerReglages(),
       retention(30),
       etatBase(),
       repartitionBase(),
       chargerArborescence(),
+      etatCatalogues(),
     ]);
+    catalogues = cours;
     reglages = lus;
     courbe = jours;
     base = etat;
@@ -115,6 +120,14 @@ export default async function PageReglagesCartes() {
           quota={QUOTA_NEON_OCTETS}
           archivageParDefaut={decalerJours(aujourdhui(), -ARCHIVAGE_JOURS)}
         />
+      </Section>
+
+      <Section
+        id="catalogues"
+        titre="Catalogues de cours"
+        aide="Des paquets tout faits, tirés d'un cours. Ils arrivent à l'état neuf, dans l'ordre du cours."
+      >
+        <Catalogues catalogues={catalogues} />
       </Section>
 
       <Section titre="Export et import">
