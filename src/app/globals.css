@@ -189,8 +189,46 @@
   serait un désastre — d'où la précision du sélecteur.
 */
 .contenu-carte img[src^="data:image/png"],
-.contenu-carte img[src$=".png"] {
+.contenu-carte img[src$=".png"],
+.contenu-carte img[src$=".svg"] {
   filter: invert(1) hue-rotate(180deg);
+}
+
+/*
+  Les structures des catalogues sont des SVG dessinés à l'échelle d'une
+  liaison de 26 px : nets à toute taille, ils grandissent avec le texte sur
+  tablette au lieu de rester à leur taille native.
+*/
+@media (min-width: 640px) {
+  .contenu-carte img[src$=".svg"] {
+    zoom: 1.2;
+  }
+}
+
+/*
+  Les listes restent un bloc aligné à gauche, centré dans la carte : une liste
+  de conditions centrée ligne à ligne ne se lit pas.
+*/
+.contenu-carte ul,
+.contenu-carte ol {
+  display: inline-block;
+  margin: 0 auto 0.75rem;
+  padding-left: 1.2em;
+  text-align: left;
+  list-style: disc;
+}
+.contenu-carte ol {
+  list-style: decimal;
+}
+.contenu-carte li {
+  margin: 0.2rem 0;
+}
+.contenu-carte li::marker {
+  color: var(--color-tres-doux);
+}
+.contenu-carte ul:last-child,
+.contenu-carte ol:last-child {
+  margin-bottom: 0;
 }
 
 .contenu-carte .katex {

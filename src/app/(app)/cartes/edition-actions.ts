@@ -25,6 +25,7 @@ import {
   type SaisieNote,
 } from "@/lib/cartes/edition";
 import { lireCartesCsv } from "@/lib/cartes/csv";
+import { installerCatalogue as installer } from "@/lib/cartes/catalogues/installation";
 import type { TypeCarte } from "@/db/schema";
 
 /**
@@ -400,6 +401,34 @@ export async function importerCsv(
     const creees = await importerCartes(paquetId, lignes);
     rafraichirCartes();
     return { message: `${creees} carte(s) importée(s), toutes à l'état neuf.` };
+  } catch (erreur) {
+    return { erreur: message(erreur) };
+  }
+}
+
+/**
+ * Installe un catalogue de cours, ou le met à jour : la même opération sert
+ * aux deux, et ne coûte jamais la mémoire des cartes déjà révisées.
+ */
+export async function installerCatalogue(
+  _precedent: Retour,
+  donnees: FormData,
+): Promise<Retour> {
+  const id = String(donnees.get("catalogue") ?? "");
+
+  try {
+    const r = await installer(id);
+    rafraichirCartes();
+    revalidatePath("/cartes/reglages");
+
+    const parts = [
+      r.ajoutees > 0 && `${r.ajoutees} carte(s) ajoutée(s)`,
+      r.misesAJour > 0 && `${r.misesAJour} réécrite(s), mémoire gardée`,
+      r.retirees > 0 && `${r.retirees} retirée(s)`,
+    ].filter(Boolean);
+    return {
+      message: parts.length > 0 ? `${parts.join(", ")}.` : "Déjà à jour : rien n'a changé.",
+    };
   } catch (erreur) {
     return { erreur: message(erreur) };
   }

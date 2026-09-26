@@ -266,6 +266,66 @@ images qu'aucune carte ne cite plus se purgent à part.
 (recto, verso, étiquettes, espace, paquet). L'import CSV reconnaît la virgule,
 le point-virgule et la tabulation, avec ou sans en-tête.
 
+### Catalogues de cours
+
+Des paquets tout faits, écrits dans le code et installés d'un geste depuis
+`/cartes/reglages`, section *Catalogues de cours*. Le premier : **Groupes
+protecteurs** (CH0905, Synthèse totale de produits naturels, fascicule du
+Pr J.-B. Behr) — 222 cartes, rangées comme le fascicule :
+
+| Paquet | Contenu |
+| --- | --- |
+| 1 · Alcools | éthers alkyles, acétals, éthers silylés, esters |
+| 2 · Diols | acétals et cétals cycliques, carbonates, orthoesters |
+| 3 · Cétones | cétals et dithiocétals cycliques, vitesses d'hydrolyse |
+| 4 · Amines | benzylamines, amides, carbamates, sulfonamides |
+| 5 · Réflexes | orthogonalité, réactif par réactif |
+
+Chaque groupe donne une poignée de cartes courtes, une question chacune :
+dessiner la structure à partir du nom, reconnaître le groupe à partir de la
+structure, le poser, le retirer, ce à quoi il résiste, sa sélectivité. La
+structure figure sur toutes les cartes du groupe, au recto : on apprend le
+dessin en même temps que les conditions. Les nouvelles cartes sortent dans
+l'ordre du fascicule. Les explications ajoutées au fascicule (le « pourquoi »
+d'une déprotection, d'une sélectivité) sont en note de bas de carte, avec la
+page du fascicule.
+
+**Recoupé avec l'ouvrage de référence** — chaque carte a été vérifiée contre
+le fascicule et contre T. W. Greene et P. G. M. Wuts, *Protective Groups in
+Organic Synthesis*, 3ᵉ éd., Wiley, 1999, que le fascicule recommande. La note
+de bas de carte cite les deux pages ; ce qui ne vient que de l'ouvrage (une
+stabilité que le fascicule ne donne pas, une orthogonalité) est marqué
+« Greene ». Les trois remarques de la page 4, qui n'existent qu'en figure, ont
+leurs cartes.
+
+**Place occupée** — mesurée sur Postgres 16 après installation : 222 cartes
+(≈ 290 Ko avec les index), 66 images (274 Ko de SVG, ≈ 190 Ko une fois
+compressées par TOAST), et ≈ 25 Ko de plus par sauvegarde hebdomadaire, soit
+≈ 200 Ko pour les huit gardées : **≈ 0,8 Mo en tout, 0,16 % des 512 Mo**. Cinq
+ans de révisions (≈ 15 par carte) ajoutent ≈ 0,6 Mo. Les images ne sont pas
+dans les sauvegardes, ce qui compte ici : les copier huit fois coûterait plus
+que tout le reste.
+
+**Les structures** sont des SVG dessinés par RDKit puis retouchés par
+`scripts/structures-groupes-protecteurs.py` : même échelle pour toutes, le
+substrat R–O en gris à gauche, le groupe en blanc à droite. Le script écrit
+`src/lib/cartes/catalogues/groupes-protecteurs-structures.ts`, versionné ; il
+ne sert qu'à corriger ou ajouter une molécule (`pip install rdkit`). À
+l'installation, chaque dessin devient une image de la table `medias`, servie en
+`.svg` et inversée par CSS comme un schéma au trait.
+
+**Mettre à jour sans rien perdre** — le bouton réinstalle le catalogue : chaque
+carte est retrouvée par sa clé (`cat:<catalogue>:<note>`) et réécrite sur
+place, avec son échéance, sa stabilité, son historique et sa suspension ; une
+carte déplacée dans un autre paquet y reste. Les cartes nouvelles du catalogue
+s'ajoutent, celles qu'il ne contient plus sont retirées. Une retouche faite à la
+main dans l'éditeur, elle, est écrasée. Les images ne voyagent pas dans les
+sauvegardes : après une restauration, un appui sur *Mettre à jour* les recrée.
+
+Ajouter un catalogue : un module à côté de `groupes-protecteurs.ts`, inscrit
+dans `src/lib/cartes/catalogues/index.ts`. Les images s'y écrivent
+`[[structure:clé]]`.
+
 ### Le jardin
 
 Une plante par paquet, dessinée au trait dans l'esprit d'une planche d'herbier :
@@ -1277,6 +1337,8 @@ src/
       calendrier.ts grille, paliers de couleur, séries — logique pure
       image.ts      compression navigateur — logique pure
       csv.ts        aller-retour CSV avec Anki — logique pure
+      catalogues/   paquets de cours tout faits : contenu, structures SVG,
+                    installation et mise à jour sans perte de mémoire
       donnees.ts    lecture : sessions, notations, progression
       edition.ts    écriture : notes, paquets, espaces, images, archivage
   middleware.ts     garde de session
