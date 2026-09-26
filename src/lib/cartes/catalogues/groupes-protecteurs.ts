@@ -10,10 +10,10 @@
  *
  * Chaque affirmation a été recoupée avec l'ouvrage que le fascicule
  * recommande : T. W. Greene et P. G. M. Wuts, *Protective Groups in Organic
- * Synthesis*, 3ᵉ éd., Wiley, 1999. Les cartes citent la page du fascicule et
- * celle de l'ouvrage ; ce qui ne vient que de l'ouvrage est marqué « Greene ».
- * Les explications « pourquoi » sans source sont des notions de cours
- * classiques, limitées à ce qui est établi. Deux coquilles du fascicule sont
+ * Synthesis*, 3ᵉ éd., Wiley, 1999. Les explications « pourquoi » et les
+ * mécanismes viennent de P. J. Kocienski, *Protecting Groups*, Thieme, 1994 :
+ * chacune cite sa page, et rien n'est écrit qui ne soit dans l'une des trois
+ * sources. Deux coquilles du fascicule sont
  * signalées plutôt que recopiées : les noms dioxane/dioxolane inversés (p. 5)
  * et le chlorure de Troc (p. 10).
  */
@@ -47,6 +47,8 @@ type Fiche = {
   /** Image affichée au verso de la carte de pose, à la place de la structure seule. */
   schemaPose?: string;
   schemaRetrait?: string;
+  /** Mécanisme du retrait, redessiné d'après Kocienski : dessin, schéma, page, précision. */
+  mecanisme?: { image: string; schema: string; page: number; precision?: string };
   pourquoi?: Partial<Record<"protection" | "deprotection" | "stabilite" | "selectivite", string>>;
 };
 
@@ -79,6 +81,11 @@ function note(
   notes?: string,
 ): NoteCatalogue {
   return { cle, recto, verso, tags: ["groupes-protecteurs", ...tags], notes };
+}
+
+/** Bloc « Mécanisme » ajouté au verso : une ligne de source, puis le dessin. */
+function mecanisme(image: string, schema: string, page: number): string {
+  return `\n\n**Mécanisme** · Kocienski, schéma ${schema}, p. ${page}\n\n${img(image)}`;
 }
 
 function source(page: number | null, pourquoi?: string, greene?: number): string {
@@ -134,9 +141,16 @@ function fiche(f: Fiche): NoteCatalogue[] {
     note(
       `${f.cle}:deprotection`,
       `**Retirer** ${titre}\n\n${img(f.structure)}`,
-      `${liste(f.deprotection)}${f.schemaRetrait ? `\n\n${img(f.schemaRetrait)}` : ""}`,
+      `${liste(f.deprotection)}${f.schemaRetrait ? `\n\n${img(f.schemaRetrait)}` : ""}` +
+        (f.mecanisme ? mecanisme(f.mecanisme.image, f.mecanisme.schema, f.mecanisme.page) : ""),
       [...tags, "deprotection"],
-      source(f.page, f.pourquoi?.deprotection, f.greene),
+      source(
+        f.page,
+        [f.pourquoi?.deprotection, f.mecanisme?.precision && `Mécanisme : ${f.mecanisme.precision}`]
+          .filter(Boolean)
+          .join(". "),
+        f.greene,
+      ),
     ),
   );
 
@@ -185,6 +199,12 @@ const ALCOOLS: NoteCatalogue[] = [
     famille: "ether-alkyle",
     page: 1,
     greene: 65,
+    mecanisme: {
+      image: "meca-tbu",
+      schema: "1.3",
+      page: 4,
+      precision: "dessiné sur un ester ; même rupture pour les éthers et carbamates tert-butyliques",
+    },
     protection: [
       "H⁺, CH₂=C(CH₃)₂ (isobutène), solvant anhydre",
       "BF₃·OEt₂, CH₂=C(CH₃)₂",
@@ -192,8 +212,8 @@ const ALCOOLS: NoteCatalogue[] = [
     deprotection: ["HBr, AcOH", "CF₃CO₂H (TFA)", "Me₃SiI"],
     stabilite: ["H⁺ faible", "bases (B⁻)", "hydrures (H⁻)", "H₂"],
     pourquoi: {
-      protection: "L'isobutène protoné donne le cation tert-butyle, que l'alcool piège",
-      deprotection: "Le chemin inverse : en acide fort, le cation tert-butyle repart (→ isobutène)",
+      deprotection:
+        "En acide fort, mécanisme E1 avec perte d'isobutène, grâce à la stabilité du carbocation tert-butyle (Kocienski, Protecting Groups, p. 59)",
     },
   }),
   ...fiche({
@@ -206,6 +226,12 @@ const ALCOOLS: NoteCatalogue[] = [
     famille: "ether-alkyle",
     page: 1,
     greene: 67,
+    mecanisme: {
+      image: "meca-rh",
+      schema: "1.16",
+      page: 11,
+      precision: "isomérisation par Rh(I), puis hydrolyse acide",
+    },
     protection: ["NaH, THF, BrCH₂CH=CH₂"],
     deprotection: [
       "**en une étape :** Pd/C, MeOH, H₂O, APTS cat. (ou HClO₄ cat.)",
@@ -217,7 +243,7 @@ const ALCOOLS: NoteCatalogue[] = [
     pourquoi: {
       stabilite: "Stabilité : d'après Greene, le fascicule ne la donne pas",
       deprotection:
-        "Un éther allylique est un éther robuste ; isomérisé en éther d'énol, il devient fragile en acide",
+        "Robuste tel quel ; une fois la double liaison déplacée en conjugaison avec l'oxygène, l'éther d'énol se coupe facilement par hydrolyse acide ou oxydation (Kocienski, Protecting Groups, p. 62)",
     },
   }),
   ...fiche({
@@ -230,6 +256,12 @@ const ALCOOLS: NoteCatalogue[] = [
     famille: "ether-alkyle",
     page: 1,
     greene: 76,
+    mecanisme: {
+      image: "meca-birch",
+      schema: "1.14",
+      page: 10,
+      precision: "coupure par Na, NH₃",
+    },
     protection: ["BnBr, NaH, Bu₄N⁺I⁻, THF", "BnX (X = Cl, Br), Ag₂O, DMF"],
     deprotection: [
       "H₂, Pd/C, EtOH (hydrogénolyse)",
@@ -240,8 +272,8 @@ const ALCOOLS: NoteCatalogue[] = [
     ],
     pourquoi: {
       protection:
-        "Synthèse de Williamson : NaH forme l'alcoolate ; l'iodure échange le brome et donne BnI, plus réactif",
-      deprotection: "La liaison C–O benzylique se coupe par hydrogénolyse : l'alcool et du toluène",
+        "Synthèse de Williamson ; l'iodure déplace le bromure et donne in situ BnI, bien meilleur agent alkylant (Kocienski, Protecting Groups, p. 50)",
+      deprotection: "Hydrogénolyse de la liaison C–O benzylique (Kocienski, Protecting Groups, p. 8)",
     },
   }),
   ...fiche({
@@ -254,6 +286,11 @@ const ALCOOLS: NoteCatalogue[] = [
     famille: "ether-alkyle",
     page: 1,
     greene: 86,
+    mecanisme: {
+      image: "meca-ddq",
+      schema: "1.13",
+      page: 9,
+    },
     protection: ["PMBBr, NaH, DMF"],
     deprotection: [
       "**DDQ ou CAN**, CH₂Cl₂, H₂O — ne touche pas un Bn (sauf conditions forcées, Greene)",
@@ -262,7 +299,7 @@ const ALCOOLS: NoteCatalogue[] = [
     ],
     pourquoi: {
       deprotection:
-        "Le méthoxy en para enrichit le cycle : DDQ ou CAN l'oxydent, alors que le Bn, moins riche, résiste",
+        "Le PMB cède facilement un électron à la DDQ : il se forme un ion oxonium que l'eau capte (Kocienski, Protecting Groups, p. 9). Greene : il se coupe par oxydation bien plus facilement qu'un Bn",
     },
   }),
   ...fiche({
@@ -280,8 +317,8 @@ const ALCOOLS: NoteCatalogue[] = [
     deprotection: ["H₃O⁺ faible", "SiO₂, PhH", "H₂, Pd/C, EtOH", "Na, NH₃"],
     stabilite: ["hydrures (H⁻)", "bases (B⁻)"],
     pourquoi: {
-      selectivite: "Trois phényles : trop encombré pour un alcool secondaire",
-      deprotection: "Le cation trityle est si stabilisé qu'un acide faible — même la silice — suffit",
+      selectivite: "Avec TrCl, pyridine, les alcools secondaires réagissent très lentement, voire pas du tout (Kocienski, Protecting Groups, p. 58)",
+      deprotection: "Facile à retirer en acide grâce à la stabilité du carbocation triphénylméthyle (Kocienski, Protecting Groups, p. 55)",
     },
   }),
 
@@ -296,11 +333,17 @@ const ALCOOLS: NoteCatalogue[] = [
     famille: "acetal",
     page: 2,
     greene: 27,
+    mecanisme: {
+      image: "meca-acetal",
+      schema: "1.6",
+      page: 5,
+      precision: "dessiné sur un acétonide ; même mécanisme pour tous les O,O-acétals, MOM compris",
+    },
     protection: ["ClCH₂OCH₃ (MOMCl — ⚠ toxique, cancérogène), NaH, THF"],
     deprotection: ["HCl, MeOH", "BF₃·OEt₂, RSH", "Ph₃C⁺BF₄⁻, H₂O"],
     pourquoi: {
       protection: "Greene : le MOMCl est cancérogène, et son sous-produit ClCH₂OCHCl₂ l'est plus encore",
-      deprotection: "C'est un acétal : il tombe en acide",
+      deprotection: "C'est un acétal (mécanisme de la carte « Retirer ») ; sans substituant sur le carbone acétalique, il demande un acide minéral dilué, à chaud (Kocienski, Protecting Groups, p. 5)",
     },
   }),
   ...fiche({
@@ -318,7 +361,7 @@ const ALCOOLS: NoteCatalogue[] = [
     stabilite: ["bases (B⁻)", "hydrures (H⁻)", "oxydants [O]"],
     pourquoi: {
       deprotection:
-        "Le benzyle part comme celui d'un Bn ; l'hémiacétal R–O–CH₂OH restant perd seul le formaldéhyde",
+        "L'hydrogénolyse d'un BOM libère du formaldéhyde, qui peut N-méthyler une amine présente (Kocienski, Protecting Groups, p. 78)",
     },
   }),
   ...fiche({
@@ -331,6 +374,11 @@ const ALCOOLS: NoteCatalogue[] = [
     famille: "acetal",
     page: 2,
     greene: 45,
+    mecanisme: {
+      image: "meca-sem",
+      schema: "1.10",
+      page: 7,
+    },
     protection: ["SEMCl, i-Pr₂NEt, CH₂Cl₂"],
     deprotection: ["**F⁻** : Bu₄N⁺F⁻, LiBF₄, CsF"],
     stabilite: ["bases faibles", "oxydants [O]", "hydrures (H⁻)", "H₃O⁺ faible"],
@@ -338,7 +386,7 @@ const ALCOOLS: NoteCatalogue[] = [
       stabilite:
         "Greene : il survit à AcOH, H₂O, THF à 45 °C, qui retirent THP et TBS ; le TFA, lui, le retire",
       deprotection:
-        "F⁻ attaque le silicium ; la chaîne se fragmente (éthylène, Me₃SiF, CH₂=O) et libère l'alcool",
+        "Fragmentation induite par le fluorure : perte d'éthylène, de formaldéhyde et de FSiMe₃ (Kocienski, Protecting Groups, p. 7)",
     },
   }),
   ...fiche({
@@ -351,12 +399,18 @@ const ALCOOLS: NoteCatalogue[] = [
     famille: "acetal",
     page: 2,
     greene: 49,
+    mecanisme: {
+      image: "meca-acetal",
+      schema: "1.6",
+      page: 5,
+      precision: "dessiné sur un acétonide ; même mécanisme pour tous les O,O-acétals, THP compris",
+    },
     protection: ["DHP, APTS ou PPTS, CH₂Cl₂"],
     deprotection: ["H₃O⁺ (PPTS, AcOH…), MeOH ou EtOH"],
     stabilite: ["hydrures (H⁻)", "bases (B⁻)", "[O] douce", "RLi", "R₂CuLi", "H₂"],
     schemaPose: "thp-schema",
     pourquoi: {
-      protection: "L'alcool s'additionne sur l'éther d'énol du DHP activé par l'acide",
+      protection: "Protonation du carbone de l'éther d'énol : l'ion oxonium, très électrophile, est attaqué par l'alcool (Kocienski, Protecting Groups, p. 85)",
     },
   }),
   note(
@@ -373,7 +427,7 @@ const ALCOOLS: NoteCatalogue[] = [
     "Éthers silylés : classe-les par stabilité en milieu **acide**\n\n" + img("silyles-rangee"),
     "**TMS** (1) < **TES** (64) < **TBS** (2 × 10⁴) < **TIPS** (7 × 10⁵) < **TBDPS** (5 × 10⁶)",
     ["alcool", "silyle", "stabilite", "comparaison"],
-    source(2, "L'encombrement autour du silicium, et l'électronique, règlent la stabilité", 114),
+    source(2, "L'encombrement autour du silicium, et l'électronique, règlent la stabilité (Greene)", 114),
   ),
   note(
     "silyles:base",
@@ -403,9 +457,10 @@ const ALCOOLS: NoteCatalogue[] = [
   note(
     "silyles:fluorure",
     "Pourquoi **F⁻** retire-t-il tous les silyles ?",
-    "La liaison **Si–F** est plus forte que **Si–O** de **30 kcal/mol** : le fluorure attaque le silicium et libère l'alcoolate.",
+    "La liaison **Si–F** est plus forte que **Si–O** de **30 kcal/mol** (142 contre 112) : le fluorure attaque le silicium, passe par un siliconate pentavalent et libère l'alcoolate." +
+      mecanisme("meca-fluorure", "1.8", 6),
     ["alcool", "silyle", "deprotection", "mecanisme"],
-    source(3, "Bu₄N⁺F⁻ (TBAF), HF, HF·pyridine, CsF", 114),
+    source(3, "Bu₄N⁺F⁻ (TBAF), HF, HF·pyridine, CsF — Kocienski, Protecting Groups, p. 6, 29", 114),
   ),
   ...fiche({
     cle: "tms",
@@ -420,7 +475,10 @@ const ALCOOLS: NoteCatalogue[] = [
     protection: ["TMSCl, Et₃N (ou pyridine), CH₂Cl₂"],
     deprotection: ["H₃O⁺ doux", "K₂CO₃, MeOH", "F⁻ (Bu₄N⁺F⁻ ou HF)"],
     stabilite: ["sur OH **tertiaire ≫ secondaire ≫ primaire** — le plus fragile des silyles"],
-    pourquoi: { stabilite: "Seul l'encombrement de l'alcool protège un silicium aussi dégagé" },
+    pourquoi: {
+      stabilite:
+        "La vitesse d'hydrolyse dépend des effets stériques et électroniques : un environnement encombré la ralentit (Kocienski, Protecting Groups, p. 29)",
+    },
   }),
   ...fiche({
     cle: "tbs",
@@ -432,6 +490,12 @@ const ALCOOLS: NoteCatalogue[] = [
     famille: "silyle",
     page: 3,
     greene: 127,
+    mecanisme: {
+      image: "meca-fluorure",
+      schema: "1.8",
+      page: 6,
+      precision: "passage par un siliconate pentavalent",
+    },
     selectivite: "alcool **primaire ≫ secondaire ⋙ tertiaire**",
     protection: [
       "TBSCl, **imidazole, DMF**",
@@ -445,8 +509,7 @@ const ALCOOLS: NoteCatalogue[] = [
     stabilite: ["10⁴ fois plus stable à l'hydrolyse que TMS", "bases douces", "H⁻", "[O]", "H₂"],
     pourquoi: {
       protection: "Greene : le triflate est l'une des méthodes les plus puissantes, pour les alcools encombrés",
-      deprotection:
-        "Le fascicule range BF₃·OEt₂ et LiBF₄ avec les fluorures : ce sont des acides de Lewis fluorés",
+      deprotection: "Le fascicule range BF₃·OEt₂ et LiBF₄ avec les fluorures",
       stabilite: "Greene précise : 10⁴ fois plus stable que TMS à l'hydrolyse basique ; il reste assez sensible à l'acide",
     },
   }),
@@ -531,8 +594,8 @@ const ALCOOLS: NoteCatalogue[] = [
     pourquoi: {
       selectivite: "Sélectivité : d'après Greene",
       protection:
-        "DMAP, bien plus nucléophile que la pyridine, forme un acylpyridinium très réactif (Greene : acylation 10⁴ fois plus rapide)",
-      deprotection: "Transestérification : l'acétyle part sur le méthanol (AcOMe)",
+        "La DMAP accélère l'acylation d'un facteur 10⁴ par rapport à la pyridine (Greene ; Kocienski, Protecting Groups, p. 119)",
+      deprotection: "Solvolyse basique douce ; en milieu acide, la transestérification marche aussi (Kocienski, Protecting Groups, p. 22)",
     },
   }),
   ...fiche({
@@ -549,7 +612,10 @@ const ALCOOLS: NoteCatalogue[] = [
     protection: ["PivCl, pyridine"],
     deprotection: ["Bu₄N⁺OH⁻", "MeNH₂, H₂O", "NaOH, EtOH, H₂O", "MeLi, Et₂O"],
     stabilite: ["NH₃ (là où Ac et Bz tombent)"],
-    pourquoi: { selectivite: "Le tert-butyle encombre le carbonyle" },
+    pourquoi: {
+      selectivite:
+        "Le tert-butyle protège le carbonyle de l'attaque nucléophile : NH₃/MeOH l'hydrolyse si lentement qu'on retire un acétate sans lui (Kocienski, Protecting Groups, p. 22, 24)",
+    },
   }),
   ...fiche({
     cle: "bz",
@@ -573,7 +639,7 @@ const ALCOOLS: NoteCatalogue[] = [
     ["alcool", "ester", "bz"],
     source(
       4,
-      "Greene : p-nitrobenzoate > acétate > benzoate > pivaloate pour la vitesse de clivage — l'acide p-nitrobenzoïque, plus acide, fait un meilleur groupe partant",
+      "Greene : p-nitrobenzoate > acétate > benzoate > pivaloate pour la vitesse de clivage ; voir la règle de la Rem 1",
       155,
     ),
   ),
@@ -684,6 +750,11 @@ const DIOLS: NoteCatalogue[] = [
     famille: "acetal-cyclique",
     page: 5,
     greene: 207,
+    mecanisme: {
+      image: "meca-acetal",
+      schema: "1.6",
+      page: 5,
+    },
     selectivite: "**cycle à 5** (1,3-dioxolane, sur un 1,2-diol) **> cycle à 6**",
     protection: [
       "CH₃C(OCH₃)=CH₂ (2-méthoxypropène), H⁺ anhydre, CH₂Cl₂",
@@ -694,7 +765,7 @@ const DIOLS: NoteCatalogue[] = [
     pourquoi: {
       deprotection: "Greene : un 1,3-dioxane s'hydrolyse plus vite qu'un 1,3-dioxolane",
       selectivite:
-        "En 1,3-dioxane chaise, l'un des deux méthyles est forcément axial (gêne 1,3-diaxiale) ; le fascicule inverse ici les noms dioxane/dioxolane",
+        "Une cétone donne un cycle à 5 : le substituant axial du carbone acétalique déstabiliserait le 1,3-dioxane (Kocienski, Protecting Groups, p. 101). Le fascicule inverse ici les noms dioxane/dioxolane",
     },
   }),
   note(
@@ -702,7 +773,10 @@ const DIOLS: NoteCatalogue[] = [
     "Les **trois réactifs** qui posent un acétonide (avec H⁺) ?",
     img("acetonide-reactifs") + "\n\nacétone · 2,2-diméthoxypropane · 2-méthoxypropène",
     ["diol", "acetal-cyclique", "acetonide", "protection"],
-    source(5, "Les deux derniers ne libèrent pas d'eau : l'équilibre est déplacé sans desséchant"),
+    source(
+      5,
+      "Le 2,2-diméthoxypropane libère du MeOH et non de l'eau : pas besoin de desséchant ; le 2-méthoxypropène pousse l'échange à son terme (Kocienski, Protecting Groups, p. 104-105)",
+    ),
   ),
   note(
     "acetonide:williams",
@@ -722,7 +796,7 @@ const DIOLS: NoteCatalogue[] = [
     ["diol", "acetal-cyclique", "acetonide", "selectivite"],
     source(
       6,
-      "En solution le ribose est à 80 % pyranose : la voie cinétique piège cette forme ; à l'équilibre, c'est l'acétonide du furanose (cis-2,3, cycle à 5) qui l'emporte",
+      "Le 2-méthoxypropène dans le DMF permet une acétalisation cinétique sans réarrangement (Kocienski, Protecting Groups, p. 106)",
     ),
   ),
   ...fiche({
@@ -740,7 +814,7 @@ const DIOLS: NoteCatalogue[] = [
     deprotection: ["H₂, Pd/C, AcOH", "H₃O⁺", "Na, NH₃"],
     pourquoi: {
       selectivite:
-        "Dans le 1,3-dioxane chaise, le phényle se range en équatorial, sans gêne ; le fascicule inverse ici les noms dioxane/dioxolane",
+        "Un aldéhyde donne plutôt un cycle à 6 ; dans le 1,3-dioxane, le phényle occupe de préférence la position équatoriale (Kocienski, Protecting Groups, p. 101). Le fascicule inverse ici les noms dioxane/dioxolane",
     },
   }),
   note(
@@ -860,7 +934,10 @@ const CETONES: NoteCatalogue[] = [
       "\n\n" +
       img("cetone-dioxolane"),
     ["cetone", "cetal", "protection"],
-    source(8, "Au reflux du toluène, l'eau formée est chassée (Dean-Stark) ; la variante silylée ne forme pas d'eau du tout"),
+    source(
+      8,
+      "Au reflux du toluène, l'eau est chassée par un Dean-Stark (Kocienski, Protecting Groups, p. 158) ; avec le diol bis-silylé, le sous-produit est (TMS)₂O et non l'eau (Kocienski, Protecting Groups, p. 160)",
+    ),
   ),
   note(
     "cetal:stabilite",
@@ -876,7 +953,7 @@ const CETONES: NoteCatalogue[] = [
   note(
     "cetal:deprotection",
     "**Retirer** un cétal cyclique ?\n\n" + img("dioxolane"),
-    "**H₃O⁺**",
+    "**H₃O⁺**" + mecanisme("meca-acetal", "1.6", 5),
     ["cetone", "cetal", "deprotection"],
     source(8),
   ),
@@ -894,11 +971,11 @@ const CETONES: NoteCatalogue[] = [
       "**Hg(ClO₄)₂**, MeOH, CHCl₃ — ne clive pas les acétonides",
       "AgNO₃, EtOH, H₂O",
       "MeI, H₂O, MeCN ou MeOH",
-    ]),
+    ]) + mecanisme("meca-dithiane", "1.7", 6),
     ["cetone", "dithiocetal", "deprotection"],
     source(
       8,
-      "Le soufre, mou, ne se protone pas assez : on l'active par un métal thiophile (Hg²⁺, Ag⁺) ou en le méthylant (MeI)",
+      "Le soufre est moins basique (Brønsted) que l'oxygène (Kocienski, Protecting Groups, p. 171) ; on accélère par interaction mou–mou avec Hg²⁺ ou Ag⁺ (Kocienski, Protecting Groups, p. 5), ou en alkylant le soufre, par exemple avec MeI (Kocienski, Protecting Groups, p. 173)",
     ),
   ),
   note(
@@ -909,7 +986,7 @@ const CETONES: NoteCatalogue[] = [
     ["cetone", "stabilite", "comparaison"],
     source(
       9,
-      "Un acétal cyclique se clive plus lentement que son analogue ouvert ; un dithioacétal ne se clive pas par un acide de Brønsted",
+      "Un acétal cyclique se clive plus lentement que son analogue ouvert ; un dithioacétal est pratiquement indestructible par les acides protiques (Kocienski, Protecting Groups, p. 5)",
     ),
   ),
 ];
@@ -949,7 +1026,7 @@ const AMINES: NoteCatalogue[] = [
     deprotection: ["Na, NH₃", "Pd/C, HCOOH, MeOH"],
     pourquoi: {
       deprotection:
-        "L'acide formique sert de source d'hydrogène : hydrogénolyse par transfert. Greene : sous H₂/Pd-C, une benzylamine se coupe souvent très lentement",
+        "L'acide formique sert de source d'hydrogène : hydrogénation par transfert (Kocienski, Protecting Groups, p. 8). Greene : sous H₂/Pd-C, une benzylamine se coupe souvent très lentement",
     },
   }),
   ...fiche({
@@ -977,7 +1054,7 @@ const AMINES: NoteCatalogue[] = [
     greene: 552,
     protection: ["Ac₂O ou AcCl, avec ou sans base"],
     deprotection: ["HCl aq., reflux", "NH₂NH₂, H₂O"],
-    pourquoi: { deprotection: "Un amide est robuste : il faut chauffer en acide, ou l'hydrazine" },
+    pourquoi: { deprotection: "L'hydrolyse d'un amide demande en général des conditions assez dures (Kocienski, Protecting Groups, p. 3)" },
   }),
   ...fiche({
     cle: "tfa",
@@ -996,7 +1073,7 @@ const AMINES: NoteCatalogue[] = [
     ],
     pourquoi: {
       deprotection:
-        "Les trois fluors rendent le carbonyle très électrophile : une base douce suffit, là où un acétamide exige un reflux acide. Ne pas confondre avec TFA, l'acide trifluoroacétique",
+        "Exception parmi les amides : si labile que K₂CO₃/MeOH le retire en préservant des esters méthyliques (Kocienski, Protecting Groups, p. 3). Ne pas confondre avec TFA, l'acide trifluoroacétique",
     },
   }),
   ...fiche({
@@ -1009,12 +1086,18 @@ const AMINES: NoteCatalogue[] = [
     famille: "carbamate",
     page: 10,
     greene: 518,
+    mecanisme: {
+      image: "meca-tbu",
+      schema: "1.3",
+      page: 4,
+      precision: "dessiné sur un ester ; même rupture pour les carbamates, dont l'acide carbamique perd ensuite CO₂ (Kocienski p. 186)",
+    },
     protection: ["Boc₂O, NaOH, H₂O"],
     deprotection: ["HCl 3 M, EtOAc", "**TFA** pur ou dans CH₂Cl₂", "Δ ≥ 150 °C"],
     stabilite: ["nucléophiles", "bases (B⁻)"],
     pourquoi: {
       deprotection:
-        "En acide, le cation tert-butyle part (→ isobutène) ; l'acide carbamique restant perd CO₂ et rend l'amine. Greene : TBS et TBDPS survivent au TFA qui retire le Boc",
+        "Rupture hétérolytique donnant le carbocation tert-butyle (Kocienski, Protecting Groups, p. 4) ; l'acide carbamique libéré, instable, perd CO₂ et rend l'amine (Kocienski, Protecting Groups, p. 186). Greene : TBS et TBDPS survivent au TFA qui retire le Boc",
     },
   }),
   ...fiche({
@@ -1027,11 +1110,17 @@ const AMINES: NoteCatalogue[] = [
     famille: "carbamate",
     page: 10,
     greene: 526,
+    mecanisme: {
+      image: "meca-pd",
+      schema: "4.57",
+      page: 141,
+      precision: "dessiné sur un ester d'allyle ; la méthode s'étend aux carbamates d'allyle",
+    },
     protection: ["AllocCl (AllOCOCl), pyridine"],
     deprotection: ["**Pd(PPh₃)₄**, Bu₃SnH, AcOH"],
     pourquoi: {
       deprotection:
-        "Le Pd(0) arrache l'allyle (complexe π-allyle) que l'hydrure d'étain piège ; le carbamate libre perd CO₂",
+        "Le Pd(0) forme un complexe π-allyle, que capte un nucléophile (Kocienski, Protecting Groups, p. 10, 141) ; l'acide carbamique libéré perd CO₂ (Kocienski, Protecting Groups, p. 186)",
     },
   }),
   ...fiche({
@@ -1052,7 +1141,7 @@ const AMINES: NoteCatalogue[] = [
       "Na, NH₃",
     ],
     pourquoi: {
-      deprotection: "Hydrogénolyse de la liaison O–benzyle : toluène, puis CO₂ et l'amine",
+      deprotection: "Hydrogénolyse de la liaison benzylique (Kocienski, Protecting Groups, p. 8) ; l'acide carbamique libéré perd CO₂ (Kocienski, Protecting Groups, p. 186)",
     },
   }),
   ...fiche({
@@ -1065,6 +1154,12 @@ const AMINES: NoteCatalogue[] = [
     famille: "carbamate",
     page: 10,
     greene: 510,
+    mecanisme: {
+      image: "meca-tce",
+      schema: "1.11",
+      page: 7,
+      precision: "dessiné sur un ester trichloroéthylique ; même principe pour le Troc",
+    },
     protection: ["Cl₃CCH₂OCOCl (TrocCl), pyridine ou NaOH"],
     deprotection: ["**Zn**, THF, H₂O — ne touche ni Boc, ni Bn, ni TFA"],
     stabilite: ["aux conditions qui retirent un **Boc** (acide) ou un **trifluoroacétamide** (base douce)"],
@@ -1073,7 +1168,7 @@ const AMINES: NoteCatalogue[] = [
       stabilite: "Stabilité : d'après Greene — il supporte en revanche H₂ sur Ru-C ou Pt-C",
       protection: "Le fascicule écrit « Cl₃CH₂OCOCl » : il manque un C",
       deprotection:
-        "Le zinc réduit une liaison C–Cl ; β-élimination : 1,1-dichloroéthylène, CO₂ et l'amine",
+        "Élimination réductrice par le zinc, proche d'une β-élimination : départ de 1,1-dichloroéthylène (Kocienski, Protecting Groups, p. 7) ; l'acide carbamique perd CO₂ (Kocienski, Protecting Groups, p. 186)",
     },
   }),
   ...fiche({
@@ -1088,7 +1183,10 @@ const AMINES: NoteCatalogue[] = [
     greene: 604,
     protection: ["TsCl, pyridine ou Et₃N, CH₂Cl₂"],
     deprotection: ["Li ou Na, NH₃", "HBr, AcOH, 70 °C"],
-    pourquoi: { deprotection: "Un sulfonamide est l'un des groupes les plus robustes : conditions dures" },
+    pourquoi: {
+      deprotection:
+        "Parmi les protections d'azote les plus stables ; le retrait exige des conditions dures, souvent réductrices (Kocienski, Protecting Groups, p. 209, 212)",
+    },
   }),
 ];
 
@@ -1110,25 +1208,25 @@ const REFLEXES: NoteCatalogue[] = [
     "h2-pdc",
     "Qu'est-ce qui tombe sous **H₂, Pd/C** ?",
     "**Alcools :** Bn · PMB · Tr · BOM\n\n**Diols :** benzylidène\n\n**Amines :** Cbz · Bn (transfert, HCOOH) · formamide (avec HCl)",
-    "Surtout les liaisons C–O ou C–N benzyliques. L'allyle n'y survit pas non plus (sa C=C est réduite), ni le Troc en milieu acide (Greene)",
+    "Surtout les éthers, esters, carbamates et amines benzyliques (Kocienski, Protecting Groups, p. 8). L'allyle n'y survit pas non plus, ni le Troc en milieu acide (Greene)",
   ),
   reflexe(
     "fluorure",
     "Qu'est-ce qui tombe sous **F⁻** (TBAF, HF, CsF) ?",
     "**TMS · TES · TBS · TIPS · TBDPS** et le **SEM**",
-    "Tout ce qui porte un silicium",
+    "Tout ce qui porte un silicium : haute affinité du silicium pour le fluor (Kocienski, Protecting Groups, p. 6)",
   ),
   reflexe(
     "birch",
     "Qu'est-ce qui tombe sous **Na, NH₃** ?",
     "**Alcools :** Bn · Tr · BOM\n\n**Diols :** benzylidène\n\n**Amines :** Bn · Cbz · **Ts**",
-    "La réduction à un électron coupe les liaisons benzyliques et même les sulfonamides",
+    "Coupe éthers et esters benzyliques (Kocienski, Protecting Groups, p. 10) et même les sulfonamides (Kocienski, Protecting Groups, p. 212)",
   ),
   reflexe(
     "tfa-acide",
     "Qu'est-ce qui tombe sous **TFA** (acide trifluoroacétique) ?",
     "**t-Bu** (éther) · **PMB** · **Boc** · **Tr** (déjà en acide faible) · **SEM** (TFA, CH₂Cl₂)",
-    "Ceux qui libèrent un cation stabilisé. Le fascicule cite aussi TFA, CH₂Cl₂ pour un TBS ; Greene précise que TBS et TBDPS survivent au TFA qui retire un Boc : tout dépend de l'eau et du temps",
+    "Ceux qui libèrent un carbocation stabilisé (Kocienski, Protecting Groups, p. 4). Le fascicule cite aussi TFA, CH₂Cl₂ pour un TBS ; Greene précise que TBS et TBDPS survivent au TFA qui retire un Boc : tout dépend de l'eau et du temps",
   ),
   reflexe(
     "base-douce",
@@ -1152,7 +1250,7 @@ const REFLEXES: NoteCatalogue[] = [
     "pmb-bn",
     "Retirer un **PMB** en gardant un **Bn** ?",
     "**DDQ** (ou CAN), CH₂Cl₂, H₂O",
-    "Seul le cycle enrichi par le méthoxy s'oxyde",
+    "Le PMB cède facilement un électron à la DDQ (Kocienski, Protecting Groups, p. 9) ; Greene : la DDQ ne coupe normalement pas un Bn",
     "paire-pmb-bn",
   ),
   reflexe(
@@ -1200,7 +1298,7 @@ const REFLEXES: NoteCatalogue[] = [
   reflexe(
     "tbs-tbdps",
     "Retirer un **TBS** en gardant un **TBDPS** ?",
-    "**Acide doux** : AcOH 80 % (ou AcOH, H₂O, THF) — le TBDPS y résiste, il est bien plus stable en acide (≈ 100 fois selon Greene)",
+    "**Acide doux** : AcOH 80 % (ou AcOH, H₂O, THF) — le TBDPS y résiste, 100 à 250 fois plus stable en acide (Greene ≈ 100 ; Kocienski, Protecting Groups, p. 38 : 100–250)",
     "Greene : AcOH 80 % retire TBS, Tr et THP mais laisse le TBDPS",
     "paire-tbs-tbdps",
   ),
@@ -1249,7 +1347,7 @@ const REFLEXES: NoteCatalogue[] = [
     "5-ou-6",
     "Acétonide ou benzylidène : quelle taille de cycle chacun préfère-t-il ?",
     "**acétonide** → cycle à **5** (1,2-diol)\n\n**benzylidène** → cycle à **6** (1,3-diol)",
-    "Acétonide : un méthyle serait axial dans le cycle à 6. Benzylidène : le phényle y est équatorial",
+    "Cétone : le substituant axial déstabiliserait le cycle à 6. Aldéhyde : dans le cycle à 6, le phényle se met en équatorial (Kocienski, Protecting Groups, p. 101)",
   ),
   reflexe(
     "toxiques",
