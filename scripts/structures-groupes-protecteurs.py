@@ -47,6 +47,7 @@ ETIQUETTES = {
     "R'": ("R'", "R'"),
     "R1": ("R<sub>1</sub>", "R<sub>1</sub>"),
     "R2": ("R<sub>2</sub>", "R<sub>2</sub>"),
+    "OAc": ("OAc", "AcO"),
 }
 SUBSTRAT = {"RO", "RHN", "R", "R'"}
 
@@ -66,6 +67,8 @@ class Molecule:
     rotation: float = 0.0  # degrés, appliqués après l'axe
     miroir: bool = False
     coordgen: bool = False
+    # double liaison C=C dessinée sans géométrie imposée (liaison croisée)
+    double_libre: bool = False
 
 
 def _mol(spec: Molecule):
@@ -90,6 +93,12 @@ def _mol(spec: Molecule):
             gris.add(cartes[n])
     for n, note in spec.notes.items():
         m.GetAtomWithIdx(cartes[n]).SetProp("atomNote", note)
+
+    if spec.double_libre:
+        for liaison in m.GetBonds():
+            if liaison.GetBondType() == Chem.BondType.DOUBLE:
+                liaison.SetStereo(Chem.BondStereo.STEREOANY)
+                liaison.SetBondDir(Chem.BondDir.EITHERDOUBLE)
 
     rdDepictor.SetPreferCoordGen(spec.coordgen)
     rdDepictor.Compute2DCoords(m)
@@ -236,6 +245,34 @@ def fleche(dessus: list[str] = (), dessous: list[str] = (), minimum=56) -> Bloc:
     return Bloc(corps, largeur, y + bas + 2)
 
 
+def fleche_bas(textes: list[str] = (), hauteur=40) -> Bloc:
+    """Flèche verticale, conditions à droite : un schéma qui tient sur un téléphone."""
+    largeur_texte = max([0] + [_largeur_texte(t, 12) for t in textes])
+    x = 8
+    corps = (
+        f"<path d='M {x},2 L {x},{hauteur - 8}' style='fill:none;stroke:#000000;stroke-width:1.3px'/>"
+        f"<path d='M {x},{hauteur - 2} L {x - 4},{hauteur - 10} L {x + 4},{hauteur - 10} Z' style='fill:#000000;stroke:none'/>"
+    )
+    debut = hauteur / 2 - (len(textes) * 15) / 2 + 11
+    for i, t in enumerate(textes):
+        corps += _texte(x + 10, debut + i * 15, t, 12, ancre="start")
+    return Bloc(corps, x + 10 + largeur_texte, hauteur)
+
+
+def cascade(*etapes: Bloc | list[str]) -> Bloc:
+    """Molécules les unes sous les autres, reliées par des flèches verticales."""
+    blocs = [fleche_bas(e) if isinstance(e, list) else e for e in etapes]
+    L = max(b.largeur for b in blocs)
+    y = 0.0
+    corps = ""
+    for b in blocs:
+        # Les flèches s'alignent sur l'axe des molécules, leur texte déborde à droite.
+        dx = (L - b.largeur) / 2 if b.largeur > 60 or not corps else L / 2 - 8
+        corps += f"<g transform='translate({dx:.1f},{y:.1f})'>{b.corps}</g>"
+        y += b.hauteur + 6
+    return Bloc(corps, L, y - 6)
+
+
 def ligne(*blocs: Bloc, espace=10.0) -> Bloc:
     """Aligne des blocs horizontalement, centrés sur la verticale."""
     H = max(b.hauteur for b in blocs)
@@ -284,11 +321,23 @@ def amine(smiles: str, **options) -> Molecule:
     return Molecule(smiles, etiquettes=RHN, **{"axe": AXE, **options})
 
 
+# Sommets d'un cyclopentène dessiné comme dans le fascicule (liaison de 1,5).
+_P = {
+    "haut": (0.394, 1.214),
+    "g-haut": (-1.032, 0.75),
+    "g-bas": (-1.032, -0.75),
+    "bas": (0.394, -1.214),
+    "droite": (1.276, 0.0),
+    "haut+": (0.394, 2.714),
+    "bas-": (0.394, -2.714),
+}
+
 M = {
     # 1a — éthers alkyles
     "tbu": ether("[O:1][C:2](C)(C)C", axe=VOISIN),
     "allyl": ether("[O:1][CH2:2]C=C"),
-    "enol-propenyl": ether("[O:1]/[CH:2]=C/C"),
+    # Géométrie non précisée par les sources : la double liaison est dessinée croisée.
+    "enol-propenyl": ether("[O:1][CH:2]=CC", double_libre=True),
     "bn": ether("[O:1][CH2:2]c1ccccc1"),
     "pmb": ether("[O:1][CH2:2]c1ccc(OC)cc1"),
     "tr": ether("[O:1][C:2](c1ccccc1)(c1ccccc1)c1ccccc1", axe=VOISIN),
@@ -310,6 +359,35 @@ M = {
     "piv": ether("[O:1][C:2](=O)C(C)(C)C"),
     "bz": ether("[O:1][C:2](=O)c1ccccc1"),
     "pnbz": ether("[O:1][C:2](=O)c1ccc(cc1)[N+](=O)[O-]"),
+    # Rem 1 du fascicule : esters méthyliques, du plus lent au plus rapide à hydrolyser
+    "me-pivalate": Molecule("COC(=O)C(C)(C)C", rotation=180),
+    "me-pmeobenzoate": Molecule("COC(=O)c1ccc(OC)cc1", rotation=180),
+    "me-benzoate": Molecule("COC(=O)c1ccccc1", rotation=180),
+    "me-acetate": Molecule("COC(C)=O", rotation=180),
+    "me-chloroacetate": Molecule("COC(=O)CCl", rotation=180),
+    "me-trichloroacetate": Molecule("COC(=O)C(Cl)(Cl)Cl", rotation=180),
+    "me-trifluoroacetate": Molecule("COC(=O)C(F)(F)F", rotation=180),
+    # Rem 2 : acétal stannylène d'un 1,2-diol
+    "diol-bn-glycerol": Molecule("OCC(O)COCc1ccccc1"),
+    "stannylene": Molecule("CCCC[Sn]1(CCCC)OCC(COCc2ccccc2)O1"),
+    "monoacetate-primaire": Molecule("CC(=O)OCC(O)COCc1ccccc1"),
+    # Rem 3 : désymétrisation enzymatique (configurations vérifiées : (1R,4S)-monoacétate).
+    # Disposées comme dans le fascicule : C=C à gauche, substituants en haut et en bas.
+    "diacetate-meso": Molecule(
+        "[O:5][C@@H]1C=C[C@H]([O:6])C1",
+        etiquettes={5: "OAc", 6: "OAc"},
+        coords=[_P["haut+"], _P["haut"], _P["g-haut"], _P["g-bas"], _P["bas"], _P["bas-"], _P["droite"]],
+    ),
+    "monoacetate-chiral": Molecule(
+        "[O:5][C@H]1C=C[C@@H](O)C1",
+        etiquettes={5: "OAc"},
+        coords=[_P["bas-"], _P["bas"], _P["g-bas"], _P["g-haut"], _P["haut"], _P["haut+"], _P["droite"]],
+    ),
+    "acetoxy-cyclopentenone": Molecule(
+        "[O:5][C@H]1C=CC(=O)C1",
+        etiquettes={5: "OAc"},
+        coords=[_P["bas-"], _P["bas"], _P["g-bas"], _P["g-haut"], _P["haut"], _P["haut+"], _P["droite"]],
+    ),
     # 2 — diols (R et R' : le squelette qui porte les deux OH)
     "diol-12": Molecule(
         "[*:3]C(O)C(O)[*:4]",
@@ -429,8 +507,40 @@ def schemas() -> dict[str, str]:
                 mol("hydrolyse-dithioacetal", "3,5 × 10⁻⁴"),
             )
         ),
+        "hydrolyse-esters": svg(
+            colonne(
+                ligne(mol("me-pivalate"), texte_seul(["<"], 16), mol("me-pmeobenzoate")),
+                ligne(
+                    texte_seul(["<"], 16), mol("me-benzoate"), texte_seul(["<"], 16),
+                    mol("me-acetate"), texte_seul(["<"], 16), mol("me-chloroacetate"),
+                ),
+                ligne(
+                    texte_seul(["<"], 16), mol("me-trichloroacetate"),
+                    texte_seul(["<"], 16), mol("me-trifluoroacetate"),
+                ),
+            )
+        ),
+        "stannylene-schema": svg(
+            cascade(
+                mol("diol-bn-glycerol"),
+                ["Bu₂SnO", "toluène, 100 °C"],
+                mol("stannylene"),
+                ["AcCl", "CH₂Cl₂, 0 °C"],
+                mol("monoacetate-primaire"),
+            )
+        ),
+        "lipase-schema": svg(
+            cascade(
+                mol("diacetate-meso", "méso"),
+                ["acétylcholinestérase", "94 %, 99 % ee"],
+                mol("monoacetate-chiral"),
+                ["PCC"],
+                mol("acetoxy-cyclopentenone"),
+            )
+        ),
         "paire-pmb-bn": svg(ligne(mol("pmb", "PMB"), mol("bn", "Bn"), espace=24)),
         "paire-boc-cbz": svg(ligne(mol("boc", "Boc"), mol("cbz", "Cbz"), espace=24)),
+        "paire-boc-tbs": svg(ligne(mol("boc", "Boc"), mol("tbs", "TBS"), espace=24)),
         "paire-tbs-tbdps": svg(ligne(mol("tbs", "TBS"), mol("tbdps", "TBDPS"), espace=24)),
         "paire-dithiane-acetonide": svg(ligne(mol("dithiane", "dithiocétal"), mol("acetonide", "acétonide"), espace=24)),
         "paire-formate-ac": svg(ligne(mol("formate", "formate"), mol("ac", "Ac"), mol("bz", "Bz"), espace=20)),

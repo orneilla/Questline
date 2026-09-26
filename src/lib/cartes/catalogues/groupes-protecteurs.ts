@@ -8,10 +8,14 @@
  * sélectivité. Un dernier paquet croise tout, réactif par réactif : c'est là
  * que se joue l'orthogonalité, ce qu'on demande vraiment en synthèse.
  *
- * Les explications « pourquoi » sont des ajouts au fascicule, limitées à ce
- * qui est établi. Deux coquilles du fascicule sont signalées sur les cartes
- * concernées plutôt que recopiées : les noms dioxane/dioxolane inversés
- * (p. 5) et le chlorure de Troc (p. 10).
+ * Chaque affirmation a été recoupée avec l'ouvrage que le fascicule
+ * recommande : T. W. Greene et P. G. M. Wuts, *Protective Groups in Organic
+ * Synthesis*, 3ᵉ éd., Wiley, 1999. Les cartes citent la page du fascicule et
+ * celle de l'ouvrage ; ce qui ne vient que de l'ouvrage est marqué « Greene ».
+ * Les explications « pourquoi » sans source sont des notions de cours
+ * classiques, limitées à ce qui est établi. Deux coquilles du fascicule sont
+ * signalées plutôt que recopiées : les noms dioxane/dioxolane inversés (p. 5)
+ * et le chlorure de Troc (p. 10).
  */
 
 import type { Catalogue, NoteCatalogue, PaquetCatalogue } from "./types";
@@ -33,6 +37,8 @@ type Fiche = {
   fonction: Fonction;
   famille: string;
   page: number;
+  /** Page de Greene & Wuts, 3ᵉ éd., où commence la section du groupe. */
+  greene: number;
   protection: string[];
   deprotection: string[];
   stabilite?: string[];
@@ -75,8 +81,12 @@ function note(
   return { cle, recto, verso, tags: ["groupes-protecteurs", ...tags], notes };
 }
 
-function source(page: number, pourquoi?: string): string {
-  const ref = `Fascicule CH0905, p. ${page}.`;
+function source(page: number | null, pourquoi?: string, greene?: number): string {
+  const refs = [
+    page !== null ? `Fascicule CH0905, p. ${page}` : null,
+    greene ? `Greene & Wuts, 3ᵉ éd., p. ${greene}` : null,
+  ].filter(Boolean);
+  const ref = `${refs.join(" · ")}.`;
   return pourquoi ? `${pourquoi} — ${ref}` : ref;
 }
 
@@ -90,14 +100,14 @@ function fiche(f: Fiche): NoteCatalogue[] {
       `Structure de ${titre} ?\n\n*${f.nom}*`,
       `${img(f.structure)}\n\n${f.formule}`,
       [...tags, "structure"],
-      source(f.page),
+      source(f.page, undefined, f.greene),
     ),
     note(
       `${f.cle}:nom`,
       `${img(f.structure)}\n\nQuel groupe protecteur ?`,
       `${titre} — *${f.nom}*\n\nprotège ${ARTICLE[f.fonction]} · ${FAMILLE[f.famille] ?? f.famille}`,
       [...tags, "structure"],
-      source(f.page),
+      source(f.page, undefined, f.greene),
     ),
   ];
 
@@ -108,7 +118,7 @@ function fiche(f: Fiche): NoteCatalogue[] {
         `Sélectivité de ${titre} ?`,
         f.selectivite,
         [...tags, "selectivite"],
-        source(f.page, f.pourquoi?.selectivite),
+        source(f.page, f.pourquoi?.selectivite, f.greene),
       ),
     );
   }
@@ -119,14 +129,14 @@ function fiche(f: Fiche): NoteCatalogue[] {
       `**Poser** ${titre}\n\n${img(f.structure)}`,
       `${liste(f.protection)}${f.schemaPose ? `\n\n${img(f.schemaPose)}` : ""}`,
       [...tags, "protection"],
-      source(f.page, f.pourquoi?.protection),
+      source(f.page, f.pourquoi?.protection, f.greene),
     ),
     note(
       `${f.cle}:deprotection`,
       `**Retirer** ${titre}\n\n${img(f.structure)}`,
       `${liste(f.deprotection)}${f.schemaRetrait ? `\n\n${img(f.schemaRetrait)}` : ""}`,
       [...tags, "deprotection"],
-      source(f.page, f.pourquoi?.deprotection),
+      source(f.page, f.pourquoi?.deprotection, f.greene),
     ),
   );
 
@@ -140,7 +150,7 @@ function fiche(f: Fiche): NoteCatalogue[] {
         `${titre} résiste à… ?`,
         verso,
         [...tags, "stabilite"],
-        source(f.page, f.pourquoi?.stabilite),
+        source(f.page, f.pourquoi?.stabilite, f.greene),
       ),
     );
   }
@@ -174,6 +184,7 @@ const ALCOOLS: NoteCatalogue[] = [
     fonction: "alcool",
     famille: "ether-alkyle",
     page: 1,
+    greene: 65,
     protection: [
       "H⁺, CH₂=C(CH₃)₂ (isobutène), solvant anhydre",
       "BF₃·OEt₂, CH₂=C(CH₃)₂",
@@ -194,13 +205,17 @@ const ALCOOLS: NoteCatalogue[] = [
     fonction: "alcool",
     famille: "ether-alkyle",
     page: 1,
+    greene: 67,
     protection: ["NaH, THF, BrCH₂CH=CH₂"],
     deprotection: [
       "**en une étape :** Pd/C, MeOH, H₂O, APTS cat. (ou HClO₄ cat.)",
       "**en deux étapes :** 1) isomérisation en éther d'énol R–O–CH=CHCH₃ — t-BuOK, DMSO, 100 °C ou (Ph₃P)₃RhCl, DABCO, EtOH, reflux ; 2) coupure de l'éther d'énol — O₃, ou HCl acétone–eau, ou KMnO₄, NaOH, H₂O",
     ],
     schemaRetrait: "allyl-deux-etapes",
+    stabilite: ["acide modéré (HCl 1 N, reflux, 10 h)", "la plupart des réactifs de glycosylation"],
+    instable: ["hydrogénation catalytique", "électrophiles forts (Br₂)"],
     pourquoi: {
+      stabilite: "Stabilité : d'après Greene, le fascicule ne la donne pas",
       deprotection:
         "Un éther allylique est un éther robuste ; isomérisé en éther d'énol, il devient fragile en acide",
     },
@@ -214,6 +229,7 @@ const ALCOOLS: NoteCatalogue[] = [
     fonction: "alcool",
     famille: "ether-alkyle",
     page: 1,
+    greene: 76,
     protection: ["BnBr, NaH, Bu₄N⁺I⁻, THF", "BnX (X = Cl, Br), Ag₂O, DMF"],
     deprotection: [
       "H₂, Pd/C, EtOH (hydrogénolyse)",
@@ -237,9 +253,10 @@ const ALCOOLS: NoteCatalogue[] = [
     fonction: "alcool",
     famille: "ether-alkyle",
     page: 1,
+    greene: 86,
     protection: ["PMBBr, NaH, DMF"],
     deprotection: [
-      "**DDQ ou CAN**, CH₂Cl₂, H₂O — ne touche pas un Bn",
+      "**DDQ ou CAN**, CH₂Cl₂, H₂O — ne touche pas un Bn (sauf conditions forcées, Greene)",
       "TFA",
       "H₂, Pd/C, EtOH (comme un Bn)",
     ],
@@ -257,6 +274,7 @@ const ALCOOLS: NoteCatalogue[] = [
     fonction: "alcool",
     famille: "ether-alkyle",
     page: 1,
+    greene: 102,
     selectivite: "alcool **primaire ≫ secondaire**",
     protection: ["TrCl, pyridine, DMAP, DMF", "Tr-pyr⁺ BF₄⁻, CH₃CN, pyridine"],
     deprotection: ["H₃O⁺ faible", "SiO₂, PhH", "H₂, Pd/C, EtOH", "Na, NH₃"],
@@ -277,9 +295,13 @@ const ALCOOLS: NoteCatalogue[] = [
     fonction: "alcool",
     famille: "acetal",
     page: 2,
-    protection: ["ClCH₂OCH₃ (MOMCl — ⚠ toxique !), NaH, THF"],
+    greene: 27,
+    protection: ["ClCH₂OCH₃ (MOMCl — ⚠ toxique, cancérogène), NaH, THF"],
     deprotection: ["HCl, MeOH", "BF₃·OEt₂, RSH", "Ph₃C⁺BF₄⁻, H₂O"],
-    pourquoi: { deprotection: "C'est un acétal : il tombe en acide" },
+    pourquoi: {
+      protection: "Greene : le MOMCl est cancérogène, et son sous-produit ClCH₂OCHCl₂ l'est plus encore",
+      deprotection: "C'est un acétal : il tombe en acide",
+    },
   }),
   ...fiche({
     cle: "bom",
@@ -290,6 +312,7 @@ const ALCOOLS: NoteCatalogue[] = [
     fonction: "alcool",
     famille: "acetal",
     page: 2,
+    greene: 36,
     protection: ["BnOCH₂Cl, i-Pr₂NEt"],
     deprotection: ["H₂, Pd/C", "Na, NH₃, EtOH"],
     stabilite: ["bases (B⁻)", "hydrures (H⁻)", "oxydants [O]"],
@@ -307,10 +330,13 @@ const ALCOOLS: NoteCatalogue[] = [
     fonction: "alcool",
     famille: "acetal",
     page: 2,
+    greene: 45,
     protection: ["SEMCl, i-Pr₂NEt, CH₂Cl₂"],
     deprotection: ["**F⁻** : Bu₄N⁺F⁻, LiBF₄, CsF"],
     stabilite: ["bases faibles", "oxydants [O]", "hydrures (H⁻)", "H₃O⁺ faible"],
     pourquoi: {
+      stabilite:
+        "Greene : il survit à AcOH, H₂O, THF à 45 °C, qui retirent THP et TBS ; le TFA, lui, le retire",
       deprotection:
         "F⁻ attaque le silicium ; la chaîne se fragmente (éthylène, Me₃SiF, CH₂=O) et libère l'alcool",
     },
@@ -324,6 +350,7 @@ const ALCOOLS: NoteCatalogue[] = [
     fonction: "alcool",
     famille: "acetal",
     page: 2,
+    greene: 49,
     protection: ["DHP, APTS ou PPTS, CH₂Cl₂"],
     deprotection: ["H₃O⁺ (PPTS, AcOH…), MeOH ou EtOH"],
     stabilite: ["hydrures (H⁻)", "bases (B⁻)", "[O] douce", "RLi", "R₂CuLi", "H₂"],
@@ -346,14 +373,18 @@ const ALCOOLS: NoteCatalogue[] = [
     "Éthers silylés : classe-les par stabilité en milieu **acide**\n\n" + img("silyles-rangee"),
     "**TMS** (1) < **TES** (64) < **TBS** (2 × 10⁴) < **TIPS** (7 × 10⁵) < **TBDPS** (5 × 10⁶)",
     ["alcool", "silyle", "stabilite", "comparaison"],
-    source(2, "Plus le silicium est encombré, plus il résiste"),
+    source(2, "L'encombrement autour du silicium, et l'électronique, règlent la stabilité", 114),
   ),
   note(
     "silyles:base",
     "Éthers silylés : classe-les par stabilité en milieu **basique**\n\n" + img("silyles-rangee"),
     "**TMS** (1) < **TES** (10–100) < **TBS** ≈ **TBDPS** (2 × 10⁴) < **TIPS** (10⁵)",
     ["alcool", "silyle", "stabilite", "comparaison"],
-    source(2, "Le TBDPS, champion en acide, ne vaut qu'un TBS en base ; c'est le TIPS qui gagne"),
+    source(
+      2,
+      "Le TBDPS, champion en acide, ne vaut qu'un TBS en base — Greene le dit même un peu moins stable : NaOH 5 N le retire et laisse le TBS. C'est le TIPS qui gagne",
+      114,
+    ),
   ),
   note(
     "silyles:demi-vies",
@@ -372,9 +403,9 @@ const ALCOOLS: NoteCatalogue[] = [
   note(
     "silyles:fluorure",
     "Pourquoi **F⁻** retire-t-il tous les silyles ?",
-    "La liaison **Si–F** est nettement plus forte que **Si–O** : le fluorure attaque le silicium et libère l'alcoolate.",
+    "La liaison **Si–F** est plus forte que **Si–O** de **30 kcal/mol** : le fluorure attaque le silicium et libère l'alcoolate.",
     ["alcool", "silyle", "deprotection", "mecanisme"],
-    source(3, "Bu₄N⁺F⁻ (TBAF), HF, HF·pyridine, CsF"),
+    source(3, "Bu₄N⁺F⁻ (TBAF), HF, HF·pyridine, CsF", 114),
   ),
   ...fiche({
     cle: "tms",
@@ -385,6 +416,7 @@ const ALCOOLS: NoteCatalogue[] = [
     fonction: "alcool",
     famille: "silyle",
     page: 3,
+    greene: 116,
     protection: ["TMSCl, Et₃N (ou pyridine), CH₂Cl₂"],
     deprotection: ["H₃O⁺ doux", "K₂CO₃, MeOH", "F⁻ (Bu₄N⁺F⁻ ou HF)"],
     stabilite: ["sur OH **tertiaire ≫ secondaire ≫ primaire** — le plus fragile des silyles"],
@@ -399,6 +431,7 @@ const ALCOOLS: NoteCatalogue[] = [
     fonction: "alcool",
     famille: "silyle",
     page: 3,
+    greene: 127,
     selectivite: "alcool **primaire ≫ secondaire ⋙ tertiaire**",
     protection: [
       "TBSCl, **imidazole, DMF**",
@@ -411,7 +444,10 @@ const ALCOOLS: NoteCatalogue[] = [
     ],
     stabilite: ["10⁴ fois plus stable à l'hydrolyse que TMS", "bases douces", "H⁻", "[O]", "H₂"],
     pourquoi: {
-      protection: "Le triflate, bien plus réactif que le chlorure, sert pour les alcools encombrés",
+      protection: "Greene : le triflate est l'une des méthodes les plus puissantes, pour les alcools encombrés",
+      deprotection:
+        "Le fascicule range BF₃·OEt₂ et LiBF₄ avec les fluorures : ce sont des acides de Lewis fluorés",
+      stabilite: "Greene précise : 10⁴ fois plus stable que TMS à l'hydrolyse basique ; il reste assez sensible à l'acide",
     },
   }),
   ...fiche({
@@ -423,12 +459,21 @@ const ALCOOLS: NoteCatalogue[] = [
     fonction: "alcool",
     famille: "silyle",
     page: 3,
+    greene: 123,
     protection: ["TIPSCl, imidazole, DMF", "TIPSOTf, 2,6-lutidine, CH₂Cl₂"],
     deprotection: [
       "**H₃O⁺** : HCl 0,01 N, EtOH ; AcOH 80 %",
       "**F⁻** : Bu₄N⁺F⁻, THF ; HF aq., CH₃CN",
     ],
-    stabilite: ["le plus stable des silyles en **base** (10⁵ × TMS)", "très stable en acide (7 × 10⁵ × TMS)"],
+    selectivite: "alcool **primaire > secondaire**",
+    stabilite: [
+      "le plus stable des silyles en **base** (10⁵ × TMS)",
+      "en acide, entre TBS et TBDPS (7 × 10⁵ × TMS)",
+    ],
+    pourquoi: {
+      selectivite: "Sélectivité et stabilité : d'après Greene, le fascicule ne les détaille pas",
+      stabilite: "Chiffres du fascicule, p. 2",
+    },
   }),
   ...fiche({
     cle: "tbdps",
@@ -439,6 +484,7 @@ const ALCOOLS: NoteCatalogue[] = [
     fonction: "alcool",
     famille: "silyle",
     page: 3,
+    greene: 141,
     selectivite: "**primaire ≫ secondaire ≫ tertiaire**, et **équatorial > axial**",
     protection: ["TBDPSCl, imidazole, DMF", "TBDPSCl, Et₃N, DMAP, CH₂Cl₂"],
     deprotection: [
@@ -447,7 +493,10 @@ const ALCOOLS: NoteCatalogue[] = [
       "**base** : NaOH 5 N, EtOH ou KOH 10 %, MeOH",
     ],
     stabilite: ["H⁻", "H₃O⁺ modéré", "[O]", "bases modérées", "H₂"],
-    pourquoi: { stabilite: "Le plus stable des silyles en acide (5 × 10⁶ × TMS)" },
+    pourquoi: {
+      stabilite:
+        "Le plus stable des silyles en acide (5 × 10⁶ × TMS). Greene : il survit à AcOH 80 %, qui retire TBS, Tr et THP, et à K₂CO₃/MeOH",
+    },
   }),
 
   // d) Esters
@@ -460,6 +509,7 @@ const ALCOOLS: NoteCatalogue[] = [
     fonction: "alcool",
     famille: "ester",
     page: 3,
+    greene: 149,
     protection: ["HCO₂H", "CH₃CO₂CHO (anhydride acétoformique), pyridine"],
     deprotection: ["KHCO₃, H₂O, MeOH", "NH₄OH dilué"],
     pourquoi: { deprotection: "Hydrolysé 100 fois plus vite qu'un acétate ou un benzoate" },
@@ -473,10 +523,15 @@ const ALCOOLS: NoteCatalogue[] = [
     fonction: "alcool",
     famille: "ester",
     page: 4,
+    greene: 150,
+    selectivite:
+      "Ac₂O, pyridine : **primaire > secondaire**, les **tertiaires** ne s'acétylent généralement **pas** ; avec **DMAP**, même les tertiaires",
     protection: ["Ac₂O, pyridine", "AcCl, Ac₂O, pyridine, DMAP"],
     deprotection: ["K₂CO₃ (ou MeONa), MeOH, H₂O", "lipases, tampon pH 7"],
     pourquoi: {
-      protection: "DMAP, bien plus nucléophile que la pyridine, forme un acylpyridinium très réactif",
+      selectivite: "Sélectivité : d'après Greene",
+      protection:
+        "DMAP, bien plus nucléophile que la pyridine, forme un acylpyridinium très réactif (Greene : acylation 10⁴ fois plus rapide)",
       deprotection: "Transestérification : l'acétyle part sur le méthanol (AcOMe)",
     },
   }),
@@ -489,6 +544,7 @@ const ALCOOLS: NoteCatalogue[] = [
     fonction: "alcool",
     famille: "ester",
     page: 4,
+    greene: 170,
     selectivite: "**primaire > secondaire** ; ne se pose **pas** sur un tertiaire",
     protection: ["PivCl, pyridine"],
     deprotection: ["Bu₄N⁺OH⁻", "MeNH₂, H₂O", "NaOH, EtOH, H₂O", "MeLi, Et₂O"],
@@ -504,6 +560,7 @@ const ALCOOLS: NoteCatalogue[] = [
     fonction: "alcool",
     famille: "ester",
     page: 4,
+    greene: 173,
     selectivite: "**primaire > secondaire**, **équatorial > axial**",
     protection: ["BzCl (ou Bz₂O), pyridine", "BzCl, Bu₄N⁺Cl⁻, NaOH 40 % (transfert de phase)"],
     deprotection: ["NaOH, MeOH", "NH₃, MeOH, H₂O"],
@@ -512,11 +569,47 @@ const ALCOOLS: NoteCatalogue[] = [
   note(
     "pnbz:variante",
     "Variante du Bz : pourquoi un **p-nitrobenzoate** ?\n\n" + img("pnbz"),
-    "**Plus cristallin** (purification, rayons X) et **plus facile à cliver** que le benzoate.",
+    "**Plus cristallin** et **plus facile à cliver** que le benzoate.",
     ["alcool", "ester", "bz"],
-    source(4, "Le nitro, attracteur, rend le carbonyle plus électrophile"),
+    source(
+      4,
+      "Greene : p-nitrobenzoate > acétate > benzoate > pivaloate pour la vitesse de clivage — l'acide p-nitrobenzoïque, plus acide, fait un meilleur groupe partant",
+      155,
+    ),
   ),
 ];
+
+/* Les trois remarques de la page 4 : figures seules dans le fascicule. */
+ALCOOLS.push(
+  note(
+    "esters:hydrolyse",
+    "Esters méthyliques : classe-les du plus **lent** au plus **rapide** à l'hydrolyse basique\n\nacétate · trifluoroacétate · pivalate · benzoate · trichloroacétate · p-méthoxybenzoate · chloroacétate",
+    img("hydrolyse-esters") +
+      "\n\n**pivalate < p-méthoxybenzoate < benzoate < acétate < chloroacétate < trichloroacétate < trifluoroacétate**",
+    ["alcool", "ester", "stabilite", "comparaison"],
+    source(
+      4,
+      "Rem 1 : la sensibilité à l'hydrolyse basique croît avec l'acidité de l'acide libéré. Greene : p-nitrobenzoate > acétate > benzoate > pivaloate",
+      155,
+    ),
+  ),
+  note(
+    "esters:stannylene",
+    "Acétyler **seulement l'OH primaire** d'un 1,2-diol ?",
+    "Passer par l'**acétal stannylène** : Bu₂SnO, toluène, 100 °C, puis AcCl, CH₂Cl₂, 0 °C\n\n" +
+      img("stannylene-schema"),
+    ["alcool", "ester", "ac", "selectivite"],
+    source(4, "Rem 2 du fascicule (« stalynenes » : lire stannylènes). Greene : 84 %", 151),
+  ),
+  note(
+    "esters:lipase",
+    "Désymétriser un **diacétate méso** ?\n\n" + img("diacetate-meso"),
+    "Une **enzyme** (acétylcholinestérase) n'hydrolyse qu'**un** des deux acétates énantiotopes : 94 %, 99 % ee — puis PCC donne l'énone chirale\n\n" +
+      img("lipase-schema"),
+    ["alcool", "ester", "ac", "enzyme"],
+    source(4, "Rem 3 : monoacétate (1R,4S)"),
+  ),
+);
 
 /* ═════════════════════════════ 2 · Diols ═════════════════════════════ */
 
@@ -562,9 +655,11 @@ const DIOLS: NoteCatalogue[] = [
     fonction: "diol",
     famille: "acetal-cyclique",
     page: 5,
+    greene: 201,
     protection: ["formaldéhyde, H₃O⁺", "CH₂Br₂, NaH, DMF"],
     deprotection: ["BCl₃, CH₂Cl₂", "HCl 2 N"],
     stabilite: ["le plus dur à cliver de **tous** les acétals"],
+    pourquoi: { stabilite: "Greene : le plus stable des acétals à l'hydrolyse acide" },
   }),
   ...fiche({
     cle: "ethylidene",
@@ -575,6 +670,7 @@ const DIOLS: NoteCatalogue[] = [
     fonction: "diol",
     famille: "acetal-cyclique",
     page: 5,
+    greene: 204,
     protection: ["CH₃CHO ou CH₃CH(OCH₃)₂, H⁺ anhydre"],
     deprotection: ["AcOH 80 %"],
   }),
@@ -587,6 +683,7 @@ const DIOLS: NoteCatalogue[] = [
     fonction: "diol",
     famille: "acetal-cyclique",
     page: 5,
+    greene: 207,
     selectivite: "**cycle à 5** (1,3-dioxolane, sur un 1,2-diol) **> cycle à 6**",
     protection: [
       "CH₃C(OCH₃)=CH₂ (2-méthoxypropène), H⁺ anhydre, CH₂Cl₂",
@@ -595,6 +692,7 @@ const DIOLS: NoteCatalogue[] = [
     ],
     deprotection: ["H₃O⁺", "HCl, MeOH", "BCl₃"],
     pourquoi: {
+      deprotection: "Greene : un 1,3-dioxane s'hydrolyse plus vite qu'un 1,3-dioxolane",
       selectivite:
         "En 1,3-dioxane chaise, l'un des deux méthyles est forcément axial (gêne 1,3-diaxiale) ; le fascicule inverse ici les noms dioxane/dioxolane",
     },
@@ -636,6 +734,7 @@ const DIOLS: NoteCatalogue[] = [
     fonction: "diol",
     famille: "acetal-cyclique",
     page: 6,
+    greene: 217,
     selectivite: "**cycle à 6** (1,3-dioxane, sur un 1,3-diol) **> cycle à 5**",
     protection: ["PhCHO, H⁺ anhydre, DMSO", "PhCHO, ZnCl₂"],
     deprotection: ["H₂, Pd/C, AcOH", "H₃O⁺", "Na, NH₃"],
@@ -651,10 +750,14 @@ const DIOLS: NoteCatalogue[] = [
     liste([
       "**Et₃SiH, TFA** (95 % si R = Ac, 80 % si R = Bn)",
       "**NaBH₃CN, HCl**, THF (82 %)",
-      "BH₃·NMe₃, AlCl₃ (72 %)",
+      "BH₃·NMe₃, AlCl₃ (72 %) — dans le THF",
     ]) + "\n\n" + img("benzylidene-reduction"),
     ["diol", "acetal-cyclique", "benzylidene", "reduction"],
-    source(7, "Sur un 4,6-O-benzylidène glucoside : régio-isomère A, 6-OBn et 4-OH"),
+    source(
+      7,
+      "Sur un 4,6-O-benzylidène glucoside : régio-isomère A, 6-OBn et 4-OH. Greene : avec BH₃·NMe₃, le solvant décide — THF → 6-OBn, toluène ou CH₂Cl₂ → 4-OBn",
+      221,
+    ),
   ),
   note(
     "benzylidene:reduction-secondaire",
@@ -662,7 +765,7 @@ const DIOLS: NoteCatalogue[] = [
       img("benzylidene-13"),
     liste(["**Bu₂BOTf, BH₃·THF** (87 %)"]) + "\n\n" + img("benzylidene-reduction"),
     ["diol", "acetal-cyclique", "benzylidene", "reduction"],
-    source(7, "Sur un 4,6-O-benzylidène glucoside : régio-isomère B, 4-OBn et 6-OH"),
+    source(7, "Sur un 4,6-O-benzylidène glucoside : régio-isomère B, 4-OBn et 6-OH", 221),
   ),
 
   // b) Carbonates
@@ -675,6 +778,7 @@ const DIOLS: NoteCatalogue[] = [
     fonction: "diol",
     famille: "carbonate",
     page: 7,
+    greene: 241,
     protection: [
       "Cl₂CO (phosgène — à proscrire) → **diphosgène** CCl₃OC(O)Cl ou **triphosgène** (CCl₃O)₂CO, pyridine",
       "Im₂CO (CDI), PhH, reflux",
@@ -682,7 +786,10 @@ const DIOLS: NoteCatalogue[] = [
     deprotection: ["OH⁻"],
     stabilite: ["H₃O⁺"],
     schemaPose: "carbonate-schema",
-    pourquoi: { stabilite: "Ester : il craint la base et pas l'acide — l'inverse d'un acétal" },
+    pourquoi: {
+      stabilite:
+        "Greene : très stable à l'hydrolyse acide (AcOH, HBr, H₂SO₄/MeOH) et plus résistant à la base qu'un ester simple — l'inverse d'un acétal",
+    },
   }),
 
   // c) Orthoesters
@@ -695,12 +802,17 @@ const DIOLS: NoteCatalogue[] = [
     fonction: "diol",
     famille: "orthoester",
     page: 7,
+    greene: 231,
     protection: ["MeC(OMe)₃, H⁺ anhydre"],
     deprotection: ["AcOH — plus sensible à H₃O⁺ qu'un acétonide"],
     stabilite: ["bases (B⁻)", "hydrures (H⁻)", "RLi", "R₂CuLi"],
     instable: ["H⁺, plus encore qu'un acétal ou un cétal"],
     schemaPose: "orthoester-schema",
-    pourquoi: { stabilite: "« Méthoxyéthylène » dans le fascicule" },
+    pourquoi: {
+      deprotection:
+        "Greene : l'hydrolyse acide douce donne d'abord un monoester du diol (mélange de régio-isomères)",
+      stabilite: "« Méthoxyéthylène » dans le fascicule ; Greene l'appelle 1-méthoxyéthylidène",
+    },
   }),
   note(
     "orthoester:triol",
@@ -749,6 +861,17 @@ const CETONES: NoteCatalogue[] = [
       img("cetone-dioxolane"),
     ["cetone", "cetal", "protection"],
     source(8, "Au reflux du toluène, l'eau formée est chassée (Dean-Stark) ; la variante silylée ne forme pas d'eau du tout"),
+  ),
+  note(
+    "cetal:stabilite",
+    "Cétals et dithiocétals : ils **résistent** à… ?",
+    liste([
+      "bases aqueuses et non aqueuses",
+      "nucléophiles, **organométalliques** compris",
+      "hydrures",
+    ]) + "\n\n**Mais pas :** l'acide (cétals) · Hg²⁺, Ag⁺, MeI (dithiocétals)",
+    ["cetone", "cetal", "dithiocetal", "stabilite"],
+    source(null, "Stabilité : d'après Greene, le fascicule ne la donne pas", 296),
   ),
   note(
     "cetal:deprotection",
@@ -815,6 +938,7 @@ const AMINES: NoteCatalogue[] = [
     fonction: "amine",
     famille: "alkylamine",
     page: 9,
+    greene: 579,
     selectivite:
       "**dibenzylation** R–NBn₂ par BnX + base ; **monobenzylation** R–NHBn par amination réductrice (PhCHO puis réduction)",
     protection: [
@@ -824,7 +948,8 @@ const AMINES: NoteCatalogue[] = [
     ],
     deprotection: ["Na, NH₃", "Pd/C, HCOOH, MeOH"],
     pourquoi: {
-      deprotection: "L'acide formique sert de source d'hydrogène : hydrogénolyse par transfert",
+      deprotection:
+        "L'acide formique sert de source d'hydrogène : hydrogénolyse par transfert. Greene : sous H₂/Pd-C, une benzylamine se coupe souvent très lentement",
     },
   }),
   ...fiche({
@@ -836,6 +961,7 @@ const AMINES: NoteCatalogue[] = [
     fonction: "amine",
     famille: "amide",
     page: 9,
+    greene: 551,
     protection: ["HCO₂H, Ac₂O", "HCO₂H, DCC, pyridine"],
     deprotection: ["HCl, H₂O, dioxane", "H₂, Pd/C, HCl, THF", "NaOH, H₂O, reflux"],
   }),
@@ -848,6 +974,7 @@ const AMINES: NoteCatalogue[] = [
     fonction: "amine",
     famille: "amide",
     page: 9,
+    greene: 552,
     protection: ["Ac₂O ou AcCl, avec ou sans base"],
     deprotection: ["HCl aq., reflux", "NH₂NH₂, H₂O"],
     pourquoi: { deprotection: "Un amide est robuste : il faut chauffer en acide, ou l'hydrazine" },
@@ -861,6 +988,7 @@ const AMINES: NoteCatalogue[] = [
     fonction: "amine",
     famille: "amide",
     page: 10,
+    greene: 556,
     protection: ["(CF₃CO)₂O, pyridine, CH₂Cl₂"],
     deprotection: [
       "K₂CO₃ ou Na₂CO₃, MeOH, H₂O — **ne clive pas les esters méthyliques**",
@@ -880,12 +1008,13 @@ const AMINES: NoteCatalogue[] = [
     fonction: "amine",
     famille: "carbamate",
     page: 10,
+    greene: 518,
     protection: ["Boc₂O, NaOH, H₂O"],
     deprotection: ["HCl 3 M, EtOAc", "**TFA** pur ou dans CH₂Cl₂", "Δ ≥ 150 °C"],
     stabilite: ["nucléophiles", "bases (B⁻)"],
     pourquoi: {
       deprotection:
-        "En acide, le cation tert-butyle part (→ isobutène) ; l'acide carbamique restant perd CO₂ et rend l'amine",
+        "En acide, le cation tert-butyle part (→ isobutène) ; l'acide carbamique restant perd CO₂ et rend l'amine. Greene : TBS et TBDPS survivent au TFA qui retire le Boc",
     },
   }),
   ...fiche({
@@ -897,6 +1026,7 @@ const AMINES: NoteCatalogue[] = [
     fonction: "amine",
     famille: "carbamate",
     page: 10,
+    greene: 526,
     protection: ["AllocCl (AllOCOCl), pyridine"],
     deprotection: ["**Pd(PPh₃)₄**, Bu₃SnH, AcOH"],
     pourquoi: {
@@ -913,6 +1043,7 @@ const AMINES: NoteCatalogue[] = [
     fonction: "amine",
     famille: "carbamate",
     page: 10,
+    greene: 531,
     protection: ["BnOCOCl (CbzCl), Na₂CO₃, H₂O", "(BnOCO)₂O, dioxane, H₂O, NaOH ou Et₃N"],
     deprotection: [
       "**H₂** (ou un donneur d'H₂), **Pd/C**, EtOH",
@@ -933,9 +1064,13 @@ const AMINES: NoteCatalogue[] = [
     fonction: "amine",
     famille: "carbamate",
     page: 10,
+    greene: 510,
     protection: ["Cl₃CCH₂OCOCl (TrocCl), pyridine ou NaOH"],
     deprotection: ["**Zn**, THF, H₂O — ne touche ni Boc, ni Bn, ni TFA"],
+    stabilite: ["aux conditions qui retirent un **Boc** (acide) ou un **trifluoroacétamide** (base douce)"],
+    instable: ["H₂, Pd/C en milieu acide (TsOH, DMF)"],
     pourquoi: {
+      stabilite: "Stabilité : d'après Greene — il supporte en revanche H₂ sur Ru-C ou Pt-C",
       protection: "Le fascicule écrit « Cl₃CH₂OCOCl » : il manque un C",
       deprotection:
         "Le zinc réduit une liaison C–Cl ; β-élimination : 1,1-dichloroéthylène, CO₂ et l'amine",
@@ -950,6 +1085,7 @@ const AMINES: NoteCatalogue[] = [
     fonction: "amine",
     famille: "sulfonamide",
     page: 10,
+    greene: 604,
     protection: ["TsCl, pyridine ou Et₃N, CH₂Cl₂"],
     deprotection: ["Li ou Na, NH₃", "HBr, AcOH, 70 °C"],
     pourquoi: { deprotection: "Un sulfonamide est l'un des groupes les plus robustes : conditions dures" },
@@ -974,7 +1110,7 @@ const REFLEXES: NoteCatalogue[] = [
     "h2-pdc",
     "Qu'est-ce qui tombe sous **H₂, Pd/C** ?",
     "**Alcools :** Bn · PMB · Tr · BOM\n\n**Diols :** benzylidène\n\n**Amines :** Cbz · Bn (transfert, HCOOH) · formamide (avec HCl)",
-    "Tout ce qui porte une liaison O–benzyle ou N–benzyle",
+    "Surtout les liaisons C–O ou C–N benzyliques. L'allyle n'y survit pas non plus (sa C=C est réduite), ni le Troc en milieu acide (Greene)",
   ),
   reflexe(
     "fluorure",
@@ -991,8 +1127,8 @@ const REFLEXES: NoteCatalogue[] = [
   reflexe(
     "tfa-acide",
     "Qu'est-ce qui tombe sous **TFA** (acide trifluoroacétique) ?",
-    "**t-Bu** (éther) · **PMB** · **Boc** — et un TBS (TFA, CH₂Cl₂) ; a fortiori un Tr, qui part déjà en acide faible",
-    "Ceux qui libèrent un cation stabilisé : tert-butyle ou p-méthoxybenzyle",
+    "**t-Bu** (éther) · **PMB** · **Boc** · **Tr** (déjà en acide faible) · **SEM** (TFA, CH₂Cl₂)",
+    "Ceux qui libèrent un cation stabilisé. Le fascicule cite aussi TFA, CH₂Cl₂ pour un TBS ; Greene précise que TBS et TBDPS survivent au TFA qui retire un Boc : tout dépend de l'eau et du temps",
   ),
   reflexe(
     "base-douce",
@@ -1004,12 +1140,13 @@ const REFLEXES: NoteCatalogue[] = [
     "me3sii",
     "Qu'est-ce qui tombe sous **Me₃SiI** ?",
     "éthers **t-Bu** et **Bn**",
-    "Et les éthers silylés n'y survivent pas non plus",
+    "Réactif peu sélectif : Greene note qu'il attaque aussi la plupart des éthers, esters, cétals et carbamates, et les éthers silylés n'y survivent pas",
   ),
   reflexe(
     "bcl3",
     "Qu'est-ce qui tombe sous **BCl₃** ?",
     "**Bn** · **méthylène** · **acétonide**",
+    "Greene : il coupe aussi le benzylidène et d'autres cétals",
   ),
   reflexe(
     "pmb-bn",
@@ -1027,7 +1164,7 @@ const REFLEXES: NoteCatalogue[] = [
   ),
   reflexe(
     "alloc",
-    "Retirer un **Alloc** sans acide ni base ?",
+    "Retirer un **Alloc** sans acide fort ni base ?",
     "**Pd(PPh₃)₄**, Bu₃SnH, AcOH",
     undefined,
     "alloc",
@@ -1063,15 +1200,35 @@ const REFLEXES: NoteCatalogue[] = [
   reflexe(
     "tbs-tbdps",
     "Retirer un **TBS** en gardant un **TBDPS** ?",
-    "**Acide doux** (AcOH, PPTS) : en acide, le TBDPS est ~250 fois plus stable",
-    "L'inverse n'a pas de solution simple : en base, TBS et TBDPS se valent (2 × 10⁴ × TMS)",
+    "**Acide doux** : AcOH 80 % (ou AcOH, H₂O, THF) — le TBDPS y résiste, il est bien plus stable en acide (≈ 100 fois selon Greene)",
+    "Greene : AcOH 80 % retire TBS, Tr et THP mais laisse le TBDPS",
     "paire-tbs-tbdps",
+  ),
+  reflexe(
+    "tbdps-tbs",
+    "Et l'inverse : retirer un **TBDPS** en gardant un **TBS** ?",
+    "**Base forte** : NaOH 5 N, EtOH — le TBS y résiste",
+    "Greene & Wuts, 3ᵉ éd., p. 142 : le TBDPS est un peu moins stable en base que le TBS. Le fascicule cite NaOH 5 N, EtOH ou KOH 10 %, MeOH pour retirer un TBDPS",
+    "paire-tbs-tbdps",
+  ),
+  reflexe(
+    "boc-tbs",
+    "Retirer un **Boc** en gardant un **TBS** ?",
+    "**TFA** (anhydre), CH₂Cl₂ — TBS et TBDPS y survivent",
+    "Greene & Wuts, 3ᵉ éd., p. 520",
+    "paire-boc-tbs",
+  ),
+  reflexe(
+    "sem-thp",
+    "Retirer un **THP** ou un **TBS** en gardant un **SEM** ?",
+    "**AcOH, H₂O, THF**, 45 °C — le SEM y résiste",
+    "Greene & Wuts, 3ᵉ éd., p. 45",
   ),
   reflexe(
     "tertiaire",
     "Quels groupes **ne se posent pas** (ou mal) sur un alcool **tertiaire** ?",
-    "**Tr** (primaire ≫ secondaire) · **Piv** (jamais sur un tertiaire) · **TBS**-Cl (primaire ≫ secondaire ⋙ tertiaire)",
-    "Pour un tertiaire, le triflate TBSOTf, 2,6-lutidine prend le relais",
+    "**Tr** (primaire ≫ secondaire) · **Piv** (jamais sur un tertiaire) · **TBS**-Cl (primaire ≫ secondaire ⋙ tertiaire) · **Ac₂O, pyridine** sans DMAP",
+    "Pour un tertiaire : TBSOTf, 2,6-lutidine, ou Ac₂O avec DMAP (Greene)",
   ),
   reflexe(
     "plus-dur",

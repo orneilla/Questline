@@ -271,7 +271,7 @@ le point-virgule et la tabulation, avec ou sans en-tête.
 Des paquets tout faits, écrits dans le code et installés d'un geste depuis
 `/cartes/reglages`, section *Catalogues de cours*. Le premier : **Groupes
 protecteurs** (CH0905, Synthèse totale de produits naturels, fascicule du
-Pr J.-B. Behr) — 211 cartes, rangées comme le fascicule :
+Pr J.-B. Behr) — 222 cartes, rangées comme le fascicule :
 
 | Paquet | Contenu |
 | --- | --- |
@@ -289,6 +289,22 @@ dessin en même temps que les conditions. Les nouvelles cartes sortent dans
 l'ordre du fascicule. Les explications ajoutées au fascicule (le « pourquoi »
 d'une déprotection, d'une sélectivité) sont en note de bas de carte, avec la
 page du fascicule.
+
+**Recoupé avec l'ouvrage de référence** — chaque carte a été vérifiée contre
+le fascicule et contre T. W. Greene et P. G. M. Wuts, *Protective Groups in
+Organic Synthesis*, 3ᵉ éd., Wiley, 1999, que le fascicule recommande. La note
+de bas de carte cite les deux pages ; ce qui ne vient que de l'ouvrage (une
+stabilité que le fascicule ne donne pas, une orthogonalité) est marqué
+« Greene ». Les trois remarques de la page 4, qui n'existent qu'en figure, ont
+leurs cartes.
+
+**Place occupée** — mesurée sur Postgres 16 après installation : 222 cartes
+(≈ 290 Ko avec les index), 66 images (274 Ko de SVG, ≈ 190 Ko une fois
+compressées par TOAST), et ≈ 25 Ko de plus par sauvegarde hebdomadaire, soit
+≈ 200 Ko pour les huit gardées : **≈ 0,8 Mo en tout, 0,16 % des 512 Mo**. Cinq
+ans de révisions (≈ 15 par carte) ajoutent ≈ 0,6 Mo. Les images ne sont pas
+dans les sauvegardes, ce qui compte ici : les copier huit fois coûterait plus
+que tout le reste.
 
 **Les structures** sont des SVG dessinés par RDKit puis retouchés par
 `scripts/structures-groupes-protecteurs.py` : même échelle pour toutes, le
