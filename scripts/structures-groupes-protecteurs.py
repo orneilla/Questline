@@ -172,8 +172,66 @@ def _nettoyer(svg: str, gris: set[int]) -> tuple[str, float, float]:
     return corps, largeur, hauteur
 
 
+# ───────────────────────────── Contrôle ─────────────────────────────
+#
+# Chaque dessin passe par ces vérifications géométriques : un atome posé sur un
+# autre, deux liaisons qui se croisent, une étiquette sur une liaison, des
+# liaisons de longueurs très inégales. Le script refuse d'écrire un dessin
+# fautif (voir main()).
+
+DESSIN_EN_COURS = ""
+ANOMALIES: list[str] = []
+
+
+def _croise(p1, p2, p3, p4) -> bool:
+    def o(a, b, c):
+        return (b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0])
+    d1, d2, d3, d4 = o(p3, p4, p1), o(p3, p4, p2), o(p1, p2, p3), o(p1, p2, p4)
+    return (d1 * d2 < 0) and (d3 * d4 < 0)
+
+
+def _dist_segment(p, a, b) -> float:
+    ax, ay = b[0] - a[0], b[1] - a[1]
+    t = max(0.0, min(1.0, ((p[0] - a[0]) * ax + (p[1] - a[1]) * ay) / ((ax * ax + ay * ay) or 1)))
+    return math.hypot(p[0] - a[0] - t * ax, p[1] - a[1] - t * ay)
+
+
+def controler(m, etiquetees: set[int] = frozenset()) -> None:
+    conf = m.GetConformer()
+    pts = [(conf.GetAtomPosition(i).x, conf.GetAtomPosition(i).y) for i in range(m.GetNumAtoms())]
+    liaisons = [(l.GetBeginAtomIdx(), l.GetEndAtomIdx()) for l in m.GetBonds()]
+    if not liaisons:
+        return
+    longueurs = [math.dist(pts[a], pts[b]) for a, b in liaisons]
+    L = sorted(longueurs)[len(longueurs) // 2]
+    nom = f"{DESSIN_EN_COURS} [{Chem.MolToSmiles(m)[:60]}]"
+    if max(longueurs) / L > 1.55 or min(longueurs) / L < 0.6:
+        ANOMALIES.append(f"{nom} : longueurs de liaison inégales ({min(longueurs) / L:.2f}–{max(longueurs) / L:.2f})")
+    voisins = {(a, b) for a, b in liaisons} | {(b, a) for a, b in liaisons}
+    n = len(pts)
+    for i in range(n):
+        for j in range(i + 1, n):
+            if (i, j) not in voisins and math.dist(pts[i], pts[j]) < 0.55 * L:
+                ANOMALIES.append(f"{nom} : atomes {i} et {j} superposés")
+    for x, (a, b) in enumerate(liaisons):
+        for (c, d) in liaisons[x + 1 :]:
+            if len({a, b, c, d}) == 4 and _croise(pts[a], pts[b], pts[c], pts[d]):
+                ANOMALIES.append(f"{nom} : liaisons {a}-{b} et {c}-{d} se croisent")
+    for i in range(n):
+        a_ = m.GetAtomWithIdx(i)
+        visible = a_.GetSymbol() != "C" or i in etiquetees or a_.GetFormalCharge() != 0
+        if not visible:
+            continue
+        for a, b in liaisons:
+            if i in (a, b):
+                continue
+            if _dist_segment(pts[i], pts[a], pts[b]) < 0.38 * L:
+                ANOMALIES.append(f"{nom} : l'étiquette de l'atome {i} ({a_.GetSymbol()}) touche la liaison {a}-{b}")
+
+
 def dessiner(spec: Molecule) -> tuple[str, float, float]:
     m, gris, moyenne = _mol(spec)
+    controler(m, {a.GetIdx() for a in m.GetAtoms() if a.HasProp("_displayLabel")})
     d = rdMolDraw2D.MolDraw2DSVG(-1, -1)
     o = d.drawOptions()
     o.scalingFactor = LIAISON_PX / moyenne
@@ -373,13 +431,19 @@ M = {
     "bom": ether("[O:1][CH2:2]OCc1ccccc1"),
     "sem": ether("[O:1][CH2:2]OCC[Si](C)(C)C"),
     "thp": Molecule("[O:1][CH:2]1CCCCO1", etiquettes=RO, notes={2: "*"}, axe=AXE),
+    "thp-sans-note": Molecule("[O:1][CH:2]1CCCCO1", etiquettes=RO, axe=AXE),
     "dhp": Molecule("C1CC=COC1", rotation=90),
     # 1c — éthers silylés
     "tms": ether("[O:1][Si:2](C)(C)C", axe=VOISIN),
     "tes": ether("[O:1][Si:2](CC)(CC)CC", axe=VOISIN),
     "tbs": ether("[O:1][Si:2](C)(C)C(C)(C)C", axe=VOISIN),
     "tips": ether("[O:1][Si:2](C(C)C)(C(C)C)C(C)C", axe=VOISIN),
-    "tbdps": ether("[O:1][Si:2](c1ccccc1)(c1ccccc1)C(C)(C)C", axe=VOISIN),
+    "tbdps": ether(
+        "[O:1][Si:2]([c:3]1ccccc1)([c:4]1ccccc1)[C:5](C)(C)C",
+        coords=None,
+        axe=VOISIN,
+        coordgen=True,
+    ),
     # 1d — esters
     "formate": ether("[O:1][CH:2]=O"),
     "ac": ether("[O:1][C:2](C)=O"),
@@ -476,7 +540,7 @@ def schemas() -> dict[str, str]:
     mol = lambda cle, legende=None: molecule(M[cle], legende)  # noqa: E731
     return {
         "thp-schema": svg(
-            ligne(mol("dhp", "DHP"), fleche(["ROH"], ["H⁺ cat. (APTS, PPTS)"]), mol("thp"))
+            ligne(mol("dhp", "DHP"), fleche(["ROH"], ["H⁺ cat. (APTS, PPTS)"]), mol("thp-sans-note"))
         ),
         "allyl-deux-etapes": svg(
             colonne(
@@ -676,6 +740,7 @@ def dessiner_meca(spec: Meca) -> Bloc:
             q = conf.GetAtomPosition(i)
             conf.SetAtomPosition(i, Point3D(q.x - gx + tx * 1.5, q.y - gy + ty * 1.5, 0))
 
+    controler(m, etiquetes)
     d = rdMolDraw2D.MolDraw2DSVG(-1, -1)
     o = d.drawOptions()
     o.scalingFactor = LIAISON_MECA_PX / 1.5
@@ -973,7 +1038,7 @@ def meca_dithiane() -> Bloc:
         [],
         mm(
             f"[OH:7][C:1]7([S+:2]9[CH2:4][CH2:5][CH2:6][S:3][Hg:8]9){cyclo}7",
-            places={**hexa, 7: (0, 1.1), 2: (1, 0), 4: (1.6, -0.8), 5: (2.6, -0.6), 6: (2.9, 0.4), 3: (2.3, 1.2), 8: (1.3, 1.0)},
+            places={**hexa, 7: (0.35, -1.2), 2: (1, 0), 4: (1.6, -0.8), 5: (2.6, -0.7), 6: (3.0, 0.2), 3: (2.4, 1.0), 8: (1.4, 0.95)},
             textes=[(2, 26, -46, "Cl⁻")],
         ),
         ["− HCl"],
@@ -1020,7 +1085,8 @@ def meca_sem() -> Bloc:
         crochets(
             mm(
                 "[*:1][OH+:3][CH2:4][O:5][CH2:6][CH2:7][*:8][F:9]",
-                etiquettes={1: R, 8: ("<sup>−</sup>SiMe<sub>3</sub>", "Me<sub>3</sub>Si<sup>−</sup>")},
+                # « - » ASCII : la police de RDKit n'a pas le signe moins typographique.
+                etiquettes={1: R, 8: ("<sup>-</sup>SiMe<sub>3</sub>", "Me<sub>3</sub>Si<sup>-</sup>")},
                 places={**chaine, 9: (0.5, 5.33)},
                 fleches=[((8, 7), (7, 6), -1.0), ((6, 5), (5, 4), -1.0), ((4, 3), 3, -1.1)],
             )
@@ -1251,10 +1317,356 @@ MECANISMES = {
 }
 
 
+# ─────────────────────── Mécanismes du Clayden ───────────────────────
+#
+# J. Clayden, N. Greeves, S. Warren, *Organic Chemistry*, 2ᵉ éd., OUP, 2012.
+# Même règle que pour Kocienski : chaque schéma est redessiné tel qu'il est
+# dans l'ouvrage, étapes et flèches, sans rien y ajouter.
+
+H_PLUS = ("H<sup>+</sup>", "H<sup>+</sup>")
+
+
+def _r(n: int) -> tuple[str, str]:
+    return (f"R<sup>{n}</sup>", f"R<sup>{n}</sup>")
+
+
+def cl_silyle() -> Bloc:
+    """Clayden p. 550 — retrait d'un TBDMS par le fluorure (à gauche) ou par l'acide (à droite)."""
+    geo = {1: (0, 0), 2: (0.87, 0.5), 3: (1.73, 0), 4: (2.6, 0.5), 5: (1.3, -0.87), 6: (2.2, -0.87)}
+    tbs = "[*:1][O:2][Si:3]([CH3:5])([CH3:6])[*:4]"
+    lab = {1: R, 4: "t-Bu"}
+    fluorure = cascade(
+        mm(
+            f"{tbs}.[F-:9]",
+            etiquettes=lab,
+            places={**geo, 9: (3.1, -1.0)},
+            fleches=[(9, 3, -0.5), ((3, 2), 2, 0.9)],
+            textes=[(2, -8, -26, "H⁺")],
+        ),
+        [],
+        texte_seul(["ROH"], 14),
+    )
+    acide = cascade(
+        mm(
+            "[*:1][OH+:2][Si:3]([CH3:5])([CH3:6])[*:4].[OH2:9]",
+            etiquettes=lab,
+            places={**geo, 9: (3.1, -1.0)},
+            fleches=[(9, 3, -0.5), ((3, 2), 2, 0.9)],
+        ),
+        [],
+        texte_seul(["ROH"], 14),
+    )
+    return cascade(
+        mm(tbs, etiquettes=lab, places=geo),
+        [],
+        ligne(
+            colonne(texte_seul(["F⁻ (Bu₄N⁺F⁻)"], 12), fluorure, espace=6),
+            colonne(texte_seul(["H₃O⁺"], 12), acide, espace=6),
+            espace=26,
+        ),
+    )
+
+
+_THP = {3: (0, 0), 4: (0.87, -0.5), 14: (1.73, 0), 13: (1.73, 1), 12: (0.87, 1.5), 11: (0, 1)}
+
+
+def cl_thp_retrait() -> Bloc:
+    """Clayden p. 550 — le THP est un acétal : hydrolyse acide."""
+    geo = {**_THP, 2: (-0.87, -0.5), 5: (-1.73, 0), 1: (-2.6, -0.5)}
+    cycle = "[CH2:11][CH2:12][CH2:13][CH2:14][O:4]1"
+    return cascade(
+        mm(f"[*:1][CH2:5][O:2][CH:3]1{cycle}", etiquettes={1: R}, places=geo),
+        Eq(["H⁺"]),
+        mm(
+            f"[*:1][CH2:5][OH+:2][CH:3]1{cycle}",
+            etiquettes={1: R},
+            places=geo,
+            fleches=[(4, (4, 3), -0.9), ((3, 2), 2, -0.9)],
+        ),
+        Eq([]),
+        ligne(
+            mm("[*:1]CO", etiquettes={1: R}),
+            plus(),
+            mm("[CH:3]1=[O+:4][CH2:14][CH2:13][CH2:12][CH2:11]1", places=_THP),
+        ),
+        ["H₂O"],
+        mm(f"O[CH:3]1{cycle}", places=_THP),
+    )
+
+
+def cl_thp_pose() -> Bloc:
+    """Clayden p. 551 — pose du THP : protonation du dihydropyrane, puis l'alcool."""
+    return cascade(
+        mm("[CH:3]1=[CH:11][CH2:12][CH2:13][CH2:14][O:4]1", places=_THP),
+        ["H⁺"],
+        mm(
+            "[CH:3]1=[CH:11][CH2:12][CH2:13][CH2:14][O:4]1.[*:9]",
+            etiquettes={9: H_PLUS},
+            places={**_THP, 9: (-1.0, 1.9)},
+            fleches=[((3, 11), 9, 0.6), (4, (4, 3), -0.9)],
+        ),
+        [],
+        mm(
+            "[CH:3]1=[O+:4][CH2:14][CH2:13][CH2:12][CH2:11]1.[*:8][OH:7]",
+            etiquettes={8: R},
+            places={**_THP, 7: (-1.3, -1.1), 8: (-2.2, -0.6)},
+            fleches=[(7, 3, 0.4), ((3, 4), 4, -0.9)],
+        ),
+        ["− H⁺"],
+        mm("[*:8][O:7][CH:3]1[CH2:11][CH2:12][CH2:13][CH2:14][O:4]1", etiquettes={8: R}, places={**_THP, 7: (-0.87, -0.5), 8: (-1.73, 0)}),
+    )
+
+
+def cl_tbu_pose() -> Bloc:
+    """Clayden p. 556 — formation d'un ester tert-butylique : isobutène et H⁺."""
+    iso = {1: (0, 1), 2: (0, 0), 3: (-0.87, -0.5), 4: (0.87, -0.5)}
+    return cascade(
+        mm("[CH2:1]=[C:2]([CH3:3])[CH3:4].[*:9]", etiquettes={9: H_PLUS}, places={**iso, 9: (0.9, 1.9)}, fleches=[((1, 2), 9, 0.7)]),
+        [],
+        mm(
+            "[CH3:1][C+:2]([CH3:3])[CH3:4].[*:5][C:6](=[O:7])[O:8][*:10]",
+            etiquettes={5: R, 10: "H"},
+            places={**iso, 6: (0.4, 2.6), 5: (-0.5, 3.1), 7: (0.4, 1.6), 8: (1.3, 3.1), 10: (2.2, 2.6)},
+            fleches=[(7, 2, 0.5), ((8, 10), 8, 1.0)],
+        ),
+        [],
+        mm("[*:1]C(=O)OC(C)(C)C", etiquettes={1: R}),
+    )
+
+
+def cl_boc() -> Bloc:
+    """Clayden p. 558 — retrait du Boc en acide : cation tert-butyle, acide carbamique, CO₂."""
+    boc = {11: (-0.87, 1.5), 2: (0, 1), 12: (-0.87, 0.5), 13: (0.5, 1.87), 3: (0.87, 0.5), 4: (1.73, 1), 5: (1.73, 2), 6: (2.6, 0.5), 7: (3.46, 1)}
+    return cascade(
+        mm(
+            "[CH3:11][C:2]([CH3:12])([CH3:13])[O:3][C:4](=[O:5])[NH:6][*:7].[*:9]",
+            etiquettes={7: R, 9: H_PLUS},
+            places={**boc, 9: (2.8, 2.6)},
+            fleches=[(5, 9, -0.6)],
+        ),
+        Eq([]),
+        mm(
+            "[CH3:11][C:2]([CH3:12])([CH3:13])[O:3][C:4](=[OH+:5])[NH:6][*:7]",
+            etiquettes={7: R},
+            places=boc,
+            fleches=[((2, 3), (3, 4), 0.9), ((4, 5), 5, -0.9)],
+        ),
+        [],
+        ligne(
+            cascade(
+                mm("[*:7][NH:6][C:4](=[O:5])[OH:3]", etiquettes={7: R}),
+                Eq([]),
+                mm(
+                    "[*:7][NH2+:6][C:4](=[O:5])[O-:3]",
+                    etiquettes={7: R},
+                    fleches=[(3, (3, 4), 0.9), ((4, 6), 6, -0.9)],
+                ),
+                [],
+                texte_seul(["H₂N–R", "+", "CO₂"], 13),
+            ),
+            cascade(
+                mm(
+                    "[CH3:11][C+:2]([CH3:12])[CH2:13][*:14]",
+                    etiquettes={14: "H"},
+                    fleches=[((13, 14), (13, 2), 0.9)],
+                ),
+                [],
+                mm("C=C(C)C"),
+            ),
+            espace=24,
+        ),
+    )
+
+
+def cl_cbz() -> Bloc:
+    """Clayden p. 557 — retrait du Cbz : HBr/AcOH ou hydrogénolyse, puis décarboxylation."""
+    cbz = "[*:7][NH:6][C:4](=[O:5])[O:3][CH2:2][*:1]"
+    lab = {7: R, 1: "Ph"}
+    acide = mm("[*:7][NH:6][C:4](=[O:5])[OH:3]", etiquettes={7: R})
+    hbr = cascade(
+        mm(
+            f"{cbz}.[*:9]",
+            etiquettes={**lab, 9: H_PLUS},
+            places={7: (-0.87, 0.5), 6: (0, 0), 4: (0.87, 0.5), 5: (0.87, 1.5), 3: (1.73, 0), 2: (2.6, 0.5), 1: (3.46, 0), 9: (1.9, 2.1)},
+            fleches=[(5, 9, -0.6)],
+        ),
+        Eq(["HBr / AcOH"]),
+        mm(
+            "[*:7][NH:6][C:4](=[OH+:5])[O:3][CH2:2][*:1].[Br-:8]",
+            etiquettes=lab,
+            fleches=[(8, 2, 0.5), ((2, 3), (3, 4), 0.9), ((4, 5), 5, -0.9)],
+            fragments={1: (2.2, -2.2)},
+        ),
+        [],
+        acide,
+    )
+    h2 = cascade(mm(cbz, etiquettes=lab), ["H₂, Pd"], ligne(acide, plus(), texte_seul(["PhMe"], 13)))
+    fin = cascade(
+        acide,
+        Eq([]),
+        mm("[*:7][NH2+:6][C:4](=[O:5])[O-:3]", etiquettes={7: R}, fleches=[(3, (3, 4), 0.9), ((4, 6), 6, -0.9)]),
+        [],
+        texte_seul(["R–NH₂  +  CO₂"], 13),
+    )
+    return colonne(
+        texte_seul(["en acide (HBr, AcOH)"], 12), hbr,
+        texte_seul(["par hydrogénolyse"], 12), h2,
+        texte_seul(["puis, dans les deux cas"], 12), fin,
+        espace=10,
+    )
+
+
+def cl_acetal() -> Bloc:
+    """Clayden p. 226 — formation d'un acétal catalysée par l'acide."""
+    lab = {1: _r(1), 4: _r(2), 5: _r(3)}
+    return cascade(
+        mm("[*:1][C:2](=[O:3])[*:4].[*:9]", etiquettes={1: _r(1), 4: _r(2), 9: H_PLUS}, fleches=[(3, 9, -0.6)],
+           places={1: (-0.87, -0.5), 2: (0, 0), 4: (0.87, -0.5), 3: (0, 1), 9: (1.2, 1.6)}),
+        Eq([]),
+        mm(
+            "[*:1][C:2](=[OH+:3])[*:4].[*:5][OH:6]",
+            etiquettes=lab,
+            places={1: (-0.87, -0.5), 2: (0, 0), 4: (0.87, -0.5), 3: (0, 1), 6: (2.0, -0.2), 5: (2.9, 0.3)},
+            fleches=[(6, 2, -0.5), ((2, 3), 3, 0.9)],
+        ),
+        Eq([]),
+        mm("[*:1][C:2]([OH:3])([*:4])[O+:6]([*:10])[*:5]", etiquettes={**lab, 10: "H"}, fleches=[((6, 10), 6, 0.9)]),
+        Eq([]),
+        mm("[*:1][C:2]([OH:3])([*:4])[O:6][*:5].[*:9]", etiquettes={**lab, 9: H_PLUS}, fleches=[(3, 9, -0.6)],
+           places={2: (0, 0), 3: (-0.5, 0.87), 6: (0.87, 0.5), 5: (1.73, 0), 1: (-0.87, -0.5), 4: (0.5, -0.87), 9: (0.4, 1.9)}),
+        Eq([]),
+        mm("[*:1][C:2]([OH2+:3])([*:4])[O:6][*:5]", etiquettes=lab, fleches=[(6, (6, 2), 0.9), ((2, 3), 3, 0.9)],
+           places={2: (0, 0), 3: (-0.5, 0.87), 6: (0.87, 0.5), 5: (1.73, 0), 1: (-0.87, -0.5), 4: (0.5, -0.87)}),
+        Eq(["− H₂O"]),
+        mm(
+            "[*:1][C:2](=[O+:6][*:5])[*:4].[*:7][OH:8]",
+            etiquettes={**lab, 7: _r(3)},
+            places={1: (-0.87, -0.5), 2: (0, 0), 4: (0.87, -0.5), 6: (0, 1), 5: (0.87, 1.5), 8: (2.0, -0.2), 7: (2.9, 0.3)},
+            fleches=[(8, 2, -0.5), ((2, 6), 6, 0.9)],
+        ),
+        Eq([]),
+        mm("[*:1][C:2]([O:6][*:5])([*:4])[O+:8]([*:10])[*:7]", etiquettes={**lab, 7: _r(3), 10: "H"}, fleches=[((8, 10), 8, 0.9)]),
+        Eq([]),
+        ligne(mm("[*:1]C([*:4])(O[*:5])O[*:7]", etiquettes={**lab, 7: _r(3)}), plus(), texte_seul(["H⁺"], 13)),
+    )
+
+
+def cl_pyridine() -> Bloc:
+    """Clayden p. 200 — catalyse nucléophile par la pyridine dans la formation d'un ester."""
+    return cascade(
+        mm(
+            "[CH3:1][C:2](=[O:3])[Cl:4].[n:5]1ccccc1",
+            places={1: (-0.87, 0.5), 2: (0, 0), 3: (0, 1), 4: (0.87, 0.5)},
+            fragments={0: (0, 0.5), 1: (-0.4, -2.0)},
+            fleches=[(5, 2, 0.4), ((2, 3), 3, 0.9)],
+        ),
+        [],
+        mm(
+            "[CH3:1][C:2]([O-:3])([Cl:4])[n+:5]1ccccc1",
+            places={2: (0, 0), 3: (0, 1), 1: (-0.95, 0.3), 4: (0.95, 0.3), 5: (0, -1)},
+            fleches=[(3, (3, 2), 0.9), ((2, 4), 4, -0.9)],
+        ),
+        [],
+        mm(
+            "[CH3:1][C:2](=[O:3])[n+:5]1ccccc1.[*:7][OH:6]",
+            etiquettes={7: R},
+            places={1: (-0.87, -0.5), 2: (0, 0), 3: (0, 1), 5: (0.87, -0.5), 6: (-0.6, -1.7), 7: (-1.5, -2.1)},
+            fleches=[(6, 2, 0.4), ((2, 3), 3, 0.9)],
+        ),
+        ["− H⁺"],
+        mm(
+            "[CH3:1][C:2]([O-:3])([O:6][*:7])[n+:5]1ccccc1",
+            etiquettes={7: R},
+            places={2: (0, 0), 3: (0, 1), 1: (-0.95, 0.3), 6: (0.95, 0.3), 7: (1.85, -0.1), 5: (0, -1)},
+            fleches=[(3, (3, 2), 0.9), ((2, 5), 5, -0.9)],
+        ),
+        [],
+        ligne(mm("CC(=O)O[*:7]", etiquettes={7: R}), plus(), mm("c1ccncc1")),
+    )
+
+
+def cl_ester_base() -> Bloc:
+    """Clayden p. 210 — hydrolyse d'un ester en milieu basique (irréversible)."""
+    return cascade(
+        mm(
+            "[*:1][C:2](=[O:3])[O:4]C.[OH-:5]",
+            etiquettes={1: "Ar"},
+            places={1: (-0.87, -0.5), 2: (0, 0), 3: (0, 1), 4: (0.87, -0.5), 5: (1.9, 0.6)},
+            fleches=[(5, 2, 0.5), ((2, 3), 3, 0.9)],
+        ),
+        Eq([]),
+        mm("[*:1][C:2]([O-:3])([OH:5])[O:4]C", etiquettes={1: "Ar"}, fleches=[(3, (3, 2), 0.9), ((2, 4), 4, -0.9)]),
+        Eq([]),
+        mm(
+            "[*:1][C:2](=[O:3])[O:5][*:6].[OH-:7]",
+            etiquettes={1: "Ar", 6: "H"},
+            places={1: (-0.87, -0.5), 2: (0, 0), 3: (0, 1), 5: (0.87, -0.5), 6: (1.73, 0), 7: (2.6, 0.8)},
+            fleches=[(7, 6, 0.5), ((5, 6), 5, -0.9)],
+        ),
+        [],
+        ligne(mm("[*:1]C(=O)[O-]", etiquettes={1: "Ar"}), texte_seul(["Na⁺"], 13), espace=4),
+    )
+
+
+def cl_amide_acide() -> Bloc:
+    """Clayden p. 212 — hydrolyse d'un amide en milieu acide (anilide dessiné)."""
+    ph = {1: "Ph", 5: "Ph"}
+    return cascade(
+        mm(
+            "[*:1][C:2](=[OH+:3])[NH:4][*:5].[OH2:6]",
+            etiquettes=ph,
+            places={1: (-0.87, -0.5), 2: (0, 0), 3: (0, 1), 4: (0.87, -0.5), 5: (1.73, 0), 6: (-0.7, -1.7)},
+            fleches=[(6, 2, 0.5), ((2, 3), 3, 0.9)],
+        ),
+        Eq([]),
+        mm("[*:1][C:2]([OH:3])([NH:4][*:5])[O+:6]([*:10])", etiquettes={**ph, 10: "H"}, fleches=[((6, 10), 6, 0.9)]),
+        Eq([]),
+        mm("[*:1][C:2]([OH:3])([OH:6])[NH:4][*:5].[*:9]", etiquettes={**ph, 9: H_PLUS},
+           places={1: (-0.87, -0.5), 2: (0, 0), 3: (-0.5, 0.87), 6: (0.5, -0.87), 4: (0.87, 0.5), 5: (1.73, 0), 9: (1.9, 1.5)},
+           fleches=[(4, 9, -0.6)]),
+        Eq([]),
+        mm("[*:1][C:2]([OH:3])([OH:6])[NH2+:4][*:5]", etiquettes=ph,
+           places={1: (-0.87, -0.5), 2: (0, 0), 3: (-0.5, 0.87), 6: (0.5, -0.87), 4: (0.87, 0.5), 5: (1.73, 0)},
+           fleches=[(3, (3, 2), 0.9), ((2, 4), 4, -0.9)]),
+        Eq([]),
+        ligne(
+            mm("[*:1][C:2](=[O+:3][*:10])[OH:6]", etiquettes={1: "Ph", 10: "H"}, fleches=[((3, 10), 3, 0.9)]),
+            plus(),
+            texte_seul(["PhNH₂"], 13),
+        ),
+        Eq([]),
+        ligne(mm("[*:1]C(=O)O", etiquettes={1: "Ph"}), plus(), texte_seul(["PhNH₂ → PhNH₃⁺"], 13)),
+    )
+
+
+MECANISMES.update({
+    "cl-silyle": cl_silyle,
+    "cl-thp-retrait": cl_thp_retrait,
+    "cl-thp-pose": cl_thp_pose,
+    "cl-tbu-pose": cl_tbu_pose,
+    "cl-boc": cl_boc,
+    "cl-cbz": cl_cbz,
+    "cl-acetal": cl_acetal,
+    "cl-pyridine": cl_pyridine,
+    "cl-ester-base": cl_ester_base,
+    "cl-amide-acide": cl_amide_acide,
+})
+
+
 def main() -> None:
-    structures = {cle: seule(cle) for cle in M}
+    global DESSIN_EN_COURS
+    structures = {}
+    for cle in M:
+        DESSIN_EN_COURS = cle
+        structures[cle] = seule(cle)
+    DESSIN_EN_COURS = "schémas"
     structures.update(schemas())
-    structures.update({cle: svg(f()) for cle, f in MECANISMES.items()})
+    for cle, f in MECANISMES.items():
+        DESSIN_EN_COURS = cle
+        structures[cle] = svg(f())
+    if ANOMALIES:
+        print("\n".join(sorted(set(ANOMALIES))))
+        print(f"{len(set(ANOMALIES))} anomalie(s) géométrique(s)")
 
     lignes = [
         "/**",

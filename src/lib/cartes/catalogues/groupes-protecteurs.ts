@@ -11,9 +11,10 @@
  * Chaque affirmation a été recoupée avec l'ouvrage que le fascicule
  * recommande : T. W. Greene et P. G. M. Wuts, *Protective Groups in Organic
  * Synthesis*, 3ᵉ éd., Wiley, 1999. Les explications « pourquoi » et les
- * mécanismes viennent de P. J. Kocienski, *Protecting Groups*, Thieme, 1994 :
- * chacune cite sa page, et rien n'est écrit qui ne soit dans l'une des trois
- * sources. Deux coquilles du fascicule sont
+ * mécanismes viennent de P. J. Kocienski, *Protecting Groups*, Thieme, 1994,
+ * et de J. Clayden, N. Greeves, S. Warren, *Organic Chemistry*, 2ᵉ éd., OUP,
+ * 2012 : chacun cite sa page, et rien n'est écrit qui ne soit dans l'une des
+ * quatre sources. Deux coquilles du fascicule sont
  * signalées plutôt que recopiées : les noms dioxane/dioxolane inversés (p. 5)
  * et le chlorure de Troc (p. 10).
  */
@@ -48,7 +49,9 @@ type Fiche = {
   schemaPose?: string;
   schemaRetrait?: string;
   /** Mécanisme du retrait, redessiné d'après Kocienski : dessin, schéma, page, précision. */
-  mecanisme?: { image: string; schema: string; page: number; precision?: string };
+  mecanisme?: Mecanisme;
+  /** Mécanisme de la pose, quand un ouvrage le dessine. */
+  mecanismePose?: Mecanisme;
   pourquoi?: Partial<Record<"protection" | "deprotection" | "stabilite" | "selectivite", string>>;
 };
 
@@ -83,9 +86,31 @@ function note(
   return { cle, recto, verso, tags: ["groupes-protecteurs", ...tags], notes };
 }
 
+/**
+ * Un mécanisme redessiné d'après un ouvrage : Kocienski (*Protecting Groups*,
+ * 1994) cite ses schémas par numéro, le Clayden (*Organic Chemistry*, 2ᵉ éd.,
+ * 2012) par page seulement.
+ */
+type Mecanisme = {
+  image: string;
+  ouvrage?: "Kocienski" | "Clayden";
+  schema?: string;
+  page: number;
+  precision?: string;
+};
+
 /** Bloc « Mécanisme » ajouté au verso : une ligne de source, puis le dessin. */
-function mecanisme(image: string, schema: string, page: number): string {
-  return `\n\n**Mécanisme** · Kocienski, schéma ${schema}, p. ${page}\n\n${img(image)}`;
+function mecanisme(image: string, schema: string | undefined, page: number, ouvrage = "Kocienski"): string {
+  const ref = schema ? `${ouvrage}, schéma ${schema}, p. ${page}` : `${ouvrage}, p. ${page}`;
+  return `\n\n**Mécanisme** · ${ref}\n\n${img(image)}`;
+}
+
+function blocMecanisme(m?: Mecanisme): string {
+  return m ? mecanisme(m.image, m.schema, m.page, m.ouvrage) : "";
+}
+
+function noteMecanisme(m?: Mecanisme): string | undefined {
+  return m?.precision && `Mécanisme : ${m.precision}`;
 }
 
 function source(page: number | null, pourquoi?: string, greene?: number): string {
@@ -134,21 +159,23 @@ function fiche(f: Fiche): NoteCatalogue[] {
     note(
       `${f.cle}:protection`,
       `**Poser** ${titre}\n\n${img(f.structure)}`,
-      `${liste(f.protection)}${f.schemaPose ? `\n\n${img(f.schemaPose)}` : ""}`,
+      `${liste(f.protection)}${f.schemaPose ? `\n\n${img(f.schemaPose)}` : ""}` + blocMecanisme(f.mecanismePose),
       [...tags, "protection"],
-      source(f.page, f.pourquoi?.protection, f.greene),
+      source(
+        f.page,
+        [f.pourquoi?.protection, noteMecanisme(f.mecanismePose)].filter(Boolean).join(". "),
+        f.greene,
+      ),
     ),
     note(
       `${f.cle}:deprotection`,
       `**Retirer** ${titre}\n\n${img(f.structure)}`,
       `${liste(f.deprotection)}${f.schemaRetrait ? `\n\n${img(f.schemaRetrait)}` : ""}` +
-        (f.mecanisme ? mecanisme(f.mecanisme.image, f.mecanisme.schema, f.mecanisme.page) : ""),
+        blocMecanisme(f.mecanisme),
       [...tags, "deprotection"],
       source(
         f.page,
-        [f.pourquoi?.deprotection, f.mecanisme?.precision && `Mécanisme : ${f.mecanisme.precision}`]
-          .filter(Boolean)
-          .join(". "),
+        [f.pourquoi?.deprotection, noteMecanisme(f.mecanisme)].filter(Boolean).join(". "),
         f.greene,
       ),
     ),
@@ -199,6 +226,12 @@ const ALCOOLS: NoteCatalogue[] = [
     famille: "ether-alkyle",
     page: 1,
     greene: 65,
+    mecanismePose: {
+      image: "cl-tbu-pose",
+      ouvrage: "Clayden",
+      page: 556,
+      precision: "dessiné pour la formation d'un ester tert-butylique",
+    },
     mecanisme: {
       image: "meca-tbu",
       schema: "1.3",
@@ -399,11 +432,16 @@ const ALCOOLS: NoteCatalogue[] = [
     famille: "acetal",
     page: 2,
     greene: 49,
+    mecanismePose: {
+      image: "cl-thp-pose",
+      ouvrage: "Clayden",
+      page: 551,
+    },
     mecanisme: {
-      image: "meca-acetal",
-      schema: "1.6",
-      page: 5,
-      precision: "dessiné sur un acétonide ; même mécanisme pour tous les O,O-acétals, THP compris",
+      image: "cl-thp-retrait",
+      ouvrage: "Clayden",
+      page: 550,
+      precision: "le THP est un acétal",
     },
     protection: ["DHP, APTS ou PPTS, CH₂Cl₂"],
     deprotection: ["H₃O⁺ (PPTS, AcOH…), MeOH ou EtOH"],
@@ -472,6 +510,12 @@ const ALCOOLS: NoteCatalogue[] = [
     famille: "silyle",
     page: 3,
     greene: 116,
+    mecanisme: {
+      image: "cl-silyle",
+      ouvrage: "Clayden",
+      page: 550,
+      precision: "dessiné sur un TBDMS ; même attaque sur le silicium pour toute la famille des trialkylsilyles (Clayden p. 550)",
+    },
     protection: ["TMSCl, Et₃N (ou pyridine), CH₂Cl₂"],
     deprotection: ["H₃O⁺ doux", "K₂CO₃, MeOH", "F⁻ (Bu₄N⁺F⁻ ou HF)"],
     stabilite: ["sur OH **tertiaire ≫ secondaire ≫ primaire** — le plus fragile des silyles"],
@@ -491,10 +535,10 @@ const ALCOOLS: NoteCatalogue[] = [
     page: 3,
     greene: 127,
     mecanisme: {
-      image: "meca-fluorure",
-      schema: "1.8",
-      page: 6,
-      precision: "passage par un siliconate pentavalent",
+      image: "cl-silyle",
+      ouvrage: "Clayden",
+      page: 550,
+      precision: "par l'acide ou par le fluorure",
     },
     selectivite: "alcool **primaire ≫ secondaire ⋙ tertiaire**",
     protection: [
@@ -523,6 +567,12 @@ const ALCOOLS: NoteCatalogue[] = [
     famille: "silyle",
     page: 3,
     greene: 123,
+    mecanisme: {
+      image: "cl-silyle",
+      ouvrage: "Clayden",
+      page: 550,
+      precision: "dessiné sur un TBDMS ; même attaque sur le silicium pour toute la famille des trialkylsilyles (Clayden p. 550)",
+    },
     protection: ["TIPSCl, imidazole, DMF", "TIPSOTf, 2,6-lutidine, CH₂Cl₂"],
     deprotection: [
       "**H₃O⁺** : HCl 0,01 N, EtOH ; AcOH 80 %",
@@ -548,6 +598,12 @@ const ALCOOLS: NoteCatalogue[] = [
     famille: "silyle",
     page: 3,
     greene: 141,
+    mecanisme: {
+      image: "cl-silyle",
+      ouvrage: "Clayden",
+      page: 550,
+      precision: "dessiné sur un TBDMS ; même attaque sur le silicium pour toute la famille des trialkylsilyles (Clayden p. 550)",
+    },
     selectivite: "**primaire ≫ secondaire ≫ tertiaire**, et **équatorial > axial**",
     protection: ["TBDPSCl, imidazole, DMF", "TBDPSCl, Et₃N, DMAP, CH₂Cl₂"],
     deprotection: [
@@ -587,6 +643,12 @@ const ALCOOLS: NoteCatalogue[] = [
     famille: "ester",
     page: 4,
     greene: 150,
+    mecanismePose: {
+      image: "cl-pyridine",
+      ouvrage: "Clayden",
+      page: 200,
+      precision: "catalyse nucléophile par la pyridine, dessinée avec le chlorure d'acétyle",
+    },
     selectivite:
       "Ac₂O, pyridine : **primaire > secondaire**, les **tertiaires** ne s'acétylent généralement **pas** ; avec **DMAP**, même les tertiaires",
     protection: ["Ac₂O, pyridine", "AcCl, Ac₂O, pyridine, DMAP"],
@@ -608,6 +670,18 @@ const ALCOOLS: NoteCatalogue[] = [
     famille: "ester",
     page: 4,
     greene: 170,
+    mecanisme: {
+      image: "cl-ester-base",
+      ouvrage: "Clayden",
+      page: 210,
+      precision: "hydrolyse basique, dessinée sur un ester aromatique",
+    },
+    mecanismePose: {
+      image: "cl-pyridine",
+      ouvrage: "Clayden",
+      page: 200,
+      precision: "catalyse nucléophile par la pyridine, dessinée avec le chlorure d'acétyle ; même rôle avec PivCl",
+    },
     selectivite: "**primaire > secondaire** ; ne se pose **pas** sur un tertiaire",
     protection: ["PivCl, pyridine"],
     deprotection: ["Bu₄N⁺OH⁻", "MeNH₂, H₂O", "NaOH, EtOH, H₂O", "MeLi, Et₂O"],
@@ -627,6 +701,18 @@ const ALCOOLS: NoteCatalogue[] = [
     famille: "ester",
     page: 4,
     greene: 173,
+    mecanisme: {
+      image: "cl-ester-base",
+      ouvrage: "Clayden",
+      page: 210,
+      precision: "hydrolyse basique d'un ester aromatique",
+    },
+    mecanismePose: {
+      image: "cl-pyridine",
+      ouvrage: "Clayden",
+      page: 200,
+      precision: "catalyse nucléophile par la pyridine, dessinée avec le chlorure d'acétyle ; même rôle avec BzCl",
+    },
     selectivite: "**primaire > secondaire**, **équatorial > axial**",
     protection: ["BzCl (ou Bz₂O), pyridine", "BzCl, Bu₄N⁺Cl⁻, NaOH 40 % (transfert de phase)"],
     deprotection: ["NaOH, MeOH", "NH₃, MeOH, H₂O"],
@@ -750,6 +836,12 @@ const DIOLS: NoteCatalogue[] = [
     famille: "acetal-cyclique",
     page: 5,
     greene: 207,
+    mecanismePose: {
+      image: "cl-acetal",
+      ouvrage: "Clayden",
+      page: 226,
+      precision: "dessiné avec deux molécules d'alcool ; avec un diol, l'acétal est cyclique (Clayden p. 227)",
+    },
     mecanisme: {
       image: "meca-acetal",
       schema: "1.6",
@@ -932,11 +1024,12 @@ const CETONES: NoteCatalogue[] = [
     "**Poser** un cétal cyclique sur une cétone ?",
     liste(["diol, APTS, PhMe, reflux", "bis(TMS)diol, TMSOTf, CH₂Cl₂, −78 °C"]) +
       "\n\n" +
-      img("cetone-dioxolane"),
+      img("cetone-dioxolane") +
+      mecanisme("cl-acetal", undefined, 226, "Clayden"),
     ["cetone", "cetal", "protection"],
     source(
       8,
-      "Au reflux du toluène, l'eau est chassée par un Dean-Stark (Kocienski, Protecting Groups, p. 158) ; avec le diol bis-silylé, le sous-produit est (TMS)₂O et non l'eau (Kocienski, Protecting Groups, p. 160)",
+      "Au reflux du toluène, l'eau est chassée par un Dean-Stark (Kocienski, Protecting Groups, p. 158) ; avec le diol bis-silylé, le sous-produit est (TMS)₂O et non l'eau (Kocienski, Protecting Groups, p. 160). Mécanisme : dessiné avec deux molécules d'alcool ; avec un diol, l'acétal est cyclique (Clayden p. 227)",
     ),
   ),
   note(
@@ -1039,6 +1132,12 @@ const AMINES: NoteCatalogue[] = [
     famille: "amide",
     page: 9,
     greene: 551,
+    mecanisme: {
+      image: "cl-amide-acide",
+      ouvrage: "Clayden",
+      page: 212,
+      precision: "hydrolyse acide d'un amide, dessinée sur un anilide (PhCONHPh)",
+    },
     protection: ["HCO₂H, Ac₂O", "HCO₂H, DCC, pyridine"],
     deprotection: ["HCl, H₂O, dioxane", "H₂, Pd/C, HCl, THF", "NaOH, H₂O, reflux"],
   }),
@@ -1052,6 +1151,12 @@ const AMINES: NoteCatalogue[] = [
     famille: "amide",
     page: 9,
     greene: 552,
+    mecanisme: {
+      image: "cl-amide-acide",
+      ouvrage: "Clayden",
+      page: 212,
+      precision: "hydrolyse acide d'un amide, dessinée sur un anilide (PhCONHPh)",
+    },
     protection: ["Ac₂O ou AcCl, avec ou sans base"],
     deprotection: ["HCl aq., reflux", "NH₂NH₂, H₂O"],
     pourquoi: { deprotection: "L'hydrolyse d'un amide demande en général des conditions assez dures (Kocienski, Protecting Groups, p. 3)" },
@@ -1087,10 +1192,10 @@ const AMINES: NoteCatalogue[] = [
     page: 10,
     greene: 518,
     mecanisme: {
-      image: "meca-tbu",
-      schema: "1.3",
-      page: 4,
-      precision: "dessiné sur un ester ; même rupture pour les carbamates, dont l'acide carbamique perd ensuite CO₂ (Kocienski p. 186)",
+      image: "cl-boc",
+      ouvrage: "Clayden",
+      page: 558,
+      precision: "cation tert-butyle, puis l'acide carbamique perd CO₂",
     },
     protection: ["Boc₂O, NaOH, H₂O"],
     deprotection: ["HCl 3 M, EtOAc", "**TFA** pur ou dans CH₂Cl₂", "Δ ≥ 150 °C"],
@@ -1133,6 +1238,12 @@ const AMINES: NoteCatalogue[] = [
     famille: "carbamate",
     page: 10,
     greene: 531,
+    mecanisme: {
+      image: "cl-cbz",
+      ouvrage: "Clayden",
+      page: 557,
+      precision: "en acide (HBr, AcOH) ou par hydrogénolyse ; l'acide carbamique perd ensuite CO₂",
+    },
     protection: ["BnOCOCl (CbzCl), Na₂CO₃, H₂O", "(BnOCO)₂O, dioxane, H₂O, NaOH ou Et₃N"],
     deprotection: [
       "**H₂** (ou un donneur d'H₂), **Pd/C**, EtOH",
