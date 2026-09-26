@@ -290,7 +290,7 @@ l'ordre du fascicule. Les explications ajoutées au fascicule (le « pourquoi »
 d'une déprotection, d'une sélectivité) sont en note de bas de carte, avec la
 page du fascicule.
 
-**Recoupé avec l'ouvrage de référence** — chaque carte a été vérifiée contre
+**Recoupé avec les ouvrages de référence** — chaque carte a été vérifiée contre
 le fascicule et contre T. W. Greene et P. G. M. Wuts, *Protective Groups in
 Organic Synthesis*, 3ᵉ éd., Wiley, 1999, que le fascicule recommande. La note
 de bas de carte cite les deux pages ; ce qui ne vient que de l'ouvrage (une
@@ -298,10 +298,25 @@ stabilité que le fascicule ne donne pas, une orthogonalité) est marqué
 « Greene ». Les trois remarques de la page 4, qui n'existent qu'en figure, ont
 leurs cartes.
 
+**Mécanismes et explications** — ils viennent de P. J. Kocienski,
+*Protecting Groups*, Thieme, 1994, et de lui seul : aucune explication n'est
+écrite qui ne soit dans l'une des trois sources, et chacune cite sa page. Les
+dix mécanismes que l'ouvrage dessine pour des groupes du fascicule sont
+redessinés, flèches comprises, au verso de la carte « Retirer » concernée —
+rupture acide des groupes tert-butyle (schéma 1.3), hydrolyse des acétals
+(1.6), dithiocétals et Hg(II) (1.7), fluorure et éthers silylés (1.8), SEM
+(1.10), Troc et zinc (1.11), PMB et DDQ (1.13), Birch sur un benzyle (1.14),
+isomérisation des allyles par Rh(I) (1.16), cycle du Pd(0) pour l'Alloc
+(4.57). Quand l'ouvrage dessine le mécanisme sur un autre substrat (un ester
+pour le Boc, un ester trichloroéthylique pour le Troc), le dessin est gardé tel
+quel et la note le dit. Les autres groupes n'ont pas de mécanisme dessiné dans
+l'ouvrage : ils n'en ont pas sur leur carte.
+
 **Place occupée** — mesurée sur Postgres 16 après installation : 222 cartes
-(≈ 290 Ko avec les index), 66 images (274 Ko de SVG, ≈ 190 Ko une fois
-compressées par TOAST), et ≈ 25 Ko de plus par sauvegarde hebdomadaire, soit
-≈ 200 Ko pour les huit gardées : **≈ 0,8 Mo en tout, 0,16 % des 512 Mo**. Cinq
+(≈ 290 Ko avec les index), 76 images dont les dix mécanismes (436 Ko de SVG,
+≈ 385 Ko en base avec l'index), et ≈ 25 Ko de plus par sauvegarde
+hebdomadaire, soit ≈ 200 Ko pour les huit gardées : **≈ 0,9 Mo en tout,
+moins de 0,2 % des 512 Mo**. Cinq
 ans de révisions (≈ 15 par carte) ajoutent ≈ 0,6 Mo. Les images ne sont pas
 dans les sauvegardes, ce qui compte ici : les copier huit fois coûterait plus
 que tout le reste.
